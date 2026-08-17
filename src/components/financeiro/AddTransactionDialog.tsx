@@ -63,6 +63,8 @@ export default function AddTransactionDialog({
     observacoes: "",
   });
 
+  const [isParcelasObrigatorio, setIsParcelasObrigatorio] = useState(false);
+
   useEffect(() => {
     if (transactionToEdit) {
       setIsEditing(true);
@@ -113,9 +115,19 @@ export default function AddTransactionDialog({
     }
   }, [formData.tipo, isEditing]);
 
+  useEffect(() => {
+    const temCategoriaFixo = selectedCategorias.includes("Fixo");
+    setIsParcelasObrigatorio(temCategoriaFixo);
+    
+    // Se "Fixo" foi selecionada, sugere 12 meses como padrão
+    if (temCategoriaFixo && !formData.total_parcelas && !isEditing) {
+      setFormData(prev => ({ ...prev, total_parcelas: "12" }));
+    }
+  }, [selectedCategorias, isEditing]);
+
   const calcularDataParcela = (dataBase: string, numeroParcela: number) => {
     const data = new Date(dataBase);
-    data.setMonth(data.getMonth() + numeroParcela); // +numeroParcela ao invés de numeroParcela-1
+    data.setMonth(data.getMonth() + numeroParcela);
     return data.toISOString().split('T')[0];
   };
 
@@ -144,6 +156,7 @@ export default function AddTransactionDialog({
     setIsEditing(false);
     setTemEntrada(false);
     setValorEntrada("");
+    setIsParcelasObrigatorio(false);
     setFormData({
       descricao: "",
       tipo: "receita",
@@ -171,9 +184,6 @@ export default function AddTransactionDialog({
     }
   };
 
-  // Arredonda para 2 casas decimais evitando imprecisão de ponto flutuante
-  const arredondar = (valor: number) => Math.round(valor * 100) / 100;
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -186,10 +196,25 @@ export default function AddTransactionDialog({
       return;
     }
     
+    // Validação para despesa fixa
+    if (formData.tipo === "despesa" && selectedCategorias.includes("Fixo")) {
+      const totalParcelas = parseInt(formData.total_parcelas);
+      if (!formData.total_parcelas || isNaN(totalParcelas) || totalParcelas <= 0) {
+        toast({
+          title: "Campo obrigatório",
+          description: "Para despesas fixas, você deve informar a quantidade de meses.",
+          variant: "destructive",
+        });
+        const parcelasInput = document.getElementById('total_parcelas');
+        if (parcelasInput) parcelasInput.focus();
+        return;
+      }
+    }
+    
     setLoading(true);
 
     try {
-      const valorTotal = arredondar(parseFloat(formData.valor));
+      const valorTotal = parseFloat(formData.valor);
       
       if (isNaN(valorTotal) || valorTotal <= 0) {
         throw new Error("Valor inválido. Insira um valor maior que zero.");
@@ -203,6 +228,10 @@ export default function AddTransactionDialog({
         forma_pagamento: formData.forma_pagamento || null,
         data: formData.data,
         observacoes: formData.observacoes || null,
+        origem_tipo: 'manual',
+        orcamento_id: null,
+        credito_id: null,
+        status: formData.status || (formData.tipo === 'receita' ? 'recebido' : 'pendente'),
       };
 
       if (formData.conta_bancaria) {
@@ -220,8 +249,11 @@ export default function AddTransactionDialog({
           descricao: formData.descricao,
           valor: valorTotal,
           status: formData.status,
-          data_vencimento: formData.data_vencimento || null,
+          data: formData.data,
+          data_vencimento: formData.data_vencimento || formData.data,
           data_pagamento: formData.data_pagamento || null,
+          forma_pagamento: formData.forma_pagamento || null,
+          conta_bancaria: formData.conta_bancaria || null,
           numero_parcela: formData.numero_parcela || null,
         };
 
@@ -240,25 +272,47 @@ export default function AddTransactionDialog({
       } else {
         let transacoes = [];
         const totalParcelas = formData.total_parcelas ? parseInt(formData.total_parcelas) : 0;
+        const ehDespesaFixa = formData.tipo === "despesa" && selectedCategorias.includes("Fixo");
 
-        // Determina se realmente tem entrada: checkbox marcado E valor preenchido e > 0
-        const valorEntradaNum = arredondar(parseFloat(valorEntrada) || 0);
-        const usarEntrada = temEntrada && valorEntradaNum > 0;
-
+        // 🔧 CORREÇÃO PRINCIPAL: Despesa Fixa vs Parcelamento
         if (totalParcelas > 0) {
-          
-          if (usarEntrada) {
+          if (ehDespesaFixa) {
+            // 🔧 DESPESA FIXA: Cria lançamentos mensais com o valor total (NÃO DIVIDIDO)
+            const dataInicio = formData.data_vencimento || formData.data;
+            
+            for (let i = 0; i < totalParcelas; i++) {
+              const dataMes = new Date(dataInicio);
+              dataMes.setMonth(dataMes.getMonth() + i);
+              
+              transacoes.push({
+                ...dadosBase,
+                descricao: `${formData.descricao} - ${i + 1}/${totalParcelas} meses`,
+                valor: valorTotal, // 🔧 VALOR TOTAL, não dividido
+                status: i === 0 && formData.status === "pendente" ? "pendente" : "pendente",
+                data_vencimento: dataMes.toISOString().split('T')[0],
+                data_pagamento: null,
+                numero_parcela: `${i + 1}/${totalParcelas}`,
+                origem_tipo: 'manual',
+                // 🔧 MARCA como despesa fixa
+                observacoes: dadosBase.observacoes 
+                  ? `${dadosBase.observacoes} | Despesa Fixa - Mês ${i + 1}/${totalParcelas}`
+                  : `Despesa Fixa - Mês ${i + 1}/${totalParcelas}`,
+              });
+            }
+          } else if (temEntrada) {
+            // Parcelamento com entrada (comportamento existente)
+            const valorEntradaNum = parseFloat(valorEntrada) || 0;
+            
+            if (valorEntradaNum <= 0) {
+              throw new Error("Valor da entrada deve ser maior que zero.");
+            }
             if (valorEntradaNum >= valorTotal) {
               throw new Error("Valor da entrada não pode ser maior ou igual ao valor total.");
             }
 
-            const valorRestante = arredondar(valorTotal - valorEntradaNum);
-            // Calcula parcelas com arredondamento; a última absorve o centavo residual
-            const valorParcelaBase = arredondar(Math.floor((valorRestante / totalParcelas) * 100) / 100);
-            const somaParcelasBase = arredondar(valorParcelaBase * (totalParcelas - 1));
-            const valorUltimaParcela = arredondar(valorRestante - somaParcelasBase);
+            const valorRestante = valorTotal - valorEntradaNum;
+            const valorParcela = valorRestante / totalParcelas;
 
-            // 1. Criar ENTRADA
             transacoes.push({
               ...dadosBase,
               descricao: `${formData.descricao} - ENTRADA`,
@@ -267,15 +321,13 @@ export default function AddTransactionDialog({
               data_vencimento: formData.data,
               data_pagamento: formData.data,
               numero_parcela: "ENTRADA",
+              origem_tipo: 'manual',
             });
 
-            // 2. Criar PARCELAS
             for (let i = 1; i <= totalParcelas; i++) {
               const dataVencimentoParcela = formData.data_vencimento 
                 ? calcularDataParcela(formData.data_vencimento, i - 1)
                 : calcularDataParcela(formData.data, i);
-
-              const valorParcela = i === totalParcelas ? valorUltimaParcela : valorParcelaBase;
 
               transacoes.push({
                 ...dadosBase,
@@ -285,22 +337,18 @@ export default function AddTransactionDialog({
                 data_vencimento: dataVencimentoParcela,
                 data_pagamento: null,
                 numero_parcela: `${i}/${totalParcelas}`,
+                origem_tipo: 'manual',
               });
             }
           } else {
-            // CASO: Apenas parcelas (sem entrada)
-            // Calcula com arredondamento; a última parcela absorve o centavo residual
-            const valorParcelaBase = arredondar(Math.floor((valorTotal / totalParcelas) * 100) / 100);
-            const somaParcelasBase = arredondar(valorParcelaBase * (totalParcelas - 1));
-            const valorUltimaParcela = arredondar(valorTotal - somaParcelasBase);
+            // Parcelamento normal (valor dividido)
+            const valorParcela = valorTotal / totalParcelas;
             
             for (let i = 1; i <= totalParcelas; i++) {
               const dataVencimentoParcela = formData.data_vencimento 
                 ? calcularDataParcela(formData.data_vencimento, i - 1)
                 : calcularDataParcela(formData.data, i - 1);
 
-              const valorParcela = i === totalParcelas ? valorUltimaParcela : valorParcelaBase;
-
               transacoes.push({
                 ...dadosBase,
                 descricao: `${formData.descricao} - PARCELA ${i}/${totalParcelas}`,
@@ -309,27 +357,36 @@ export default function AddTransactionDialog({
                 data_vencimento: dataVencimentoParcela,
                 data_pagamento: null,
                 numero_parcela: `${i}/${totalParcelas}`,
+                origem_tipo: 'manual',
               });
             }
           }
         } else {
-          // CASO: Transação única
+          // Transação única
+          const dataVencimento = formData.data_vencimento || formData.data;
+          
           transacoes.push({
             ...dadosBase,
             descricao: formData.descricao,
             valor: valorTotal,
             status: formData.status,
-            data_vencimento: formData.data_vencimento || formData.data,
+            data_vencimento: dataVencimento,
             data_pagamento: formData.status === "recebido" || formData.status === "pago" ? formData.data : null,
             numero_parcela: formData.numero_parcela || null,
+            origem_tipo: 'manual',
           });
         }
 
-        const { error } = await supabase
+        console.log('📝 Transações a serem inseridas:', transacoes);
+
+        const { data: insertedData, error } = await supabase
           .from('transacoes_financeiras')
-          .insert(transacoes);
+          .insert(transacoes)
+          .select();
 
         if (error) {
+          console.error('❌ Erro detalhado do Supabase:', error);
+          
           if (error.message.includes('conta_bancaria')) {
             const transacoesSemConta = transacoes.map(t => {
               const { conta_bancaria, ...rest } = t;
@@ -344,11 +401,15 @@ export default function AddTransactionDialog({
           }
         }
 
+        console.log('✅ Transações inseridas com sucesso:', insertedData);
+
         const quantidade = transacoes.length;
         let mensagem = `${quantidade} transação(ões) registrada(s) com sucesso.`;
         
-        if (usarEntrada) {
-          mensagem += ` Entrada de R$ ${valorEntradaNum.toFixed(2)} já contabilizada como RECEBIDA.`;
+        if (ehDespesaFixa) {
+          mensagem = `Despesa fixa criada: ${quantidade} lançamentos mensais de R$ ${valorTotal.toFixed(2)}.`;
+        } else if (temEntrada) {
+          mensagem += ` Entrada de R$ ${parseFloat(valorEntrada).toFixed(2)} já contabilizada como RECEBIDA.`;
         }
 
         toast({
@@ -361,7 +422,7 @@ export default function AddTransactionDialog({
       onTransactionAdded();
       
     } catch (error: any) {
-      console.error('Erro detalhado:', error);
+      console.error('❌ Erro detalhado:', error);
       toast({
         title: isEditing ? "Erro ao atualizar" : "Erro ao salvar",
         description: error.message || "Não foi possível salvar a transação",
@@ -413,7 +474,7 @@ export default function AddTransactionDialog({
               required
               value={formData.descricao}
               onChange={(e) => setFormData({ ...formData, descricao: e.target.value })}
-              placeholder="Ex: ORC-00014 - TESTES"
+              placeholder="Ex: Aluguel, Internet, etc"
             />
           </div>
 
@@ -441,7 +502,7 @@ export default function AddTransactionDialog({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="valor">Valor Total (R$) *</Label>
+              <Label htmlFor="valor">Valor (R$) *</Label>
               <Input
                 id="valor"
                 type="number"
@@ -479,6 +540,17 @@ export default function AddTransactionDialog({
                   Categorias selecionadas: {selectedCategorias.join(", ")}
                 </div>
               )}
+              {/* 🔧 NOVO: Aviso para despesa fixa */}
+              {selectedCategorias.includes("Fixo") && (
+                <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
+                  <p className="text-sm text-blue-800 font-medium">
+                    📌 Despesa Fixa: Serão criados <strong>{formData.total_parcelas || '?'}</strong> lançamentos mensais de <strong>R$ {formData.valor || '0,00'}</strong> (valor integral).
+                  </p>
+                  <p className="text-xs text-blue-600 mt-1">
+                    Diferente de parcelamento, o valor não é dividido.
+                  </p>
+                </div>
+              )}
             </div>
           ) : (
             <div className="space-y-2">
@@ -495,49 +567,49 @@ export default function AddTransactionDialog({
           {!isEditing && (
             <>
               <div className="space-y-4 border p-4 rounded-md bg-gray-50">
-                <h3 className="font-medium text-sm">Configuração de Parcelamento</h3>
+                <h3 className="font-medium text-sm">
+                  {selectedCategorias.includes("Fixo") ? "Configuração de Despesa Fixa" : "Configuração de Parcelamento"}
+                </h3>
                 
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    id="temEntrada"
-                    checked={temEntrada}
-                    onChange={(e) => setTemEntrada(e.target.checked)}
-                    className="h-4 w-4 rounded border-gray-300"
-                  />
-                  <Label htmlFor="temEntrada" className="text-sm font-medium cursor-pointer">
-                    Este orçamento tem entrada separada
-                  </Label>
-                </div>
+                {!selectedCategorias.includes("Fixo") && (
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      id="temEntrada"
+                      checked={temEntrada}
+                      onChange={(e) => setTemEntrada(e.target.checked)}
+                      className="h-4 w-4 rounded border-gray-300"
+                    />
+                    <Label htmlFor="temEntrada" className="text-sm font-medium cursor-pointer">
+                      Este orçamento tem entrada separada
+                    </Label>
+                  </div>
+                )}
 
-                {temEntrada && (
+                {temEntrada && !selectedCategorias.includes("Fixo") && (
                   <div className="space-y-2 pl-6">
-                    <Label htmlFor="valorEntrada">Valor da Entrada (R$)</Label>
+                    <Label htmlFor="valorEntrada">Valor da Entrada (R$) *</Label>
                     <Input
                       id="valorEntrada"
                       type="number"
                       step="0.01"
-                      min="0"
+                      min="0.01"
+                      required={temEntrada}
                       value={valorEntrada}
                       onChange={(e) => setValorEntrada(e.target.value)}
-                      placeholder="0.00 — deixe vazio se não houver entrada"
+                      placeholder="0.00"
                     />
-                    {parseFloat(valorEntrada) > 0 ? (
-                      <p className="text-xs text-green-600">
-                        ✓ Entrada será criada com status RECEBIDO
-                      </p>
-                    ) : (
-                      <p className="text-xs text-muted-foreground">
-                        Deixe vazio ou zero para parcelas sem entrada
-                      </p>
-                    )}
+                    <p className="text-xs text-green-600">
+                      ✓ Entrada será criada com status RECEBIDO e identificador "ENTRADA"
+                    </p>
                   </div>
                 )}
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="total_parcelas">
-                      Número de Parcelas {temEntrada ? '(após entrada)' : ''} *
+                      {selectedCategorias.includes("Fixo") ? "Quantidade de Meses" : "Número de Parcelas"}
+                      {isParcelasObrigatorio && <span className="text-red-500 ml-1">*</span>}
                     </Label>
                     <Input
                       id="total_parcelas"
@@ -545,14 +617,25 @@ export default function AddTransactionDialog({
                       min="1"
                       value={formData.total_parcelas}
                       onChange={(e) => setFormData({ ...formData, total_parcelas: e.target.value })}
-                      placeholder="Ex: 3"
-                      required
+                      placeholder={selectedCategorias.includes("Fixo") ? "Ex: 12" : "Ex: 3"}
+                      required={isParcelasObrigatorio}
+                      className={isParcelasObrigatorio ? "border-blue-400 focus:border-blue-600" : ""}
                     />
+                    {isParcelasObrigatorio && (
+                      <p className="text-xs text-blue-600 mt-1">
+                        ⚠️ Campo obrigatório para despesas fixas
+                      </p>
+                    )}
+                    {selectedCategorias.includes("Fixo") && (
+                      <p className="text-xs text-gray-500 mt-1">
+                        Serão criados {formData.total_parcelas || 'X'} lançamentos mensais de R$ {formData.valor || '0,00'} cada
+                      </p>
+                    )}
                   </div>
 
                   <div className="space-y-2">
                     <Label htmlFor="data_vencimento">
-                      Data 1ª Parcela
+                      {selectedCategorias.includes("Fixo") ? "Data do 1º Lançamento" : "Data 1ª Parcela"}
                     </Label>
                     <Input
                       id="data_vencimento"
@@ -563,32 +646,34 @@ export default function AddTransactionDialog({
                   </div>
                 </div>
 
-                {formData.total_parcelas && parseInt(formData.total_parcelas) > 0 && (() => {
-                  const vTotal = Math.round((parseFloat(formData.valor) || 0) * 100) / 100;
-                  const nParcelas = parseInt(formData.total_parcelas);
-                  const vEntrada = Math.round((parseFloat(valorEntrada) || 0) * 100) / 100;
-                  const usarEnt = temEntrada && vEntrada > 0;
-                  const vRestante = usarEnt ? Math.round((vTotal - vEntrada) * 100) / 100 : vTotal;
-                  const vParcelaBase = Math.round(Math.floor((vRestante / nParcelas) * 100) / 100 * 100) / 100;
-                  const vUltima = Math.round((vRestante - vParcelaBase * (nParcelas - 1)) * 100) / 100;
-                  return (
-                    <div className="text-sm bg-blue-50 p-3 rounded border border-blue-200">
-                      <p className="font-medium text-blue-800 mb-1">📌 Resumo do parcelamento:</p>
-                      {usarEnt && (
-                        <p className="text-blue-700">• ENTRADA: R$ {vEntrada.toFixed(2)} (RECEBIDO)</p>
-                      )}
-                      {nParcelas > 1 ? (
-                        <>
-                          <p className="text-blue-700">• {nParcelas - 1} parcela(s) de R$ {vParcelaBase.toFixed(2)} (PENDENTE)</p>
-                          <p className="text-blue-700">• última parcela: R$ {vUltima.toFixed(2)} (PENDENTE)</p>
-                        </>
-                      ) : (
-                        <p className="text-blue-700">• 1 parcela de R$ {vUltima.toFixed(2)} (PENDENTE)</p>
-                      )}
-                      <p className="text-xs text-blue-600 mt-1">Total: R$ {vTotal.toFixed(2)}</p>
-                    </div>
-                  );
-                })()}
+                {formData.total_parcelas && parseInt(formData.total_parcelas) > 0 && (
+                  <div className={`text-sm p-3 rounded border ${
+                    selectedCategorias.includes("Fixo") 
+                      ? "bg-blue-50 border-blue-200" 
+                      : "bg-green-50 border-green-200"
+                  }`}>
+                    <p className={`font-medium mb-1 ${
+                      selectedCategorias.includes("Fixo") ? "text-blue-800" : "text-green-800"
+                    }`}>
+                      📌 {selectedCategorias.includes("Fixo") ? "Resumo da Despesa Fixa:" : "Resumo do parcelamento:"}
+                    </p>
+                    {selectedCategorias.includes("Fixo") ? (
+                      <>
+                        <p className="text-blue-700">• {formData.total_parcelas} lançamentos mensais de R$ {parseFloat(formData.valor || '0').toFixed(2)}</p>
+                        <p className="text-blue-700">• Total: R$ {(parseFloat(formData.valor || '0') * parseInt(formData.total_parcelas)).toFixed(2)}</p>
+                        <p className="text-xs text-blue-600 mt-1">✅ Valor integral em cada mês (não parcelado)</p>
+                      </>
+                    ) : temEntrada ? (
+                      <>
+                        <p className="text-green-700">• ENTRADA: R$ {parseFloat(valorEntrada || '0').toFixed(2)} (RECEBIDO)</p>
+                        <p className="text-green-700">• {formData.total_parcelas} parcelas de R$ {((parseFloat(formData.valor) - parseFloat(valorEntrada || '0')) / parseInt(formData.total_parcelas)).toFixed(2)} (PENDENTE)</p>
+                        <p className="text-xs text-green-600 mt-1">Total: R$ {parseFloat(formData.valor).toFixed(2)}</p>
+                      </>
+                    ) : (
+                      <p className="text-green-700">• {formData.total_parcelas} parcelas de R$ {(parseFloat(formData.valor) / parseInt(formData.total_parcelas)).toFixed(2)} (PENDENTE)</p>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -634,6 +719,96 @@ export default function AddTransactionDialog({
             </>
           )}
 
+          {isEditing && (
+            <>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="data">Data</Label>
+                  <Input
+                    id="data"
+                    type="date"
+                    value={formData.data}
+                    onChange={(e) => setFormData({ ...formData, data: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="status">Status</Label>
+                  <Select
+                    value={formData.status}
+                    onValueChange={(value) => setFormData({ ...formData, status: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="pendente">Pendente</SelectItem>
+                      <SelectItem value="pago">Pago</SelectItem>
+                      <SelectItem value="recebido">Recebido</SelectItem>
+                      <SelectItem value="cancelado">Cancelado</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="data_vencimento_edit">Data de Vencimento</Label>
+                  <Input
+                    id="data_vencimento_edit"
+                    type="date"
+                    value={formData.data_vencimento}
+                    onChange={(e) => setFormData({ ...formData, data_vencimento: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="data_pagamento_edit">Data de Pagamento</Label>
+                  <Input
+                    id="data_pagamento_edit"
+                    type="date"
+                    value={formData.data_pagamento}
+                    onChange={(e) => setFormData({ ...formData, data_pagamento: e.target.value })}
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="forma_pagamento_edit">Forma de Pagamento</Label>
+                  <Select
+                    value={formData.forma_pagamento}
+                    onValueChange={(value) => setFormData({ ...formData, forma_pagamento: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="dinheiro">Dinheiro</SelectItem>
+                      <SelectItem value="pix">PIX</SelectItem>
+                      <SelectItem value="debito">Cartão de Débito</SelectItem>
+                      <SelectItem value="credito">Cartão de Crédito</SelectItem>
+                      <SelectItem value="boleto">Boleto</SelectItem>
+                      <SelectItem value="transferencia">Transferência</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="conta_bancaria_edit">Conta Bancária</Label>
+                  <Select
+                    value={formData.conta_bancaria}
+                    onValueChange={(value) => setFormData({ ...formData, conta_bancaria: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {CONTAS_BANCARIAS.map((conta) => (
+                        <SelectItem key={conta} value={conta}>{conta}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </>
+          )}
+
           <div className="space-y-2">
             <Label htmlFor="observacoes">Observações</Label>
             <Textarea
@@ -654,7 +829,6 @@ export default function AddTransactionDialog({
             </Button>
           </div>
         </form>
-
 
       </DialogContent>
     </Dialog>

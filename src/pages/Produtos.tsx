@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Search, Package, Pencil, QrCode } from "lucide-react";
+import { Search, Package, Pencil } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -17,7 +17,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import AddProductDialog from "@/components/produtos/AddProductDialog";
 import EditProductDialog from "@/components/produtos/EditProductDialog";
-import { ProdutoQRCode } from "@/components/produtos/ProdutoQRCode";
 import { useAuth } from "@/hooks/useAuth";
 
 interface Product {
@@ -122,14 +121,13 @@ export default function Produtos() {
                   <TableHead>Cor</TableHead>
                   <TableHead>Localização</TableHead>
                   <TableHead className="text-right">Preço/kg</TableHead>
-                  <TableHead className="text-center">QR Code</TableHead>
                   {isAdmin && <TableHead className="text-right">Ações</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredProducts.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={isAdmin ? 9 : 8} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={isAdmin ? 8 : 7} className="text-center py-8 text-muted-foreground">
                       Nenhum produto cadastrado. {isAdmin && "Clique em 'Novo Produto' para adicionar."}
                     </TableCell>
                   </TableRow>
@@ -140,7 +138,7 @@ export default function Produtos() {
                         {product.imagem_url ? (
                           <img
                             src={product.imagem_url}
-                            alt={product.descricao || product.codigo}
+                            alt={product.descricao}
                             className="w-14 h-14 object-cover rounded-lg shadow-md"
                           />
                         ) : (
@@ -150,7 +148,7 @@ export default function Produtos() {
                         )}
                       </TableCell>
                       <TableCell className="font-medium">{product.codigo}</TableCell>
-                      <TableCell>{product.descricao || product.nome || "-"}</TableCell>
+                      <TableCell>{product.descricao}</TableCell>
                       <TableCell>
                         {product.tipo ? (
                           <Badge variant="secondary">{product.tipo}</Badge>
@@ -162,19 +160,6 @@ export default function Produtos() {
                       <TableCell>{product.localizacao || "-"}</TableCell>
                       <TableCell className="text-right font-semibold">
                         {product.preco_por_kg ? `R$ ${product.preco_por_kg.toFixed(2)}/kg` : "-"}
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <ProdutoQRCode 
-                          produto={{
-                            id: product.id,
-                            codigo: product.codigo,
-                            nome: product.descricao || product.nome || product.codigo
-                          }}
-                        >
-                          <Button variant="outline" size="sm">
-                            <QrCode className="h-4 w-4" />
-                          </Button>
-                        </ProdutoQRCode>
                       </TableCell>
                       {isAdmin && (
                         <TableCell className="text-right">

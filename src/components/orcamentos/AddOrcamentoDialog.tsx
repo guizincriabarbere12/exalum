@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -37,10 +36,11 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { Search, Plus, Download, Eye, FileText, ChevronDown, CircleAlert as AlertCircle, Trash2, Loader as Loader2, DollarSign, Calculator, X, Zap, UserCheck, TrendingUp, CreditCard as Edit, CreditCard, History, Shield } from "lucide-react";
+import { Search, Plus, Download, Eye, FileText, ChevronDown, CircleAlert as AlertCircle, Trash2, Loader as Loader2, DollarSign, Calculator, X, Zap, UserCheck, TrendingUp, CreditCard as Edit, CreditCard, History } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { gerarPDFOrcamento, downloadPDF } from "@/utils/pdfGenerator";
+import AddClienteInlineDialog from "@/components/clientes/AddClienteInlineDialog";
 
 // ========== INTERFACES ==========
 interface Orcamento {
@@ -113,9 +113,6 @@ interface Produto {
   peso_kg_m?: number;
   comprimento_barra?: number;
   ativo?: boolean;
-  unidade?: string;
-  preco_por_kg?: number;
-  custo?: number;
 }
 
 interface Kit {
@@ -140,13 +137,11 @@ interface ItemOrcamento {
   preco_unitario: number;
   peso: number | null;
   desconto: number;
-  tipo: 'produto' | 'kit' | 'sobra';
-  sobra_id?: string | null;
+  tipo: 'produto' | 'kit';
   estoque_disponivel?: number;
   categoria?: string | null;
   cor?: string | null;
   preco_por_kg_calculado?: number;
-  comprimento_solicitado_mm?: number | null;
 }
 
 interface OrcamentoWithRelations extends Orcamento {
@@ -177,146 +172,6 @@ interface PagamentoMisto {
   condicaoPagamentoRestante?: string;
   parcelasRestante?: number;
 }
-
-// ========== COMPONENTE DE DIALOG PARA SENHA DE APROVAÇÃO COM ESTOQUE INSUFICIENTE ==========
-const DialogSenhaAprovacao = ({ 
-  open, 
-  onOpenChange, 
-  onConfirm,
-  produtosSemEstoque,
-  orcamentoNumero
-}: { 
-  open: boolean; 
-  onOpenChange: (open: boolean) => void;
-  onConfirm: (senha: string) => Promise<void>;
-  produtosSemEstoque: Array<{ nome: string, estoque: number, quantidade: number, faltando: number }>;
-  orcamentoNumero: string;
-}) => {
-  const [senha, setSenha] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [erro, setErro] = useState("");
-
-  const handleConfirm = async () => {
-    if (!senha) {
-      setErro("Digite a senha de autorização");
-      return;
-    }
-
-    setLoading(true);
-    setErro("");
-    
-    try {
-      const { data: config, error: configError } = await supabase
-        .from('configuracoes')
-        .select('senha_aprovacao_estoque')
-        .limit(1)
-        .single();
-
-      if (configError) {
-        console.error('Erro ao buscar configuração de senha:', configError);
-        setErro("Erro ao verificar senha. Tente novamente.");
-        setLoading(false);
-        return;
-      }
-
-      const senhaCorreta = config?.senha_aprovacao_estoque || "admin123";
-      
-      if (senha !== senhaCorreta) {
-        setErro("Senha incorreta");
-        setLoading(false);
-        return;
-      }
-
-      await onConfirm(senha);
-      onOpenChange(false);
-      setSenha("");
-      setErro("");
-      
-    } catch (error: any) {
-      console.error('Erro ao verificar senha:', error);
-      setErro(error.message || "Erro ao verificar senha");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-yellow-600">
-            <Shield className="h-5 w-5" />
-            Autorização Necessária
-          </DialogTitle>
-          <DialogDescription>
-            O orçamento {orcamentoNumero} possui itens com estoque insuficiente.
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="space-y-4 py-4">
-          <Alert variant="destructive" className="bg-yellow-50 border-yellow-200 text-yellow-800">
-            <AlertCircle className="h-4 w-4 text-yellow-600" />
-            <AlertTitle className="text-yellow-800">Itens com estoque insuficiente</AlertTitle>
-            <AlertDescription className="text-yellow-700">
-              <div className="space-y-1 mt-2">
-                {produtosSemEstoque.map((produto, index) => (
-                  <div key={index} className="text-sm">
-                    • {produto.nome}: Disponível {produto.estoque}, Necessário {produto.quantidade}, 
-                    Faltando {produto.faltando}
-                  </div>
-                ))}
-              </div>
-              <p className="mt-3 text-xs">
-                Aprovar este orçamento resultará em estoque negativo para os itens acima.
-              </p>
-            </AlertDescription>
-          </Alert>
-
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Senha de Autorização</label>
-            <Input
-              type="password"
-              placeholder="Digite a senha de autorização"
-              value={senha}
-              onChange={(e) => {
-                setSenha(e.target.value);
-                setErro("");
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleConfirm();
-              }}
-              autoFocus
-            />
-            {erro && <p className="text-xs text-red-600">{erro}</p>}
-            <p className="text-xs text-muted-foreground">
-              Esta ação requer autorização especial devido à falta de estoque.
-            </p>
-          </div>
-        </div>
-
-        <DialogFooter>
-          <Button variant="outline" onClick={() => {
-            onOpenChange(false);
-            setSenha("");
-            setErro("");
-          }} disabled={loading}>
-            Cancelar
-          </Button>
-          <Button onClick={handleConfirm} disabled={loading} className="bg-yellow-600 hover:bg-yellow-700">
-            {loading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Verificando...
-              </>
-            ) : (
-              "Autorizar Aprovação"
-            )}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-};
 
 // ========== FUNÇÕES AUXILIARES ==========
 const getStatusLabel = (status: string) => {
@@ -375,309 +230,516 @@ const getDescricaoCondicao = (condicao: string): string => {
   return descricoes[condicao] || condicao;
 };
 
-// ========== COMPONENTE DE DIALOG PARA ESCOLHA DO TIPO DE PDF ==========
-const DialogEscolhaPDF = ({ 
-  open, 
-  onOpenChange, 
-  orcamento, 
-  onGerar,
-  gerando
-}: { 
-  open: boolean; 
-  onOpenChange: (open: boolean) => void;
-  orcamento: OrcamentoWithRelations;
-  onGerar: (tipo: 'comKg' | 'semKg') => void;
-  gerando: boolean;
-}) => {
-  const [tipoSelecionado, setTipoSelecionado] = useState<'comKg' | 'semKg'>('comKg');
+// ========== FUNÇÕES DE ESTOQUE CORRIGIDAS ==========
+const expandirKitProdutos = async (kitId: string, quantidadeKits: number): Promise<Record<string, number>> => {
+  const resultado: Record<string, number> = {};
 
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Gerar Orçamento</DialogTitle>
-          <DialogDescription>
-            Escolha o formato do orçamento para o documento {orcamento?.numero}
-          </DialogDescription>
-        </DialogHeader>
+  try {
+    console.log(`🔍 Expandindo kit ID: ${kitId}, Quantidade: ${quantidadeKits}`);
 
-        <div className="space-y-4 py-4">
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Formato do Orçamento</label>
-            <Select value={tipoSelecionado} onValueChange={(value: any) => setTipoSelecionado(value)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Selecione o formato" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="comKg">
-                  <div className="flex flex-col">
-                    <span>Com informações de kg</span>
-                    <span className="text-xs text-muted-foreground">
-                      Mostra peso total e preço por kg para produtos que utilizam a fórmula
-                    </span>
-                  </div>
-                </SelectItem>
-                <SelectItem value="semKg">
-                  <div className="flex flex-col">
-                    <span>Sem informações de kg</span>
-                    <span className="text-xs text-muted-foreground">
-                      Formato simplificado sem cálculos de peso
-                    </span>
-                  </div>
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+    const { data: itensKit, error } = await supabase
+      .from('kit_itens')
+      .select('quantidade, produto_id, sub_kit_id')
+      .eq('kit_id', kitId);
 
-          <Alert>
-            <FileText className="h-4 w-4" />
-            <AlertTitle>Informação</AlertTitle>
-            <AlertDescription className="text-xs">
-              {tipoSelecionado === 'comKg' 
-                ? 'O PDF incluirá coluna de peso total e preço por kg para produtos com peso cadastrado.'
-                : 'O PDF será gerado no formato padrão, sem informações de peso ou preço por kg.'}
-            </AlertDescription>
-          </Alert>
-        </div>
+    if (error) {
+      console.error(`❌ Erro ao buscar itens do kit ${kitId}:`, error);
+      return resultado;
+    }
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={gerando}>
-            Cancelar
-          </Button>
-          <Button onClick={() => onGerar(tipoSelecionado)} disabled={gerando}>
-            {gerando ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Gerando...
-              </>
-            ) : (
-              <>
-                <Download className="h-4 w-4 mr-2" />
-                Gerar PDF
-              </>
-            )}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
+    if (!itensKit || itensKit.length === 0) {
+      console.log(`ℹ️ Kit ${kitId} não possui itens`);
+      return resultado;
+    }
+
+    console.log(`📦 Kit ${kitId} possui ${itensKit.length} itens`);
+
+    for (const item of itensKit) {
+      // Verifica se é um produto
+      if (item.produto_id && typeof item.produto_id === 'string' && item.produto_id.trim() !== '') {
+        const qtd = quantidadeKits * item.quantidade;
+        if (!resultado[item.produto_id]) resultado[item.produto_id] = 0;
+        resultado[item.produto_id] += qtd;
+        console.log(`  📦 Produto ${item.produto_id}: ${qtd} unidades (${item.quantidade} x ${quantidadeKits})`);
+      } 
+      // Verifica se é um sub-kit
+      else if (item.sub_kit_id && typeof item.sub_kit_id === 'string' && item.sub_kit_id.trim() !== '') {
+        const qtdSubKit = quantidadeKits * item.quantidade;
+        console.log(`  📦 Sub-kit ${item.sub_kit_id}: ${qtdSubKit} unidades (${item.quantidade} x ${quantidadeKits})`);
+        const subProdutos = await expandirKitProdutos(item.sub_kit_id, qtdSubKit);
+        for (const [pid, qtd] of Object.entries(subProdutos)) {
+          if (!resultado[pid]) resultado[pid] = 0;
+          resultado[pid] += qtd;
+        }
+      }
+    }
+  } catch (error) {
+    console.error(`❌ Erro ao expandir kit ${kitId}:`, error);
+    throw error;
+  }
+
+  console.log(`📊 Resultado da expansão do kit ${kitId}:`, resultado);
+  return resultado;
 };
 
-// ========== COMPONENTE DE PAGAMENTO MISTO ==========
-const PagamentoMistoDialog = ({ 
-  open, 
-  onOpenChange, 
-  valorTotal, 
-  limiteCliente,
-  clienteNome,
-  onConfirm,
-  modo
-}: { 
-  open: boolean; 
-  onOpenChange: (open: boolean) => void;
-  valorTotal: number;
-  limiteCliente: number;
-  clienteNome: string;
-  onConfirm: (pagamento: PagamentoMisto) => void;
-  modo: 'criacao' | 'aprovacao';
-}) => {
-  const [valorCredito, setValorCredito] = useState(limiteCliente);
-  const [formaPagamentoRestante, setFormaPagamentoRestante] = useState("");
-  const [condicaoPagamentoRestante, setCondicaoPagamentoRestante] = useState("");
-  const [parcelasRestante, setParcelasRestante] = useState(1);
-  const [parcelado, setParcelado] = useState(false);
+const verificarEstoqueSuficiente = async (orcamentoId: string) => {
+  try {
+    console.log('🔍 ===== VERIFICANDO ESTOQUE =====');
+    console.log('📄 Orçamento ID:', orcamentoId);
+    
+    const { data: itensOrcamento, error: itensError } = await supabase
+      .from('orcamento_itens')
+      .select(`
+        id,
+        quantidade,
+        produto_id,
+        kit_id
+      `)
+      .eq('orcamento_id', orcamentoId);
 
-  const valorRestante = valorTotal - valorCredito;
-
-  const handleConfirm = () => {
-    if (valorCredito <= 0) {
-      toast({
-        title: "Valor inválido",
-        description: "O valor do crédito deve ser maior que zero",
-        variant: "destructive",
-      });
-      return;
+    if (itensError) {
+      console.error('❌ Erro ao buscar itens do orçamento:', itensError);
+      throw itensError;
     }
 
-    if (valorCredito > limiteCliente) {
-      toast({
-        title: "Valor inválido",
-        description: `O valor do crédito não pode ser maior que R$ ${limiteCliente.toFixed(2)}`,
-        variant: "destructive",
-      });
-      return;
+    console.log('📦 Itens do orçamento:', itensOrcamento);
+
+    const produtosSemEstoque: any[] = [];
+    let suficiente = true;
+    const estoqueNecessario: Record<string, { nome: string, necessario: number, disponivel: number }> = {};
+
+    for (const item of itensOrcamento || []) {
+      // Verifica se é um produto
+      if (item.produto_id && typeof item.produto_id === 'string' && item.produto_id.trim() !== '') {
+        console.log(`🔍 Verificando produto ID: ${item.produto_id}, quantidade: ${item.quantidade}`);
+        
+        const { data: produto, error: produtoError } = await supabase
+          .from('produtos')
+          .select('id, nome, codigo, estoque')
+          .eq('id', item.produto_id)
+          .single();
+
+        if (produtoError) {
+          console.error('❌ Erro ao buscar produto:', produtoError);
+          throw produtoError;
+        }
+
+        const estoqueAtual = produto?.estoque || 0;
+        
+        console.log(`🔍 Produto: ${produto?.nome} | Estoque: ${estoqueAtual} | Solicitado: ${item.quantidade}`);
+        
+        if (!estoqueNecessario[produto.id]) {
+          estoqueNecessario[produto.id] = {
+            nome: produto.nome,
+            necessario: 0,
+            disponivel: estoqueAtual
+          };
+        }
+        estoqueNecessario[produto.id].necessario += item.quantidade;
+      }
+      
+      // Verifica se é um kit
+      if (item.kit_id && typeof item.kit_id === 'string' && item.kit_id.trim() !== '') {
+        console.log(`🔍 Verificando kit ID: ${item.kit_id}, quantidade: ${item.quantidade}`);
+        
+        try {
+          const produtosDoKit = await expandirKitProdutos(item.kit_id, item.quantidade);
+          
+          for (const [produtoId, quantidadeNecessaria] of Object.entries(produtosDoKit)) {
+            const { data: produto, error: produtoError } = await supabase
+              .from('produtos')
+              .select('id, nome, codigo, estoque')
+              .eq('id', produtoId)
+              .maybeSingle();
+
+            if (produtoError) {
+              console.error('❌ Erro ao buscar produto do kit:', produtoError);
+              throw produtoError;
+            }
+
+            if (produto) {
+              const estoqueAtual = produto.estoque || 0;
+              console.log(`  🔍 Produto do kit: ${produto.nome} | Estoque: ${estoqueAtual} | Necessário: ${quantidadeNecessaria}`);
+              
+              if (!estoqueNecessario[produto.id]) {
+                estoqueNecessario[produto.id] = {
+                  nome: produto.nome,
+                  necessario: 0,
+                  disponivel: estoqueAtual
+                };
+              }
+              estoqueNecessario[produto.id].necessario += quantidadeNecessaria;
+            }
+          }
+        } catch (kitError) {
+          console.error(`❌ Erro ao processar kit ${item.kit_id}:`, kitError);
+          throw kitError;
+        }
+      }
     }
 
-    if (valorRestante > 0 && !formaPagamentoRestante) {
-      toast({
-        title: "Forma de pagamento obrigatória",
-        description: "Selecione uma forma de pagamento para o valor restante",
-        variant: "destructive",
-      });
-      return;
+    console.log('📊 Resumo do estoque necessário:');
+    for (const [produtoId, info] of Object.entries(estoqueNecessario)) {
+      console.log(`  ${info.nome}: Disponível ${info.disponivel}, Necessário ${info.necessario}`);
+      
+      if (info.necessario > info.disponivel) {
+        suficiente = false;
+        produtosSemEstoque.push({
+          nome: info.nome,
+          estoque: info.disponivel,
+          quantidade: info.necessario,
+          faltando: info.necessario - info.disponivel
+        });
+      }
     }
 
-    onConfirm({
-      usarCredito: true,
-      valorCredito,
-      formaPagamentoRestante: valorRestante > 0 ? formaPagamentoRestante : "",
-      condicaoPagamentoRestante: valorRestante > 0 ? condicaoPagamentoRestante : undefined,
-      parcelasRestante: valorRestante > 0 ? parcelasRestante : 1,
+    console.log('📊 Resultado da verificação:', { 
+      suficiente, 
+      produtosSemEstoque: produtosSemEstoque.length > 0 ? produtosSemEstoque : 'Nenhum' 
     });
-  };
+    
+    if (!suficiente) {
+      console.log('❌ ESTOQUE INSUFICIENTE! Produtos em falta:', produtosSemEstoque);
+    } else {
+      console.log('✅ ESTOQUE SUFICIENTE!');
+    }
+    
+    return { suficiente, produtosSemEstoque };
+    
+  } catch (error) {
+    console.error('❌ Erro ao verificar estoque:', error);
+    return { suficiente: false, produtosSemEstoque: [] };
+  }
+};
 
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>
-            {modo === 'criacao' ? 'Pagamento Misto na Criação' : 'Pagamento Misto na Aprovação'}
-          </DialogTitle>
-          <DialogDescription>
-            <p className="text-orange-600">
-              O cliente tem crédito de R$ {limiteCliente.toFixed(2)}, mas a compra é de R$ {valorTotal.toFixed(2)}.
-              Será necessário pagar R$ {(valorTotal - limiteCliente).toFixed(2)} de outra forma.
-            </p>
-          </DialogDescription>
-        </DialogHeader>
+const baixarEstoqueOrcamento = async (orcamentoId: string, numeroOrcamento: string) => {
+  try {
+    console.log('📦 ===== BAIXANDO ESTOQUE =====');
+    console.log('📄 Orçamento:', numeroOrcamento);
+    console.log('📄 Orçamento ID:', orcamentoId);
+    
+    const { data: itensOrcamento, error: itensError } = await supabase
+      .from('orcamento_itens')
+      .select(`
+        id,
+        quantidade,
+        produto_id,
+        kit_id
+      `)
+      .eq('orcamento_id', orcamentoId);
 
-        <div className="space-y-4 py-4">
-          <div className="bg-muted p-3 rounded-lg space-y-1">
-            <p className="text-sm">
-              <span className="font-medium">Cliente:</span> {clienteNome}
-            </p>
-            <p className="text-sm">
-              <span className="font-medium">Limite disponível:</span> R$ {limiteCliente.toFixed(2)}
-            </p>
-            <p className="text-sm">
-              <span className="font-medium">Valor total:</span> R$ {valorTotal.toFixed(2)}
-            </p>
-            <p className="text-sm font-semibold text-orange-600">
-              <span className="font-medium">Valor a pagar de outra forma:</span> R$ {(valorTotal - limiteCliente).toFixed(2)}
-            </p>
-          </div>
+    if (itensError) {
+      console.error('❌ Erro ao buscar itens do orçamento:', itensError);
+      throw itensError;
+    }
 
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Valor a usar do crédito</label>
-            <Input
-              type="number"
-              step="0.01"
-              min="0.01"
-              max={limiteCliente}
-              value={valorCredito}
-              onChange={(e) => setValorCredito(parseFloat(e.target.value) || 0)}
-            />
-            <p className="text-xs text-muted-foreground">
-              Valor máximo: R$ {limiteCliente.toFixed(2)} (limite total do cliente)
-            </p>
-          </div>
+    if (!itensOrcamento || itensOrcamento.length === 0) {
+      console.log('ℹ️ Nenhum item encontrado no orçamento');
+      return;
+    }
 
-          {valorRestante > 0 && (
-            <>
-              <div className="border-t pt-4">
-                <h4 className="font-medium mb-3">Pagamento do valor restante: R$ {valorRestante.toFixed(2)}</h4>
-                
-                <div className="space-y-4">
-                  <div className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      id="parceladoRestante"
-                      checked={parcelado}
-                      onChange={(e) => setParcelado(e.target.checked)}
-                      className="h-4 w-4 rounded border-gray-300"
-                    />
-                    <label htmlFor="parceladoRestante" className="text-sm font-medium">
-                      Parcelar valor restante?
-                    </label>
-                  </div>
+    console.log('📦 Itens do orçamento encontrados:', itensOrcamento.length);
 
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Forma de Pagamento</label>
-                    <Select value={formaPagamentoRestante} onValueChange={setFormaPagamentoRestante}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="avista">À Vista</SelectItem>
-                        <SelectItem value="boleto">Boleto</SelectItem>
-                        <SelectItem value="credito">Cartão de Crédito</SelectItem>
-                        <SelectItem value="debito">Cartão de Débito</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+    const atualizacoesEstoque: Record<string, number> = {};
 
-                  {parcelado && formaPagamentoRestante && (
-                    <>
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">Condição de Pagamento</label>
-                        <Select value={condicaoPagamentoRestante} onValueChange={setCondicaoPagamentoRestante}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecione" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="28">28 dias</SelectItem>
-                            <SelectItem value="28/56">28/56 dias</SelectItem>
-                            <SelectItem value="0/28/56">0/28/56 dias</SelectItem>
-                            <SelectItem value="15">15 dias</SelectItem>
-                            <SelectItem value="15/30">15/30 dias</SelectItem>
-                            <SelectItem value="0/15/30">0/15/30 dias</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
+    for (const item of itensOrcamento) {
+      console.log(`🔄 Processando item:`, item);
+      
+      // Verifica se é um produto (produto_id existe e não é null/undefined)
+      if (item.produto_id && typeof item.produto_id === 'string' && item.produto_id.trim() !== '') {
+        if (!atualizacoesEstoque[item.produto_id]) {
+          atualizacoesEstoque[item.produto_id] = 0;
+        }
+        atualizacoesEstoque[item.produto_id] += item.quantidade;
+        console.log(`📦 Produto ID: ${item.produto_id} | Quantidade a debitar: ${item.quantidade}`);
+      }
+      
+      // Verifica se é um kit (kit_id existe e não é null/undefined)
+      if (item.kit_id && typeof item.kit_id === 'string' && item.kit_id.trim() !== '') {
+        console.log(`📦 Processando kit ID: ${item.kit_id}, quantidade: ${item.quantidade}`);
+        
+        try {
+          const produtosDoKit = await expandirKitProdutos(item.kit_id, item.quantidade);
+          
+          if (Object.keys(produtosDoKit).length === 0) {
+            console.log(`⚠️ Kit ${item.kit_id} não possui produtos ou sub-kits`);
+          }
+          
+          for (const [produtoId, quantidadeTotal] of Object.entries(produtosDoKit)) {
+            if (!atualizacoesEstoque[produtoId]) {
+              atualizacoesEstoque[produtoId] = 0;
+            }
+            atualizacoesEstoque[produtoId] += quantidadeTotal;
+            
+            console.log(`  📦 Produto ID: ${produtoId} | Qtd total a debitar: ${quantidadeTotal}`);
+          }
+        } catch (kitError) {
+          console.error(`❌ Erro ao expandir kit ${item.kit_id}:`, kitError);
+          throw kitError;
+        }
+      }
+    }
 
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">Número de Parcelas</label>
-                        <Input
-                          type="number"
-                          min="1"
-                          max="12"
-                          value={parcelasRestante}
-                          onChange={(e) => setParcelasRestante(parseInt(e.target.value) || 1)}
-                          disabled={!!condicaoPagamentoRestante}
-                        />
-                      </div>
-                    </>
-                  )}
+    console.log('📦 Resumo das atualizações de estoque:', atualizacoesEstoque);
 
-                  {formaPagamentoRestante && (
-                    <div className="bg-gray-50 p-3 rounded-lg text-sm space-y-1">
-                      <div className="flex justify-between">
-                        <span>Usando crédito:</span>
-                        <span className="font-medium text-purple-600">R$ {valorCredito.toFixed(2)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Forma de pagamento:</span>
-                        <span className="font-medium">{getFormaPagamentoLabel(formaPagamentoRestante)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Valor restante:</span>
-                        <span className="font-medium">R$ {valorRestante.toFixed(2)}</span>
-                      </div>
-                      {parcelado && condicaoPagamentoRestante && (
-                        <div className="flex justify-between text-xs text-gray-500">
-                          <span>Condição:</span>
-                          <span>{getDescricaoCondicao(condicaoPagamentoRestante)}</span>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </>
-          )}
-        </div>
+    // Se não houver itens para atualizar, retorna
+    if (Object.keys(atualizacoesEstoque).length === 0) {
+      console.log('ℹ️ Nenhum produto para atualizar estoque');
+      return;
+    }
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancelar
-          </Button>
-          <Button onClick={handleConfirm}>
-            Confirmar Pagamento Misto
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
+    // Atualiza o estoque de cada produto
+    for (const [produtoId, quantidadeDebitar] of Object.entries(atualizacoesEstoque)) {
+      console.log(`🔄 Buscando produto ID: ${produtoId}`);
+      
+      const { data: produto, error: selectError } = await supabase
+        .from('produtos')
+        .select('estoque, nome, codigo')
+        .eq('id', produtoId)
+        .single();
+
+      if (selectError) {
+        console.error('❌ Erro ao buscar produto:', selectError);
+        throw selectError;
+      }
+
+      if (!produto) {
+        console.error(`❌ Produto ${produtoId} não encontrado`);
+        continue;
+      }
+
+      const estoqueAtual = produto.estoque || 0;
+      const novoEstoque = Math.max(0, estoqueAtual - quantidadeDebitar);
+      
+      console.log(`📦 Atualizando produto: ${produto.nome} (${produto.codigo})`);
+      console.log(`  Estoque atual: ${estoqueAtual}`);
+      console.log(`  Debitar: ${quantidadeDebitar}`);
+      console.log(`  Novo estoque: ${novoEstoque}`);
+
+      if (estoqueAtual - quantidadeDebitar < 0) {
+        console.warn(`⚠️ Estoque ficará negativo para ${produto.nome}, ajustando para 0`);
+      }
+
+      const { error: updateError } = await supabase
+        .from('produtos')
+        .update({ 
+          estoque: novoEstoque,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', produtoId);
+
+      if (updateError) {
+        console.error('❌ Erro ao atualizar estoque do produto:', updateError);
+        throw updateError;
+      }
+      
+      console.log(`✅ Estoque de ${produto.nome} atualizado para ${novoEstoque}`);
+    }
+    
+    console.log('✅ Estoque baixado com sucesso!');
+    
+    // Registra a movimentação de estoque
+    try {
+      const { data: orcamento } = await supabase
+        .from('orcamentos')
+        .select('numero, cliente_id')
+        .eq('id', orcamentoId)
+        .single();
+      
+      if (orcamento) {
+        for (const [produtoId, quantidade] of Object.entries(atualizacoesEstoque)) {
+          const { data: produto } = await supabase
+            .from('produtos')
+            .select('nome, codigo')
+            .eq('id', produtoId)
+            .single();
+          
+          if (produto) {
+            await supabase
+              .from('movimentacoes_estoque')
+              .insert({
+                produto_id: produtoId,
+                tipo: 'saida',
+                quantidade: quantidade,
+                observacao: `Orçamento ${orcamento.numero} aprovado`,
+                data_movimentacao: new Date().toISOString().split('T')[0],
+                created_at: new Date().toISOString()
+              });
+          }
+        }
+        console.log('📝 Movimentações de estoque registradas');
+      }
+    } catch (logError) {
+      console.warn('⚠️ Erro ao registrar movimentações:', logError);
+    }
+    
+  } catch (error) {
+    console.error('❌ Erro ao baixar estoque:', error);
+    throw error;
+  }
+};
+
+const voltarEstoqueOrcamento = async (orcamentoId: string, numeroOrcamento: string) => {
+  try {
+    console.log('📦 ===== DEVOLVENDO ESTOQUE =====');
+    console.log('📄 Orçamento:', numeroOrcamento);
+    console.log('📄 Orçamento ID:', orcamentoId);
+    
+    const { data: itensOrcamento, error: itensError } = await supabase
+      .from('orcamento_itens')
+      .select(`
+        id,
+        quantidade,
+        produto_id,
+        kit_id
+      `)
+      .eq('orcamento_id', orcamentoId);
+
+    if (itensError) {
+      console.error('❌ Erro ao buscar itens do orçamento:', itensError);
+      throw itensError;
+    }
+
+    if (!itensOrcamento || itensOrcamento.length === 0) {
+      console.log('ℹ️ Nenhum item encontrado no orçamento');
+      return;
+    }
+
+    console.log('📦 Itens do orçamento encontrados:', itensOrcamento.length);
+
+    const atualizacoesEstoque: Record<string, number> = {};
+
+    for (const item of itensOrcamento) {
+      console.log(`🔄 Processando item:`, item);
+      
+      // Verifica se é um produto
+      if (item.produto_id && typeof item.produto_id === 'string' && item.produto_id.trim() !== '') {
+        if (!atualizacoesEstoque[item.produto_id]) {
+          atualizacoesEstoque[item.produto_id] = 0;
+        }
+        atualizacoesEstoque[item.produto_id] += item.quantidade;
+        console.log(`📦 Produto ID: ${item.produto_id} | Quantidade a devolver: ${item.quantidade}`);
+      }
+      
+      // Verifica se é um kit
+      if (item.kit_id && typeof item.kit_id === 'string' && item.kit_id.trim() !== '') {
+        console.log(`📦 Processando kit ID: ${item.kit_id}, quantidade: ${item.quantidade}`);
+        
+        try {
+          const produtosDoKit = await expandirKitProdutos(item.kit_id, item.quantidade);
+          
+          if (Object.keys(produtosDoKit).length === 0) {
+            console.log(`⚠️ Kit ${item.kit_id} não possui produtos ou sub-kits`);
+          }
+          
+          for (const [produtoId, quantidadeTotal] of Object.entries(produtosDoKit)) {
+            if (!atualizacoesEstoque[produtoId]) {
+              atualizacoesEstoque[produtoId] = 0;
+            }
+            atualizacoesEstoque[produtoId] += quantidadeTotal;
+            
+            console.log(`  📦 Produto ID: ${produtoId} | Qtd total a devolver: ${quantidadeTotal}`);
+          }
+        } catch (kitError) {
+          console.error(`❌ Erro ao expandir kit ${item.kit_id}:`, kitError);
+          throw kitError;
+        }
+      }
+    }
+
+    console.log('📦 Resumo das atualizações de estoque (devolução):', atualizacoesEstoque);
+
+    // Se não houver itens para atualizar, retorna
+    if (Object.keys(atualizacoesEstoque).length === 0) {
+      console.log('ℹ️ Nenhum produto para devolver estoque');
+      return;
+    }
+
+    // Atualiza o estoque de cada produto
+    for (const [produtoId, quantidadeDevolver] of Object.entries(atualizacoesEstoque)) {
+      console.log(`🔄 Buscando produto ID: ${produtoId}`);
+      
+      const { data: produto, error: selectError } = await supabase
+        .from('produtos')
+        .select('estoque, nome, codigo')
+        .eq('id', produtoId)
+        .single();
+
+      if (selectError) {
+        console.error('❌ Erro ao buscar produto:', selectError);
+        throw selectError;
+      }
+
+      if (!produto) {
+        console.error(`❌ Produto ${produtoId} não encontrado`);
+        continue;
+      }
+
+      const estoqueAtual = produto.estoque || 0;
+      const novoEstoque = estoqueAtual + quantidadeDevolver;
+      
+      console.log(`📦 Atualizando produto: ${produto.nome} (${produto.codigo})`);
+      console.log(`  Estoque atual: ${estoqueAtual}`);
+      console.log(`  Devolver: ${quantidadeDevolver}`);
+      console.log(`  Novo estoque: ${novoEstoque}`);
+
+      const { error: updateError } = await supabase
+        .from('produtos')
+        .update({ 
+          estoque: novoEstoque,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', produtoId);
+
+      if (updateError) {
+        console.error('❌ Erro ao atualizar estoque do produto:', updateError);
+        throw updateError;
+      }
+      
+      console.log(`✅ Estoque de ${produto.nome} atualizado para ${novoEstoque}`);
+    }
+    
+    console.log('✅ Estoque devolvido com sucesso!');
+    
+    // Registra a movimentação de estoque
+    try {
+      const { data: orcamento } = await supabase
+        .from('orcamentos')
+        .select('numero, cliente_id')
+        .eq('id', orcamentoId)
+        .single();
+      
+      if (orcamento) {
+        for (const [produtoId, quantidade] of Object.entries(atualizacoesEstoque)) {
+          const { data: produto } = await supabase
+            .from('produtos')
+            .select('nome, codigo')
+            .eq('id', produtoId)
+            .single();
+          
+          if (produto) {
+            await supabase
+              .from('movimentacoes_estoque')
+              .insert({
+                produto_id: produtoId,
+                tipo: 'entrada',
+                quantidade: quantidade,
+                observacao: `Orçamento ${orcamento.numero} cancelado/rejeitado - devolução`,
+                data_movimentacao: new Date().toISOString().split('T')[0],
+                created_at: new Date().toISOString()
+              });
+          }
+        }
+        console.log('📝 Movimentações de estoque registradas (devolução)');
+      }
+    } catch (logError) {
+      console.warn('⚠️ Erro ao registrar movimentações:', logError);
+    }
+    
+  } catch (error) {
+    console.error('❌ Erro ao devolver estoque:', error);
+    throw error;
+  }
 };
 
 // ========== FUNÇÃO PARA CRIAR TRANSAÇÕES FINANCEIRAS ==========
@@ -1014,370 +1076,308 @@ const criarComissaoVendedor = async (orcamento: Orcamento, vendedor: Vendedor) =
   }
 };
 
-// ========== FUNÇÕES DE ESTOQUE (MODIFICADAS) ==========
-const verificarEstoqueSuficiente = async (orcamentoId: string) => {
-  try {
-    console.log('🔍 ===== VERIFICANDO ESTOQUE =====');
-    console.log('📄 Orçamento ID:', orcamentoId);
-    
-    const { data: itensOrcamento, error: itensError } = await supabase
-      .from('orcamento_itens')
-      .select(`
-        id,
-        quantidade,
-        produto_id,
-        kit_id
-      `)
-      .eq('orcamento_id', orcamentoId);
+// ========== COMPONENTE DE DIALOG PARA ESCOLHA DO TIPO DE PDF ==========
+const DialogEscolhaPDF = ({ 
+  open, 
+  onOpenChange, 
+  orcamento, 
+  onGerar,
+  gerando
+}: { 
+  open: boolean; 
+  onOpenChange: (open: boolean) => void;
+  orcamento: OrcamentoWithRelations;
+  onGerar: (tipo: 'comKg' | 'semKg') => void;
+  gerando: boolean;
+}) => {
+  const [tipoSelecionado, setTipoSelecionado] = useState<'comKg' | 'semKg'>('comKg');
 
-    if (itensError) {
-      console.error('❌ Erro ao buscar itens do orçamento:', itensError);
-      throw itensError;
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Gerar Orçamento</DialogTitle>
+          <DialogDescription>
+            Escolha o formato do orçamento para o documento {orcamento?.numero}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4 py-4">
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Formato do Orçamento</label>
+            <Select value={tipoSelecionado} onValueChange={(value: any) => setTipoSelecionado(value)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione o formato" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="comKg">
+                  <div className="flex flex-col">
+                    <span>Com informações de kg</span>
+                    <span className="text-xs text-muted-foreground">
+                      Mostra peso total e preço por kg para produtos que utilizam a fórmula
+                    </span>
+                  </div>
+                </SelectItem>
+                <SelectItem value="semKg">
+                  <div className="flex flex-col">
+                    <span>Sem informações de kg</span>
+                    <span className="text-xs text-muted-foreground">
+                      Formato simplificado sem cálculos de peso
+                    </span>
+                  </div>
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <Alert>
+            <FileText className="h-4 w-4" />
+            <AlertTitle>Informação</AlertTitle>
+            <AlertDescription className="text-xs">
+              {tipoSelecionado === 'comKg' 
+                ? 'O PDF incluirá coluna de peso total e preço por kg para produtos com peso cadastrado.'
+                : 'O PDF será gerado no formato padrão, sem informações de peso ou preço por kg.'}
+            </AlertDescription>
+          </Alert>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={gerando}>
+            Cancelar
+          </Button>
+          <Button onClick={() => onGerar(tipoSelecionado)} disabled={gerando}>
+            {gerando ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Gerando...
+              </>
+            ) : (
+              <>
+                <Download className="h-4 w-4 mr-2" />
+                Gerar PDF
+              </>
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+// ========== COMPONENTE DE PAGAMENTO MISTO ==========
+const PagamentoMistoDialog = ({ 
+  open, 
+  onOpenChange, 
+  valorTotal, 
+  limiteCliente,
+  clienteNome,
+  onConfirm,
+  modo
+}: { 
+  open: boolean; 
+  onOpenChange: (open: boolean) => void;
+  valorTotal: number;
+  limiteCliente: number;
+  clienteNome: string;
+  onConfirm: (pagamento: PagamentoMisto) => void;
+  modo: 'criacao' | 'aprovacao';
+}) => {
+  const [valorCredito, setValorCredito] = useState(limiteCliente);
+  const [formaPagamentoRestante, setFormaPagamentoRestante] = useState("");
+  const [condicaoPagamentoRestante, setCondicaoPagamentoRestante] = useState("");
+  const [parcelasRestante, setParcelasRestante] = useState(1);
+  const [parcelado, setParcelado] = useState(false);
+
+  const valorRestante = valorTotal - valorCredito;
+
+  const handleConfirm = () => {
+    if (valorCredito <= 0) {
+      toast({
+        title: "Valor inválido",
+        description: "O valor do crédito deve ser maior que zero",
+        variant: "destructive",
+      });
+      return;
     }
 
-    console.log('📦 Itens do orçamento:', itensOrcamento);
-
-    const produtosSemEstoque: any[] = [];
-    let suficiente = true;
-    const estoqueNecessario: Record<string, { nome: string, necessario: number, disponivel: number }> = {};
-
-    for (const item of itensOrcamento || []) {
-      if (item.produto_id) {
-        console.log(`🔍 Verificando produto ID: ${item.produto_id}, quantidade: ${item.quantidade}`);
-        
-        const { data: produto, error: produtoError } = await supabase
-          .from('produtos')
-          .select('id, nome, codigo, estoque')
-          .eq('id', item.produto_id)
-          .single();
-
-        if (produtoError) {
-          console.error('❌ Erro ao buscar produto:', produtoError);
-          throw produtoError;
-        }
-
-        const estoqueAtual = produto?.estoque || 0;
-        
-        console.log(`🔍 Produto: ${produto?.nome} | Estoque: ${estoqueAtual} | Solicitado: ${item.quantidade}`);
-        
-        if (!estoqueNecessario[produto.id]) {
-          estoqueNecessario[produto.id] = {
-            nome: produto.nome,
-            necessario: 0,
-            disponivel: estoqueAtual
-          };
-        }
-        estoqueNecessario[produto.id].necessario += item.quantidade;
-      }
-      
-      if (item.kit_id) {
-        console.log(`🔍 Verificando kit ID: ${item.kit_id}, quantidade: ${item.quantidade}`);
-        
-        const { data: produtosKit, error: kitError } = await supabase
-          .from('kit_itens')
-          .select(`
-            quantidade,
-            produto_id,
-            produtos:produto_id (
-              id,
-              nome,
-              codigo,
-              estoque
-            )
-          `)
-          .eq('kit_id', item.kit_id);
-
-        if (kitError) {
-          console.error('❌ Erro ao buscar produtos do kit:', kitError);
-          throw kitError;
-        }
-
-        console.log(`📦 Produtos do kit:`, produtosKit);
-
-        if (!produtosKit || produtosKit.length === 0) {
-          console.warn(`⚠️ Kit ${item.kit_id} não tem produtos associados!`);
-          continue;
-        }
-
-        for (const produtoKit of produtosKit) {
-          const produto = Array.isArray(produtoKit.produtos) ? produtoKit.produtos[0] : produtoKit.produtos;
-          
-          if (produto) {
-            const estoqueAtual = produto.estoque || 0;
-            const quantidadeNecessaria = item.quantidade * produtoKit.quantidade;
-            
-            console.log(`  🔍 Produto do kit: ${produto.nome} | Estoque: ${estoqueAtual} | Necessário: ${quantidadeNecessaria} (${item.quantidade} kits × ${produtoKit.quantidade} por kit)`);
-            
-            if (!estoqueNecessario[produto.id]) {
-              estoqueNecessario[produto.id] = {
-                nome: produto.nome,
-                necessario: 0,
-                disponivel: estoqueAtual
-              };
-            }
-            estoqueNecessario[produto.id].necessario += quantidadeNecessaria;
-          }
-        }
-      }
+    if (valorCredito > limiteCliente) {
+      toast({
+        title: "Valor inválido",
+        description: `O valor do crédito não pode ser maior que R$ ${limiteCliente.toFixed(2)}`,
+        variant: "destructive",
+      });
+      return;
     }
 
-    console.log('📊 Resumo do estoque necessário:');
-    for (const [produtoId, info] of Object.entries(estoqueNecessario)) {
-      console.log(`  ${info.nome}: Disponível ${info.disponivel}, Necessário ${info.necessario}`);
-      
-      if (info.necessario > info.disponivel) {
-        suficiente = false;
-        produtosSemEstoque.push({
-          nome: info.nome,
-          estoque: info.disponivel,
-          quantidade: info.necessario,
-          faltando: info.necessario - info.disponivel
-        });
-      }
+    if (valorRestante > 0 && !formaPagamentoRestante) {
+      toast({
+        title: "Forma de pagamento obrigatória",
+        description: "Selecione uma forma de pagamento para o valor restante",
+        variant: "destructive",
+      });
+      return;
     }
 
-    console.log('📊 Resultado da verificação:', { 
-      suficiente, 
-      produtosSemEstoque: produtosSemEstoque.length > 0 ? produtosSemEstoque : 'Nenhum' 
+    onConfirm({
+      usarCredito: true,
+      valorCredito,
+      formaPagamentoRestante: valorRestante > 0 ? formaPagamentoRestante : "",
+      condicaoPagamentoRestante: valorRestante > 0 ? condicaoPagamentoRestante : undefined,
+      parcelasRestante: valorRestante > 0 ? parcelasRestante : 1,
     });
-    
-    if (!suficiente) {
-      console.log('⚠️ ESTOQUE INSUFICIENTE! Produtos em falta:', produtosSemEstoque);
-    } else {
-      console.log('✅ ESTOQUE SUFICIENTE!');
-    }
-    
-    return { suficiente, produtosSemEstoque };
-    
-  } catch (error) {
-    console.error('❌ Erro ao verificar estoque:', error);
-    return { suficiente: false, produtosSemEstoque: [] };
-  }
-};
+  };
 
-const baixarEstoqueOrcamento = async (orcamentoId: string, numeroOrcamento: string, ignorarEstoqueNegativo: boolean = false) => {
-  try {
-    console.log('📦 ===== BAIXANDO ESTOQUE =====');
-    console.log('📄 Orçamento:', numeroOrcamento);
-    console.log('⚠️ Ignorar estoque negativo:', ignorarEstoqueNegativo);
-    
-    const { data: itensOrcamento, error: itensError } = await supabase
-      .from('orcamento_itens')
-      .select(`
-        id,
-        quantidade,
-        produto_id,
-        kit_id
-      `)
-      .eq('orcamento_id', orcamentoId);
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>
+            {modo === 'criacao' ? 'Pagamento Misto na Criação' : 'Pagamento Misto na Aprovação'}
+          </DialogTitle>
+          <DialogDescription>
+            <p className="text-orange-600">
+              O cliente tem crédito de R$ {limiteCliente.toFixed(2)}, mas a compra é de R$ {valorTotal.toFixed(2)}.
+              Será necessário pagar R$ {(valorTotal - limiteCliente).toFixed(2)} de outra forma.
+            </p>
+          </DialogDescription>
+        </DialogHeader>
 
-    if (itensError) {
-      console.error('❌ Erro ao buscar itens do orçamento:', itensError);
-      throw itensError;
-    }
+        <div className="space-y-4 py-4">
+          <div className="bg-muted p-3 rounded-lg space-y-1">
+            <p className="text-sm">
+              <span className="font-medium">Cliente:</span> {clienteNome}
+            </p>
+            <p className="text-sm">
+              <span className="font-medium">Limite disponível:</span> R$ {limiteCliente.toFixed(2)}
+            </p>
+            <p className="text-sm">
+              <span className="font-medium">Valor total:</span> R$ {valorTotal.toFixed(2)}
+            </p>
+            <p className="text-sm font-semibold text-orange-600">
+              <span className="font-medium">Valor a pagar de outra forma:</span> R$ {(valorTotal - limiteCliente).toFixed(2)}
+            </p>
+          </div>
 
-    console.log('📦 Itens do orçamento:', itensOrcamento);
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Valor a usar do crédito</label>
+            <Input
+              type="number"
+              step="0.01"
+              min="0.01"
+              max={limiteCliente}
+              value={valorCredito}
+              onChange={(e) => setValorCredito(parseFloat(e.target.value) || 0)}
+            />
+            <p className="text-xs text-muted-foreground">
+              Valor máximo: R$ {limiteCliente.toFixed(2)} (limite total do cliente)
+            </p>
+          </div>
 
-    const atualizacoesEstoque: Record<string, number> = {};
+          {valorRestante > 0 && (
+            <>
+              <div className="border-t pt-4">
+                <h4 className="font-medium mb-3">Pagamento do valor restante: R$ {valorRestante.toFixed(2)}</h4>
+                
+                <div className="space-y-4">
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      id="parceladoRestante"
+                      checked={parcelado}
+                      onChange={(e) => setParcelado(e.target.checked)}
+                      className="h-4 w-4 rounded border-gray-300"
+                    />
+                    <label htmlFor="parceladoRestante" className="text-sm font-medium">
+                      Parcelar valor restante?
+                    </label>
+                  </div>
 
-    for (const item of itensOrcamento || []) {
-      if (item.produto_id) {
-        if (!atualizacoesEstoque[item.produto_id]) {
-          atualizacoesEstoque[item.produto_id] = 0;
-        }
-        atualizacoesEstoque[item.produto_id] += item.quantidade;
-        console.log(`📦 Produto ID: ${item.produto_id} | Quantidade a debitar: ${item.quantidade}`);
-      }
-      
-      if (item.kit_id) {
-        console.log(`📦 Processando kit ID: ${item.kit_id}, quantidade: ${item.quantidade}`);
-        
-        const { data: produtosKit, error: kitError } = await supabase
-          .from('kit_itens')
-          .select(`
-            quantidade,
-            produto_id
-          `)
-          .eq('kit_id', item.kit_id);
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Forma de Pagamento</label>
+                    <Select value={formaPagamentoRestante} onValueChange={setFormaPagamentoRestante}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="avista">À Vista</SelectItem>
+                        <SelectItem value="boleto">Boleto</SelectItem>
+                        <SelectItem value="credito">Cartão de Crédito</SelectItem>
+                        <SelectItem value="debito">Cartão de Débito</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-        if (kitError) {
-          console.error('❌ Erro ao buscar produtos do kit:', kitError);
-          throw kitError;
-        }
+                  {parcelado && formaPagamentoRestante && (
+                    <>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Condição de Pagamento</label>
+                        <Select value={condicaoPagamentoRestante} onValueChange={setCondicaoPagamentoRestante}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="28">28 dias</SelectItem>
+                            <SelectItem value="28/56">28/56 dias</SelectItem>
+                            <SelectItem value="0/28/56">0/28/56 dias</SelectItem>
+                            <SelectItem value="15">15 dias</SelectItem>
+                            <SelectItem value="15/30">15/30 dias</SelectItem>
+                            <SelectItem value="0/15/30">0/15/30 dias</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
 
-        if (!produtosKit || produtosKit.length === 0) {
-          console.warn(`⚠️ Kit ${item.kit_id} não tem produtos associados!`);
-          continue;
-        }
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Número de Parcelas</label>
+                        <Input
+                          type="number"
+                          min="1"
+                          max="12"
+                          value={parcelasRestante}
+                          onChange={(e) => setParcelasRestante(parseInt(e.target.value) || 1)}
+                        />
+                      </div>
+                    </>
+                  )}
 
-        console.log(`📦 Produtos do kit:`, produtosKit);
+                  {formaPagamentoRestante && (
+                    <div className="bg-gray-50 p-3 rounded-lg text-sm space-y-1">
+                      <div className="flex justify-between">
+                        <span>Usando crédito:</span>
+                        <span className="font-medium text-purple-600">R$ {valorCredito.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Forma de pagamento:</span>
+                        <span className="font-medium">{getFormaPagamentoLabel(formaPagamentoRestante)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Valor restante:</span>
+                        <span className="font-medium">R$ {valorRestante.toFixed(2)}</span>
+                      </div>
+                      {parcelado && condicaoPagamentoRestante && (
+                        <div className="flex justify-between text-xs text-gray-500">
+                          <span>Condição:</span>
+                          <span>{getDescricaoCondicao(condicaoPagamentoRestante)}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
+        </div>
 
-        for (const produtoKit of produtosKit) {
-          const quantidadeTotal = item.quantidade * produtoKit.quantidade;
-          
-          if (!atualizacoesEstoque[produtoKit.produto_id]) {
-            atualizacoesEstoque[produtoKit.produto_id] = 0;
-          }
-          atualizacoesEstoque[produtoKit.produto_id] += quantidadeTotal;
-          
-          console.log(`  📦 Produto ID: ${produtoKit.produto_id} | Quantidade no kit: ${produtoKit.quantidade} | Qtd total a debitar: ${quantidadeTotal}`);
-        }
-      }
-    }
-
-    console.log('📦 Atualizações de estoque a serem feitas:', atualizacoesEstoque);
-
-    for (const [produtoId, quantidadeDebitar] of Object.entries(atualizacoesEstoque)) {
-      const { data: produto, error: selectError } = await supabase
-        .from('produtos')
-        .select('estoque, nome')
-        .eq('id', produtoId)
-        .single();
-
-      if (selectError) {
-        console.error('❌ Erro ao buscar produto:', selectError);
-        throw selectError;
-      }
-
-      const estoqueAtual = produto?.estoque || 0;
-      const novoEstoque = estoqueAtual - quantidadeDebitar;
-      
-      console.log(`📦 Atualizando produto: ${produto?.nome} (ID: ${produtoId}) | Estoque atual: ${estoqueAtual} | Debitar: ${quantidadeDebitar} | Novo estoque: ${novoEstoque}`);
-      
-      if (ignorarEstoqueNegativo && novoEstoque < 0) {
-        console.warn(`⚠️ AVISO: Estoque ficará negativo (${novoEstoque}) para o produto ${produto?.nome}. Aprovado com autorização especial.`);
-      }
-
-      const { error: updateError } = await supabase
-        .from('produtos')
-        .update({ 
-          estoque: novoEstoque,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', produtoId);
-
-      if (updateError) {
-        console.error('❌ Erro ao atualizar estoque do produto:', updateError);
-        throw updateError;
-      }
-    }
-    
-    console.log('✅ Estoque baixado com sucesso!');
-    
-  } catch (error) {
-    console.error('❌ Erro ao baixar estoque:', error);
-    throw error;
-  }
-};
-
-const voltarEstoqueOrcamento = async (orcamentoId: string, numeroOrcamento: string) => {
-  try {
-    console.log('📦 ===== DEVOLVENDO ESTOQUE =====');
-    console.log('📄 Orçamento:', numeroOrcamento);
-    
-    const { data: itensOrcamento, error: itensError } = await supabase
-      .from('orcamento_itens')
-      .select(`
-        id,
-        quantidade,
-        produto_id,
-        kit_id
-      `)
-      .eq('orcamento_id', orcamentoId);
-
-    if (itensError) {
-      console.error('❌ Erro ao buscar itens do orçamento:', itensError);
-      throw itensError;
-    }
-
-    console.log('📦 Itens do orçamento:', itensOrcamento);
-
-    const atualizacoesEstoque: Record<string, number> = {};
-
-    for (const item of itensOrcamento || []) {
-      if (item.produto_id) {
-        if (!atualizacoesEstoque[item.produto_id]) {
-          atualizacoesEstoque[item.produto_id] = 0;
-        }
-        atualizacoesEstoque[item.produto_id] += item.quantidade;
-        console.log(`📦 Produto ID: ${item.produto_id} | Quantidade a devolver: ${item.quantidade}`);
-      }
-      
-      if (item.kit_id) {
-        console.log(`📦 Processando kit ID: ${item.kit_id}, quantidade: ${item.quantidade}`);
-        
-        const { data: produtosKit, error: kitError } = await supabase
-          .from('kit_itens')
-          .select(`
-            quantidade,
-            produto_id
-          `)
-          .eq('kit_id', item.kit_id);
-
-        if (kitError) {
-          console.error('❌ Erro ao buscar produtos do kit:', kitError);
-          throw kitError;
-        }
-
-        if (!produtosKit || produtosKit.length === 0) {
-          console.warn(`⚠️ Kit ${item.kit_id} não tem produtos associados!`);
-          continue;
-        }
-
-        console.log(`📦 Produtos do kit:`, produtosKit);
-
-        for (const produtoKit of produtosKit) {
-          const quantidadeTotal = item.quantidade * produtoKit.quantidade;
-          
-          if (!atualizacoesEstoque[produtoKit.produto_id]) {
-            atualizacoesEstoque[produtoKit.produto_id] = 0;
-          }
-          atualizacoesEstoque[produtoKit.produto_id] += quantidadeTotal;
-          
-          console.log(`  📦 Produto ID: ${produtoKit.produto_id} | Quantidade no kit: ${produtoKit.quantidade} | Qtd total a devolver: ${quantidadeTotal}`);
-        }
-      }
-    }
-
-    console.log('📦 Atualizações de estoque a serem feitas (devolução):', atualizacoesEstoque);
-
-    for (const [produtoId, quantidadeDevolver] of Object.entries(atualizacoesEstoque)) {
-      const { data: produto, error: selectError } = await supabase
-        .from('produtos')
-        .select('estoque, nome')
-        .eq('id', produtoId)
-        .single();
-
-      if (selectError) {
-        console.error('❌ Erro ao buscar produto:', selectError);
-        throw selectError;
-      }
-
-      const estoqueAtual = produto?.estoque || 0;
-      const novoEstoque = estoqueAtual + quantidadeDevolver;
-      
-      console.log(`📦 Atualizando produto: ${produto?.nome} (ID: ${produtoId}) | Estoque atual: ${estoqueAtual} | Devolver: ${quantidadeDevolver} | Novo estoque: ${novoEstoque}`);
-
-      const { error: updateError } = await supabase
-        .from('produtos')
-        .update({ 
-          estoque: novoEstoque,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', produtoId);
-
-      if (updateError) {
-        console.error('❌ Erro ao atualizar estoque do produto:', updateError);
-        throw updateError;
-      }
-    }
-    
-    console.log('✅ Estoque devolvido com sucesso!');
-    
-  } catch (error) {
-    console.error('❌ Erro ao devolver estoque:', error);
-    throw error;
-  }
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancelar
+          </Button>
+          <Button onClick={handleConfirm}>
+            Confirmar Pagamento Misto
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
 };
 
 // ========== FUNÇÃO VISUALIZAR CRÉDITOS UTILIZADOS ==========
@@ -1456,3458 +1456,12 @@ const visualizarCreditosUtilizados = async (clienteId: string, clienteNome: stri
   }
 };
 
-// ========== COMPONENTE DE ADICIONAR ORÇAMENTO ==========
-const AddOrcamentoContent = ({ onClose }: { onClose: () => void }) => {
-  const location = useLocation();
-  const [loading, setLoading] = useState(false);
-  const [clientes, setClientes] = useState<any[]>([]);
-  const [vendedores, setVendedores] = useState<Vendedor[]>([]);
-  const [produtos, setProdutos] = useState<Produto[]>([]);
-  const [kits, setKits] = useState<any[]>([]);
-  const [sobrasDisponiveis, setSobrasDisponiveis] = useState<any[]>([]);
-  const [clienteId, setClienteId] = useState("");
-  const [vendedorId, setVendedorId] = useState<string>("");
-  const [observacoes, setObservacoes] = useState("");
-  const [itens, setItens] = useState<ItemOrcamento[]>([]);
-  const [tipoItem, setTipoItem] = useState<'produto' | 'kit' | 'sobra'>('produto');
-  const [itemSelecionado, setItemSelecionado] = useState("");
-  const [quantidade, setQuantidade] = useState(1);
-  const [desconto, setDesconto] = useState(0);
-  const [searchTerm, setSearchTerm] = useState("");
-  
-  const [formaPagamento, setFormaPagamento] = useState<string>("");
-  const [condicaoPagamento, setCondicaoPagamento] = useState<string>("");
-  const [entradaValor, setEntradaValor] = useState<number>(0);
-  const [parcelas, setParcelas] = useState<number>(1);
-  const [valorEntrada, setValorEntrada] = useState<number>(0);
-  const [valorParcela, setValorParcela] = useState<number>(0);
-  const [parcelado, setParcelado] = useState<boolean>(false);
-  const [clienteLimite, setClienteLimite] = useState<number>(0);
-  
-  const [mostrarCalculoReverso, setMostrarCalculoReverso] = useState<number | null>(null);
-  const [novoPrecoPorKg, setNovoPrecoPorKg] = useState<string>("");
-  const [mostrarAplicarTodos, setMostrarAplicarTodos] = useState(false);
-  const [precoPorKgTodos, setPrecoPorKgTodos] = useState<string>("");
-
-  const calcularPrecoPorKgReverso = (precoVenda: number, pesoKgM: number, comprimentoBarra: number = 6) => {
-    const pesoTotal = pesoKgM * comprimentoBarra;
-    if (pesoTotal <= 0) return 0;
-    return precoVenda / pesoTotal;
-  };
-
-  const calcularPrecoVenda = (precoPorKg: number, pesoKgM: number, comprimentoBarra: number = 6) => {
-    const pesoTotal = pesoKgM * comprimentoBarra;
-    return pesoTotal * precoPorKg;
-  };
-
-  const produtoUsaFormula = (item: ItemOrcamento) => {
-    if (item.tipo !== 'produto') return false;
-    const produto = produtos.find(p => p.id === item.produto_id);
-    return produto && produto.peso_kg_m && produto.peso_kg_m > 0;
-  };
-
-  const contarItensComFormula = () => {
-    return itens.filter(item => produtoUsaFormula(item)).length;
-  };
-
-  const handlePrecoUnitarioChange = (index: number, novoPrecoUnitario: number) => {
-    const newItens = [...itens];
-    const item = newItens[index];
-    
-    if (item.tipo === 'produto') {
-      const produtoOriginal = produtos.find(p => p.id === item.produto_id);
-      if (produtoOriginal?.peso_kg_m && produtoOriginal.peso_kg_m > 0) {
-        const precoPorKgCalculado = calcularPrecoPorKgReverso(
-          novoPrecoUnitario, 
-          produtoOriginal.peso_kg_m, 
-          produtoOriginal.comprimento_barra || 6
-        );
-        
-        newItens[index] = {
-          ...item,
-          preco_unitario: novoPrecoUnitario,
-          preco_por_kg_calculado: precoPorKgCalculado
-        };
-      } else {
-        newItens[index].preco_unitario = novoPrecoUnitario;
-      }
-    } else {
-      newItens[index].preco_unitario = novoPrecoUnitario;
-    }
-    
-    setItens(newItens);
-  };
-
-  const aplicarPrecoPorKg = (index: number, precoPorKg: number) => {
-    const newItens = [...itens];
-    const item = newItens[index];
-    
-    if (item.tipo === 'produto') {
-      const produtoOriginal = produtos.find(p => p.id === item.produto_id);
-      if (produtoOriginal?.peso_kg_m && produtoOriginal.peso_kg_m > 0) {
-        const novoPrecoVenda = calcularPrecoVenda(
-          precoPorKg,
-          produtoOriginal.peso_kg_m,
-          produtoOriginal.comprimento_barra || 6
-        );
-        
-        newItens[index] = {
-          ...item,
-          preco_unitario: parseFloat(novoPrecoVenda.toFixed(2)),
-          preco_por_kg_calculado: precoPorKg
-        };
-        
-        setItens(newItens);
-        setNovoPrecoPorKg("");
-        setMostrarCalculoReverso(null);
-        
-        toast({
-          title: "Preço atualizado!",
-          description: `Preço por kg aplicado: R$ ${precoPorKg.toFixed(2)} | Novo preço: R$ ${novoPrecoVenda.toFixed(2)}`,
-        });
-      }
-    }
-  };
-
-  const aplicarDescontoPrecoPorKg = (index: number, percentualDesconto: number) => {
-    const item = itens[index];
-    if (item.preco_por_kg_calculado && percentualDesconto > 0) {
-      const novoPrecoPorKg = item.preco_por_kg_calculado * (1 - percentualDesconto / 100);
-      aplicarPrecoPorKg(index, parseFloat(novoPrecoPorKg.toFixed(2)));
-    }
-  };
-
-  const abrirModalCalculoReverso = (index: number) => {
-    setMostrarCalculoReverso(index);
-    const item = itens[index];
-    if (item.preco_por_kg_calculado) {
-      setNovoPrecoPorKg(item.preco_por_kg_calculado.toFixed(2));
-    } else {
-      setNovoPrecoPorKg("");
-    }
-  };
-
-  const aplicarPrecoPorKgTodos = (precoPorKg: number) => {
-    const newItens = [...itens];
-    let itensAtualizados = 0;
-    
-    newItens.forEach((item, index) => {
-      if (item.tipo === 'produto') {
-        const produtoOriginal = produtos.find(p => p.id === item.produto_id);
-        if (produtoOriginal?.peso_kg_m && produtoOriginal.peso_kg_m > 0) {
-          const novoPrecoVenda = calcularPrecoVenda(
-            precoPorKg,
-            produtoOriginal.peso_kg_m,
-            produtoOriginal.comprimento_barra || 6
-          );
-          
-          newItens[index] = {
-            ...item,
-            preco_unitario: parseFloat(novoPrecoVenda.toFixed(2)),
-            preco_por_kg_calculado: precoPorKg
-          };
-          itensAtualizados++;
-        }
-      }
-    });
-    
-    setItens(newItens);
-    setPrecoPorKgTodos("");
-    setMostrarAplicarTodos(false);
-    
-    toast({
-      title: "Preço aplicado para todos!",
-      description: `Preço por kg R$ ${precoPorKg.toFixed(2)} aplicado em ${itensAtualizados} itens do orçamento`,
-    });
-  };
-
-  const aplicarDescontoPrecoPorKgTodos = (percentualDesconto: number) => {
-    const newItens = [...itens];
-    let itensAtualizados = 0;
-    
-    newItens.forEach((item, index) => {
-      if (item.tipo === 'produto' && item.preco_por_kg_calculado) {
-        const produtoOriginal = produtos.find(p => p.id === item.produto_id);
-        if (produtoOriginal?.peso_kg_m && produtoOriginal.peso_kg_m > 0) {
-          const novoPrecoPorKg = item.preco_por_kg_calculado * (1 - percentualDesconto / 100);
-          const novoPrecoVenda = calcularPrecoVenda(
-            novoPrecoPorKg,
-            produtoOriginal.peso_kg_m,
-            produtoOriginal.comprimento_barra || 6
-          );
-          
-          newItens[index] = {
-            ...item,
-            preco_unitario: parseFloat(novoPrecoVenda.toFixed(2)),
-            preco_por_kg_calculado: parseFloat(novoPrecoPorKg.toFixed(2))
-          };
-          itensAtualizados++;
-        }
-      }
-    });
-    
-    setItens(newItens);
-    
-    toast({
-      title: "Desconto aplicado para todos!",
-      description: `Desconto de ${percentualDesconto}% aplicado em ${itensAtualizados} itens do orçamento`,
-    });
-  };
-
-  const calcularSubtotalComDesconto = (item: ItemOrcamento) => {
-    const subtotal = item.quantidade * item.preco_unitario;
-    const valorDesconto = (subtotal * item.desconto) / 100;
-    return subtotal - valorDesconto;
-  };
-
-  const calcularValorTotal = () => {
-    return itens.reduce((sum, item) => sum + calcularSubtotalComDesconto(item), 0);
-  };
-
-  const valorTotal = calcularValorTotal();
-
-  useEffect(() => {
-    fetchClientes();
-    fetchVendedores();
-    fetchProdutos();
-    fetchKits();
-    fetchSobrasDisponiveis();
-  }, []);
-
-  // Pré-popula item se veio de Sobras de Perfis
-  useEffect(() => {
-    const sobra = location.state?.sobra;
-    if (!sobra || itens.length > 0) return;
-    setItens([{
-      id: crypto.randomUUID(),
-      produto_id: undefined,
-      kit_id: undefined,
-      codigo: sobra.codigo_perfil,
-      nome: `${sobra.nome_perfil} (Sobra ${(sobra.comprimento_mm / 1000).toFixed(3)}m)`,
-      descricao: `Sobra de perfil — ${(sobra.comprimento_mm / 1000).toFixed(3)} m`,
-      localizacao: '',
-      quantidade: 1,
-      preco_unitario: sobra.valor_calculado || 0,
-      peso: sobra.peso_kg_m ? parseFloat(((sobra.comprimento_mm / 1000) * sobra.peso_kg_m).toFixed(4)) : null,
-      desconto: 0,
-      tipo: 'sobra',
-      sobra_id: sobra.id,
-      categoria: sobra.categoria,
-      cor: sobra.cor,
-      comprimento_solicitado_mm: null,
-    }]);
-    setObservacoes(`Venda de sobra: ${sobra.nome_perfil} (${(sobra.comprimento_mm / 1000).toFixed(3)} m)`);
-  }, [location.state]);
-
-
-  useEffect(() => {
-    if (valorTotal > 0) {
-      calcularPagamento();
-    }
-  }, [formaPagamento, condicaoPagamento, entradaValor, parcelas, valorTotal, parcelado]);
-
-  useEffect(() => {
-    if (clienteId) {
-      fetchClienteLimite();
-    } else {
-      setClienteLimite(0);
-    }
-  }, [clienteId]);
-
-  const fetchClienteLimite = async () => {
-    const { data } = await supabase
-      .from('clientes')
-      .select('limite_credito')
-      .eq('id', clienteId)
-      .single();
-    
-    if (data) {
-      setClienteLimite(data.limite_credito || 0);
-    }
-  };
-
-  const fetchClientes = async () => {
-    const { data } = await supabase
-      .from('clientes')
-      .select('*')
-      .order('nome');
-    if (data) setClientes(data);
-  };
-
-  const fetchVendedores = async () => {
-    const { data } = await supabase
-      .from('vendedores')
-      .select('*')
-      .eq('ativo', true)
-      .order('nome');
-    if (data) setVendedores(data as Vendedor[]);
-  };
-
-  const fetchProdutos = async () => {
-    const { data } = await supabase
-      .from('produtos')
-      .select('id, codigo, nome, descricao, cor, preco, peso, estoque, localizacao, categoria, peso_kg_m, comprimento_barra, ativo, unidade, preco_por_kg, custo')
-      .eq('ativo', true)
-      .order('nome');
-    if (data) setProdutos(data as Produto[]);
-  };
-
-  const fetchKits = async () => {
-    try {
-      console.log('🔍 Buscando kits com estoque...');
-      
-      const { data: estoqueData, error: estoqueError } = await supabase
-        .from('kits_estoque_disponivel')
-        .select(`
-          kit_id,
-          estoque_disponivel,
-          codigo,
-          nome,
-          preco_total,
-          descricao
-        `)
-        .eq('ativo', true);
-      
-      if (estoqueError) {
-        console.error('❌ Erro ao buscar estoque dos kits:', estoqueError);
-        return;
-      }
-      
-      if (!estoqueData || estoqueData.length === 0) {
-        console.log('📦 Nenhum kit com estoque encontrado');
-        setKits([]);
-        return;
-      }
-      
-      const kitsFormatados = estoqueData.map(item => ({
-        id: item.kit_id,
-        codigo: item.codigo,
-        nome: item.nome,
-        preco_total: item.preco_total,
-        descricao: item.descricao,
-        estoque_disponivel: item.estoque_disponivel || 0
-      }));
-      
-      setKits(kitsFormatados);
-      console.log('✅ Kits carregados:', kitsFormatados);
-      
-    } catch (error) {
-      console.error('❌ Erro ao buscar kits:', error);
-      setKits([]);
-    }
-  };
-
-  const produtosFiltrados = produtos.filter(produto => {
-    if (!searchTerm) return true;
-    const search = searchTerm.toLowerCase().trim();
-    return (
-      produto.nome?.toLowerCase().includes(search) ||
-      produto.codigo?.toLowerCase().includes(search) ||
-      produto.cor?.toLowerCase().includes(search) ||
-      produto.descricao?.toLowerCase().includes(search) ||
-      produto.categoria?.toLowerCase().includes(search)
-    );
-  });
-
-  const kitsFiltrados = kits.filter(kit => {
-    if (!searchTerm) return true;
-    const search = searchTerm.toLowerCase().trim();
-    return (
-      kit.nome?.toLowerCase().includes(search) ||
-      kit.codigo?.toLowerCase().includes(search) ||
-      kit.descricao?.toLowerCase().includes(search)
-    );
-  });
-
-  const fetchSobrasDisponiveis = async () => {
-    const { data } = await supabase
-      .from('sobras_perfis')
-      .select('id, codigo_perfil, nome_perfil, comprimento_mm, peso_kg_m, valor_calculado, categoria, cor, localizacao')
-      .eq('status', 'disponivel')
-      .order('nome_perfil');
-    if (data) setSobrasDisponiveis(data);
-  };
-
-  const sobrasFiltradas = sobrasDisponiveis.filter(s => {
-    if (!searchTerm) return true;
-    const search = searchTerm.toLowerCase().trim();
-    return (
-      s.nome_perfil?.toLowerCase().includes(search) ||
-      s.codigo_perfil?.toLowerCase().includes(search) ||
-      s.cor?.toLowerCase().includes(search) ||
-      s.categoria?.toLowerCase().includes(search)
-    );
-  });
-
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-    }).format(value);
-  };
-
-  const getFormaPagamentoLabel = (forma: string) => {
-    const formas: Record<string, string> = {
-      'avista': 'À Vista',
-      'boleto': 'Boleto',
-      'credito': 'Cartão de Crédito',
-      'debito': 'Cartão de Débito',
-      'credito_cliente': 'Cliente com Crédito',
-    };
-    return formas[forma] || forma;
-  };
-
-  const getDescricaoCondicao = (condicao: string): string => {
-    const descricoes: Record<string, string> = {
-      "28": "1 parcela em 28 dias",
-      "28/56": "1ª parcela em 28 dias, 2ª parcela em 56 dias",
-      "0/28/56": "1ª parcela à vista, 2ª em 28 dias, 3ª em 56 dias",
-      "15": "1 parcela em 15 dias",
-      "15/30": "1ª parcela em 15 dias, 2ª parcela em 30 dias",
-      "0/15/30": "1ª parcela à vista, 2ª em 15 dias, 3ª em 30 dias",
-    };
-    return descricoes[condicao] || condicao;
-  };
-
-  const formatarProdutoSelect = (produto: Produto) => {
-    const nomeCurto = produto.nome.length > 40 
-      ? produto.nome.substring(0, 40) + '...' 
-      : produto.nome;
-    
-    let corInfo = produto.cor ? ` - ${produto.cor}` : '';
-    let estoqueInfo = '';
-    let estoqueColor = '';
-    
-    if (produto.estoque <= 0) {
-      estoqueInfo = ` ⚠️ SEM ESTOQUE`;
-      estoqueColor = 'text-red-600';
-    } else if (produto.estoque < 10) {
-      estoqueInfo = ` 📦 ${produto.estoque} und (baixo)`;
-      estoqueColor = 'text-yellow-600';
-    } else {
-      estoqueInfo = ` 📦 ${produto.estoque} und`;
-      estoqueColor = 'text-green-600';
-    }
-    
-    return {
-      text: `${produto.codigo} - ${nomeCurto}${corInfo} - ${formatCurrency(produto.preco)}`,
-      estoqueInfo,
-      estoqueColor
-    };
-  };
-
-  const formatarKitSelect = (kit: any) => {
-    const nomeCurto = kit.nome.length > 40 
-      ? kit.nome.substring(0, 40) + '...' 
-      : kit.nome;
-    
-    const estoque = kit.estoque_disponivel || 0;
-    
-    let estoqueInfo = '';
-    let estoqueColor = '';
-    
-    if (estoque <= 0) {
-      estoqueInfo = ` ⚠️ SEM ESTOQUE`;
-      estoqueColor = 'text-red-600';
-    } else if (estoque < 10) {
-      estoqueInfo = ` 📦 ${estoque} und (baixo)`;
-      estoqueColor = 'text-yellow-600';
-    } else {
-      estoqueInfo = ` 📦 ${estoque} und`;
-      estoqueColor = 'text-green-600';
-    }
-    
-    return {
-      text: `${kit.codigo} - ${nomeCurto} - ${formatCurrency(kit.preco_total)}`,
-      estoqueInfo,
-      estoqueColor
-    };
-  };
-
-  const addItem = () => {
-    if (!itemSelecionado || quantidade <= 0) return;
-
-    if (tipoItem === 'produto') {
-      const produto = produtos.find(p => p.id === itemSelecionado);
-      if (!produto) return;
-      
-      let precoPorKgCalculado = 0;
-      if (produto.peso_kg_m && produto.peso_kg_m > 0) {
-        precoPorKgCalculado = calcularPrecoPorKgReverso(
-          produto.preco,
-          produto.peso_kg_m,
-          produto.comprimento_barra || 6
-        );
-      }
-      
-      if (produto.estoque < quantidade) {
-        toast({
-          title: "⚠️ Estoque insuficiente",
-          description: `${produto.nome} - Estoque: ${produto.estoque}, Solicitado: ${quantidade}`,
-          variant: "default",
-        });
-      }
-
-      const itemId = `temp-${Date.now()}-${Math.random()}`;
-      
-      setItens([...itens, {
-        id: itemId,
-        produto_id: produto.id,
-        codigo: produto.codigo,
-        nome: produto.nome,
-        descricao: produto.descricao || produto.nome,
-        localizacao: produto.localizacao || '-',
-        quantidade,
-        preco_unitario: produto.preco,
-        peso: produto.peso,
-        desconto: desconto,
-        tipo: 'produto',
-        estoque_disponivel: produto.estoque,
-        categoria: produto.categoria,
-        cor: produto.cor,
-        preco_por_kg_calculado: precoPorKgCalculado
-      }]);
-      
-    } else if (tipoItem === 'kit') {
-      const kit = kits.find(k => k.id === itemSelecionado);
-      if (!kit) return;
-
-      const estoqueKit = kit.estoque_disponivel || 0;
-      
-      if (estoqueKit < quantidade) {
-        toast({
-          title: "⚠️ Estoque insuficiente",
-          description: `${kit.nome} - Estoque: ${estoqueKit}, Solicitado: ${quantidade}`,
-          variant: "default",
-        });
-      }
-
-      const itemId = `temp-${Date.now()}-${Math.random()}`;
-
-      setItens([...itens, {
-        id: itemId,
-        kit_id: kit.id,
-        codigo: kit.codigo,
-        nome: kit.nome,
-        descricao: kit.descricao || kit.nome,
-        localizacao: '-',
-        quantidade,
-        preco_unitario: kit.preco_total,
-        peso: null,
-        desconto: desconto,
-        tipo: 'kit',
-        estoque_disponivel: estoqueKit
-      }]);
-    } else if (tipoItem === 'sobra') {
-      const sobra = sobrasDisponiveis.find(s => s.id === itemSelecionado);
-      if (!sobra) return;
-
-      const itemId = `temp-${Date.now()}-${Math.random()}`;
-      const comprimentoM = sobra.comprimento_mm / 1000;
-      const peso = sobra.peso_kg_m ? parseFloat((comprimentoM * sobra.peso_kg_m).toFixed(4)) : null;
-
-      setItens([...itens, {
-        id: itemId,
-        produto_id: undefined,
-        kit_id: undefined,
-        sobra_id: sobra.id,
-        codigo: sobra.codigo_perfil,
-        nome: `${sobra.nome_perfil} (Sobra ${comprimentoM.toFixed(3)}m)`,
-        descricao: `Sobra de perfil — ${comprimentoM.toFixed(3)} m`,
-        localizacao: sobra.localizacao || '-',
-        quantidade: 1,
-        preco_unitario: sobra.valor_calculado || 0,
-        peso,
-        desconto: desconto,
-        tipo: 'sobra',
-        categoria: sobra.categoria,
-        cor: sobra.cor,
-        comprimento_solicitado_mm: null,
-      }]);
-    }
-
-    setItemSelecionado("");
-    setQuantidade(1);
-    setDesconto(0);
-    setSearchTerm("");
-  };
-
-  const removeItem = (index: number) => {
-    setItens(itens.filter((_, i) => i !== index));
-    if (mostrarCalculoReverso === index) {
-      setMostrarCalculoReverso(null);
-    }
-  };
-
-  const calcularPagamento = () => {
-    if (valorTotal <= 0) {
-      setValorEntrada(0);
-      setValorParcela(0);
-      return;
-    }
-
-    if (formaPagamento === "avista" || !parcelado || formaPagamento === "credito_cliente") {
-      setValorEntrada(valorTotal);
-      setValorParcela(0);
-      setParcelas(1);
-      setEntradaValor(0);
-      setCondicaoPagamento("");
-      return;
-    }
-
-    if (formaPagamento === "boleto" || formaPagamento === "credito" || formaPagamento === "debito") {
-      
-      let totalParcelas = 1;
-      let temEntradaHoje = false;
-      
-      if (condicaoPagamento) {
-        switch (condicaoPagamento) {
-          case "28":
-          case "15":
-            totalParcelas = 1;
-            break;
-          case "28/56":
-          case "15/30":
-            totalParcelas = 2;
-            break;
-          case "0/28/56":
-          case "0/15/30":
-            totalParcelas = 3;
-            temEntradaHoje = true;
-            break;
-          default:
-            totalParcelas = parcelas;
-        }
-      } else {
-        totalParcelas = parcelas;
-      }
-      
-      setParcelas(totalParcelas);
-      
-      let valorCalculadoEntrada = entradaValor || 0;
-      
-      if (valorCalculadoEntrada > valorTotal) {
-        valorCalculadoEntrada = valorTotal;
-        setEntradaValor(valorTotal);
-      }
-      
-      if (temEntradaHoje && valorCalculadoEntrada === 0) {
-        valorCalculadoEntrada = Number((valorTotal * 0.5).toFixed(2));
-        setEntradaValor(valorCalculadoEntrada);
-      }
-      
-      let valorCalculadoParcela = 0;
-      
-      if (temEntradaHoje) {
-        const valorRestante = valorTotal - valorCalculadoEntrada;
-        const parcelasFuturas = totalParcelas - 1;
-        
-        if (parcelasFuturas > 0) {
-          valorCalculadoParcela = Number((valorRestante / parcelasFuturas).toFixed(2));
-        } else {
-          valorCalculadoParcela = 0;
-        }
-      } else if (valorCalculadoEntrada > 0) {
-        const valorRestante = valorTotal - valorCalculadoEntrada;
-        valorCalculadoParcela = totalParcelas > 0 ? Number((valorRestante / totalParcelas).toFixed(2)) : 0;
-      } else {
-        valorCalculadoParcela = totalParcelas > 0 ? Number((valorTotal / totalParcelas).toFixed(2)) : 0;
-      }
-      
-      valorCalculadoEntrada = Math.round(valorCalculadoEntrada * 100) / 100;
-      valorCalculadoParcela = Math.round(valorCalculadoParcela * 100) / 100;
-      
-      setValorEntrada(valorCalculadoEntrada);
-      setValorParcela(valorCalculadoParcela);
-    }
-  };
-
-  const validarCalculoParcelas = (): boolean => {
-    if (!parcelado || formaPagamento === "avista" || formaPagamento === "credito_cliente") {
-      return true;
-    }
-    
-    const temEntradaHoje = condicaoPagamento?.startsWith('0/') || false;
-    const parcelasFuturas = temEntradaHoje ? parcelas - 1 : parcelas;
-    
-    const totalCalculado = valorEntrada + (valorParcela * parcelasFuturas);
-    const diferenca = Math.abs(totalCalculado - valorTotal);
-    
-    if (diferenca > 0.02) {
-      toast({
-        title: "❌ Erro no cálculo",
-        description: `Diferença de R$ ${diferenca.toFixed(2)}. Ajuste os valores.`,
-        variant: "destructive",
-      });
-      return false;
-    }
-    
-    return true;
-  };
-
-  const mostrarCampoEntrada = () => {
-    return parcelado && formaPagamento !== "avista" && formaPagamento !== "credito_cliente";
-  };
-
-  const salvarOrcamento = async (gerarPDF: boolean = false) => {
-    setLoading(true);
-    
-    try {
-      const { data: numeroOrcamento } = await supabase.rpc('gerar_numero_orcamento');
-
-      let totalParcelas = parcelas;
-      if (condicaoPagamento?.startsWith('0/')) {
-        totalParcelas = parcelas;
-      }
-      
-      const entradaPercentual = valorEntrada > 0 ? (valorEntrada / valorTotal) * 100 : 0;
-      
-      let obsPagamento = "";
-      
-      if (formaPagamento === "avista" || !parcelado) {
-        obsPagamento = `Pagamento à vista - Total: ${formatCurrency(valorTotal)}`;
-      } else if (formaPagamento === "credito_cliente") {
-        obsPagamento = `Pagamento com crédito do cliente - Total: ${formatCurrency(valorTotal)} - Limite do cliente: R$ ${clienteLimite.toFixed(2)}`;
-      } else {
-        obsPagamento = `Pagamento: ${getFormaPagamentoLabel(formaPagamento)}`;
-        if (condicaoPagamento) {
-          obsPagamento += ` - ${getDescricaoCondicao(condicaoPagamento)}`;
-        }
-        if (valorEntrada > 0) {
-          obsPagamento += ` - Entrada: ${formatCurrency(valorEntrada)} (hoje)`;
-        }
-        if (valorParcela > 0) {
-          if (condicaoPagamento?.startsWith('0/')) {
-            obsPagamento += ` - ${totalParcelas - 1}x ${formatCurrency(valorParcela)}`;
-          } else {
-            obsPagamento += ` - ${totalParcelas}x ${formatCurrency(valorParcela)}`;
-          }
-        }
-      }
-
-      const observacoesCompletas = observacoes 
-        ? `${obsPagamento}\n\n${observacoes}`
-        : obsPagamento;
-
-      const { data: orcamento, error: orcError } = await supabase
-        .from('orcamentos')
-        .insert({
-          numero: numeroOrcamento,
-          cliente_id: clienteId,
-          vendedor_id: vendedorId || null,
-          valor_total: Number(valorTotal.toFixed(2)),
-          observacoes: observacoesCompletas.substring(0, 500),
-          status: 'pendente',
-          forma_pagamento: formaPagamento,
-          condicao_pagamento: condicaoPagamento || null,
-          entrada_percentual: entradaPercentual > 0 ? Number(entradaPercentual.toFixed(2)) : null,
-          entrada_valor: valorEntrada > 0 ? Number(valorEntrada.toFixed(2)) : null,
-          parcelas: totalParcelas || null,
-          valor_parcela: valorParcela > 0 ? Number(valorParcela.toFixed(2)) : null,
-          parcelado: parcelado,
-          numero_parcelas: parcelado ? totalParcelas : 1,
-          pagamento_misto: false,
-          valor_credito_utilizado: null,
-          forma_pagamento_restante: null,
-          condicao_pagamento_restante: null,
-          parcelas_restante: null
-        })
-        .select()
-        .single();
-
-      if (orcError) throw orcError;
-
-      const orcamentoItens = itens.map(item => {
-        const subtotalComDesconto = calcularSubtotalComDesconto(item);
-        
-        return {
-          orcamento_id: orcamento.id,
-          produto_id: item.tipo === 'produto' ? (item.produto_id || null) : null,
-          kit_id: item.tipo === 'kit' ? item.kit_id : null,
-          sobra_id: item.tipo === 'sobra' ? (item.sobra_id || null) : null,
-          quantidade: item.quantidade,
-          preco_unitario: Number(item.preco_unitario.toFixed(2)),
-          desconto: item.desconto,
-          peso: item.peso,
-          subtotal: Number(subtotalComDesconto.toFixed(2)),
-          comprimento_solicitado_mm: item.comprimento_solicitado_mm ?? null,
-        };
-      });
-
-      const { error: itensError } = await supabase
-        .from('orcamento_itens')
-        .insert(orcamentoItens);
-
-      if (itensError) throw itensError;
-
-      if (vendedorId) {
-        const vendedorSelecionado = vendedores.find(v => v.id === vendedorId);
-        if (vendedorSelecionado) {
-          const valorComissao = (valorTotal * vendedorSelecionado.comissao_percentual) / 100;
-          
-          await supabase
-            .from('comissoes')
-            .insert({
-              orcamento_id: orcamento.id,
-              vendedor_id: vendedorId,
-              valor_orcamento: valorTotal,
-              percentual_comissao: vendedorSelecionado.comissao_percentual,
-              valor_comissao: Number(valorComissao.toFixed(2)),
-              status: 'pendente',
-            });
-        }
-      }
-
-      toast({
-        title: "✅ Orçamento criado!",
-        description: `Orçamento ${numeroOrcamento} criado com sucesso.`,
-      });
-
-      if (gerarPDF) {
-        setTimeout(() => {
-          toast({
-            title: "📄 PDF gerado!",
-            description: "O arquivo será baixado em instantes.",
-          });
-        }, 500);
-      }
-
-      onClose();
-      
-    } catch (error: any) {
-      console.error('❌ Erro:', error);
-      toast({
-        title: "❌ Erro ao criar orçamento",
-        description: error.message,
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSubmit = async (gerarPDF: boolean = false) => {
-    if (!clienteId || itens.length === 0) {
-      toast({
-        title: "Dados incompletos",
-        description: "Selecione um cliente e adicione produtos",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!formaPagamento) {
-      toast({
-        title: "Forma de pagamento obrigatória",
-        description: "Selecione uma forma de pagamento",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const formasPagamentoOpcionais = ["credito", "debito", "credito_cliente"];
-    
-    if (parcelado && !formasPagamentoOpcionais.includes(formaPagamento) && !condicaoPagamento) {
-      toast({
-        title: "Condição de pagamento obrigatória",
-        description: "Selecione uma condição de pagamento",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (parcelado && !validarCalculoParcelas()) {
-      return;
-    }
-
-    await salvarOrcamento(gerarPDF);
-  };
-
-  const itensComFormula = contarItensComFormula();
-
-  return (
-    <div className="space-y-6">
-      <div className="space-y-2">
-        <label className="text-sm font-medium">Cliente *</label>
-        <Select value={clienteId || "sem_cliente"} onValueChange={(value) => {
-          setClienteId(value === "sem_cliente" ? "" : value);
-        }}>
-          <SelectTrigger>
-            <SelectValue placeholder="Selecione um cliente" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="sem_cliente">Selecione um cliente</SelectItem>
-            {clientes.map(cliente => (
-              <SelectItem key={cliente.id} value={cliente.id}>
-                {cliente.nome} - {cliente.cpf_cnpj}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        {clienteLimite > 0 && (
-          <p className="text-xs text-blue-600">
-            Limite de crédito disponível: {formatCurrency(clienteLimite)}
-          </p>
-        )}
-      </div>
-
-      <div className="space-y-2">
-        <label className="text-sm font-medium">Vendedor (opcional)</label>
-        <Select value={vendedorId || "sem_vendedor"} onValueChange={(value) => {
-          setVendedorId(value === "sem_vendedor" ? "" : value);
-        }}>
-          <SelectTrigger>
-            <SelectValue placeholder="Selecione um vendedor" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="sem_vendedor">Sem vendedor</SelectItem>
-            {vendedores.map(vendedor => (
-              <SelectItem key={vendedor.id} value={vendedor.id}>
-                <div className="flex items-center justify-between w-full">
-                  <span>{vendedor.nome}</span>
-                  <Badge variant="outline" className="ml-2 text-xs">
-                    {vendedor.comissao_percentual}%
-                  </Badge>
-                </div>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        {vendedorId && (
-          <p className="text-xs text-green-600 mt-1">
-            Comissão de {vendedores.find(v => v.id === vendedorId)?.comissao_percentual}% será calculada automaticamente
-          </p>
-        )}
-      </div>
-
-      <div className="border rounded-lg p-4 space-y-4">
-        <h3 className="font-semibold">Condições de Pagamento</h3>
-        
-        <div className="space-y-4">
-          <div className="flex items-center space-x-2">
-            <input
-              type="checkbox"
-              id="parcelado"
-              checked={parcelado}
-              onChange={(e) => {
-                setParcelado(e.target.checked);
-                if (!e.target.checked) {
-                  setFormaPagamento("avista");
-                  setCondicaoPagamento("");
-                  setEntradaValor(0);
-                }
-              }}
-              className="h-4 w-4 rounded border-gray-300"
-              disabled={formaPagamento === "credito_cliente"}
-            />
-            <label htmlFor="parcelado" className="text-sm font-medium">
-              Pagamento Parcelado?
-            </label>
-          </div>
-          
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Forma de Pagamento *</label>
-              <Select value={formaPagamento || "sem_forma"} onValueChange={(value) => {
-                const novaForma = value === "sem_forma" ? "" : value;
-                setFormaPagamento(novaForma);
-                
-                if (novaForma === "credito_cliente") {
-                  setParcelado(false);
-                  setCondicaoPagamento("");
-                  setEntradaValor(0);
-                  setParcelas(1);
-                } else if (novaForma === "avista") {
-                  setParcelado(false);
-                  setCondicaoPagamento("");
-                  setEntradaValor(0);
-                  setParcelas(1);
-                }
-              }}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="sem_forma">Selecione uma forma</SelectItem>
-                  <SelectItem value="avista">À Vista</SelectItem>
-                  <SelectItem value="boleto">Boleto</SelectItem>
-                  <SelectItem value="credito">Cartão de Crédito</SelectItem>
-                  <SelectItem value="debito">Cartão de Débito</SelectItem>
-                  <SelectItem value="credito_cliente">Cliente com Crédito</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {parcelado && (
-              <>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">
-                    Condição de Pagamento 
-                    {formaPagamento !== "credito" && formaPagamento !== "debito" && " *"}
-                  </label>
-                  <Select 
-                    value={condicaoPagamento || "sem_condicao"} 
-                    onValueChange={(value) => {
-                      setCondicaoPagamento(value === "sem_condicao" ? "" : value);
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder={
-                        formaPagamento === "credito" || formaPagamento === "debito"
-                          ? "Opcional - pode selecionar se desejar" 
-                          : "Selecione"
-                      } />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="sem_condicao">
-                        {formaPagamento === "credito" || formaPagamento === "debito" 
-                          ? "Sem condição especial" 
-                          : "Selecione uma condição"}
-                      </SelectItem>
-                      <SelectItem value="28">28 dias</SelectItem>
-                      <SelectItem value="28/56">28/56 dias</SelectItem>
-                      <SelectItem value="0/28/56">0/28/56 dias</SelectItem>
-                      <SelectItem value="15">15 dias</SelectItem>
-                      <SelectItem value="15/30">15/30 dias</SelectItem>
-                      <SelectItem value="0/15/30">0/15/30 dias</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {(formaPagamento === "credito" || formaPagamento === "debito") && (
-                    <p className="text-xs text-muted-foreground mt-1">
-                      A condição de pagamento é opcional para cartão de crédito e débito
-                    </p>
-                  )}
-                </div>
-
-                {mostrarCampoEntrada() && (
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Valor da Entrada (R$)</label>
-                    <Input
-                      type="number"
-                      min="0"
-                      max={valorTotal}
-                      step="0.01"
-                      value={entradaValor}
-                      onChange={(e) => setEntradaValor(parseFloat(e.target.value) || 0)}
-                      placeholder="0,00"
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      {condicaoPagamento?.startsWith('0/') 
-                        ? "Entrada obrigatória - vencimento hoje"
-                        : "Entrada opcional"}
-                    </p>
-                  </div>
-                )}
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Número de Parcelas</label>
-                  <Input
-                    type="number"
-                    min="1"
-                    max="12"
-                    value={parcelas}
-                    onChange={(e) => setParcelas(parseInt(e.target.value) || 1)}
-                    disabled={!!condicaoPagamento}
-                  />
-                </div>
-              </>
-            )}
-          </div>
-
-          {valorTotal > 0 && formaPagamento && (
-            <div className="pt-4 border-t">
-              <h4 className="font-medium mb-2">Resumo do Pagamento:</h4>
-              <div className="bg-gray-50 p-3 rounded-lg text-sm space-y-1">
-                <div className="flex justify-between">
-                  <span>Valor Total:</span>
-                  <span className="font-bold">{formatCurrency(valorTotal)}</span>
-                </div>
-                
-                {formaPagamento === "credito_cliente" ? (
-                  <div className="flex justify-between text-purple-600">
-                    <span>Pagamento:</span>
-                    <span className="font-medium">Crédito do Cliente</span>
-                  </div>
-                ) : !parcelado || formaPagamento === "avista" ? (
-                  <div className="flex justify-between text-green-600">
-                    <span>Pagamento:</span>
-                    <span className="font-medium">À Vista</span>
-                  </div>
-                ) : (
-                  <>
-                    {valorEntrada > 0 && (
-                      <div className="flex justify-between text-green-600">
-                        <span>Entrada (hoje):</span>
-                        <span className="font-medium">{formatCurrency(valorEntrada)}</span>
-                      </div>
-                    )}
-                    
-                    {valorParcela > 0 && (
-                      <>
-                        <div className="flex justify-between">
-                          <span>
-                            {condicaoPagamento?.startsWith('0/') 
-                              ? `${parcelas - 1}x de:`
-                              : `${parcelas}x de:`}
-                          </span>
-                          <span className="font-medium">{formatCurrency(valorParcela)}</span>
-                        </div>
-                        
-                        <div className="flex justify-between text-xs text-gray-500 pt-1 border-t border-gray-200 mt-1">
-                          <span>Total parcelado:</span>
-                          <span>
-                            {formatCurrency(
-                              condicaoPagamento?.startsWith('0/')
-                                ? valorParcela * (parcelas - 1)
-                                : valorParcela * parcelas
-                            )}
-                          </span>
-                        </div>
-                      </>
-                    )}
-                    
-                    {condicaoPagamento && (
-                      <div className="flex justify-between text-xs text-gray-500">
-                        <span>Condição:</span>
-                        <span>{getDescricaoCondicao(condicaoPagamento)}</span>
-                      </div>
-                    )}
-                  </>
-                )}
-                
-                {valorEntrada > 0 && valorEntrada < valorTotal && (
-                  <div className="flex justify-between text-xs text-blue-600 pt-1 border-t border-blue-200 mt-1">
-                    <span>Saldo após entrada:</span>
-                    <span className="font-medium">{formatCurrency(valorTotal - valorEntrada)}</span>
-                  </div>
-                )}
-
-                {vendedorId && (
-                  <div className="flex justify-between text-xs text-green-600 pt-1 border-t border-green-200 mt-1">
-                    <span>Comissão do vendedor:</span>
-                    <span className="font-medium">
-                      {formatCurrency((valorTotal * (vendedores.find(v => v.id === vendedorId)?.comissao_percentual || 0)) / 100)}
-                    </span>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      <div className="border rounded-lg p-4 space-y-4">
-        <div className="flex justify-between items-center">
-          <h3 className="font-semibold">Adicionar Itens</h3>
-          {itensComFormula > 0 && (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setMostrarAplicarTodos(true)}
-              className="gap-2"
-            >
-              <Zap className="h-4 w-4" />
-              Aplicar Preço por Kg para Todos
-            </Button>
-          )}
-        </div>
-
-        {mostrarAplicarTodos && (
-          <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-            <div className="flex items-center justify-between mb-3">
-              <h5 className="font-medium text-sm text-green-800">
-                Aplicar Preço por Kg para Todos os Itens
-              </h5>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => {
-                  setMostrarAplicarTodos(false);
-                  setPrecoPorKgTodos("");
-                }}
-                className="h-6 w-6 p-0"
-              >
-                <X className="h-3 w-3" />
-              </Button>
-            </div>
-            
-            <div className="space-y-3">
-              <div>
-                <label className="text-xs">Preço por Kg para Todos os Itens</label>
-                <div className="flex gap-2">
-                  <Input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    placeholder="Digite o preço por kg para todos"
-                    value={precoPorKgTodos}
-                    onChange={(e) => setPrecoPorKgTodos(e.target.value)}
-                    className="h-8 flex-1"
-                  />
-                  <Button 
-                    size="sm" 
-                    onClick={() => {
-                      const precoPorKg = parseFloat(precoPorKgTodos) || 0;
-                      if (precoPorKg > 0) {
-                        aplicarPrecoPorKgTodos(precoPorKg);
-                      } else {
-                        toast({
-                          title: "Valor inválido",
-                          description: "Digite um preço por kg válido",
-                          variant: "destructive",
-                        });
-                      }
-                    }}
-                  >
-                    Aplicar para Todos
-                  </Button>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => aplicarDescontoPrecoPorKgTodos(5)}
-                  className="text-xs"
-                >
-                  -5% Todos
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => aplicarDescontoPrecoPorKgTodos(10)}
-                  className="text-xs"
-                >
-                  -10% Todos
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => aplicarDescontoPrecoPorKgTodos(15)}
-                  className="text-xs"
-                >
-                  -15% Todos
-                </Button>
-              </div>
-
-              <p className="text-xs text-muted-foreground">
-                Esta ação aplicará o mesmo preço por kg para todos os {itensComFormula} itens que usam a fórmula de cálculo.
-              </p>
-            </div>
-          </div>
-        )}
-
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Pesquisar</label>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Pesquisar por nome, código ou cor..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-9"
-            />
-          </div>
-        </div>
-
-        <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 md:grid-cols-5">
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Tipo</label>
-            <Select value={tipoItem} onValueChange={(value: 'produto' | 'kit') => {
-              setTipoItem(value);
-              setItemSelecionado("");
-            }}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="produto">Produto</SelectItem>
-                <SelectItem value="kit">Kit</SelectItem>
-                <SelectItem value="sobra">Sobra de Perfil</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="md:sm:col-span-2 space-y-2">
-            <label className="text-sm font-medium">{tipoItem === 'produto' ? 'Produto' : tipoItem === 'kit' ? 'Kit' : 'Sobra de Perfil'}</label>
-            <Select value={itemSelecionado || "sem_item"} onValueChange={(value) => {
-              setItemSelecionado(value === "sem_item" ? "" : value);
-            }}>
-              <SelectTrigger>
-                <SelectValue placeholder={`Selecione ${tipoItem === 'sobra' ? 'uma sobra' : `um ${tipoItem}`}`} />
-              </SelectTrigger>
-              <SelectContent className="max-w-[500px]">
-                <SelectItem value="sem_item">Selecione {tipoItem === 'sobra' ? 'uma sobra' : `um ${tipoItem}`}</SelectItem>
-                {tipoItem === 'produto' ? (
-                  produtosFiltrados.length > 0 ? (
-                    produtosFiltrados.map(produto => {
-                      const formatted = formatarProdutoSelect(produto);
-                      return (
-                        <SelectItem key={produto.id} value={produto.id} className="py-2">
-                          <div className="flex flex-col">
-                            <span className="font-medium">{formatted.text}</span>
-                            <span className={`text-xs ${formatted.estoqueColor}`}>
-                              {formatted.estoqueInfo}
-                              {produto.peso_kg_m && ` | ${produto.peso_kg_m}kg/m`}
-                            </span>
-                          </div>
-                        </SelectItem>
-                      );
-                    })
-                  ) : (
-                    <SelectItem value="sem_item" disabled>
-                      Nenhum produto encontrado
-                    </SelectItem>
-                  )
-                ) : tipoItem === 'kit' ? (
-                  kitsFiltrados.length > 0 ? (
-                    kitsFiltrados.map(kit => {
-                      const formatted = formatarKitSelect(kit);
-                      return (
-                        <SelectItem key={kit.id} value={kit.id} className="py-2">
-                          <div className="flex flex-col">
-                            <span className="font-medium">{formatted.text}</span>
-                            <span className={`text-xs ${formatted.estoqueColor}`}>
-                              {formatted.estoqueInfo}
-                            </span>
-                          </div>
-                        </SelectItem>
-                      );
-                    })
-                  ) : (
-                    <SelectItem value="sem_item" disabled>
-                      Nenhum kit com estoque disponível
-                    </SelectItem>
-                  )
-                ) : (
-                  sobrasFiltradas.length > 0 ? (
-                    sobrasFiltradas.map(s => (
-                      <SelectItem key={s.id} value={s.id} className="py-2">
-                        <div className="flex flex-col">
-                          <span className="font-medium">{s.nome_perfil} ({(s.comprimento_mm / 1000).toFixed(3)} m)</span>
-                          <span className="text-xs text-muted-foreground">
-                            {s.codigo_perfil}{s.cor ? ` | ${s.cor}` : ''} | R$ {(s.valor_calculado || 0).toFixed(2)}
-                            {s.localizacao ? ` | ${s.localizacao}` : ''}
-                          </span>
-                        </div>
-                      </SelectItem>
-                    ))
-                  ) : (
-                    <SelectItem value="sem_item" disabled>
-                      Nenhuma sobra disponível
-                    </SelectItem>
-                  )
-                )}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Qtd</label>
-            <Input
-              type="number"
-              min="1"
-              value={quantidade}
-              onChange={(e) => setQuantidade(parseInt(e.target.value) || 1)}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Desc. %</label>
-            <div className="flex gap-2">
-              <Input
-                type="number"
-                min="0"
-                max="100"
-                step="0.01"
-                value={desconto}
-                onChange={(e) => setDesconto(parseFloat(e.target.value) || 0)}
-              />
-              <Button 
-                onClick={addItem} 
-                type="button" 
-                size="icon"
-                disabled={!itemSelecionado || quantidade <= 0}
-              >
-                <Plus className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        </div>
-
-        {itens.length > 0 && (
-          <div className="space-y-2">
-            <h4 className="font-medium">Itens do Orçamento:</h4>
-            <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
-              {itens.map((item, index) => {
-                const subtotalBruto = item.quantidade * item.preco_unitario;
-                const valorDesconto = (subtotalBruto * item.desconto) / 100;
-                const subtotalLiquido = subtotalBruto - valorDesconto;
-                const usaFormula = produtoUsaFormula(item);
-                const produtoOriginal = produtos.find(p => p.id === item.produto_id);
-                const semEstoque = item.estoque_disponivel !== undefined && item.quantidade > item.estoque_disponivel;
-                const eSobra = !item.produto_id && item.peso != null && item.peso > 0;
-                const ePerfil = usaFormula || eSobra;
-                
-                return (
-                  <div key={item.id} className={`grid grid-cols-1 sm:grid-cols-12 gap-2 items-start sm:items-center p-3 rounded-lg ${semEstoque ? 'bg-yellow-100 border border-yellow-300' : ePerfil ? 'bg-blue-50 border border-blue-200' : 'bg-secondary'}`}>
-                    <div className="sm:col-span-4">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <p className="font-medium text-sm">{item.descricao}</p>
-                        {ePerfil && (
-                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700 border border-blue-300">
-                            ⬡ Perfil
-                          </span>
-                        )}
-                        {eSobra && (
-                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-700 border border-orange-300">
-                            Sobra
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex gap-2 text-xs text-muted-foreground">
-                        <span>Cód: {item.codigo}</span>
-                        <span>| {item.tipo}</span>
-                        {item.cor && <span>| Cor: {item.cor}</span>}
-                        {semEstoque && (
-                          <span className="text-yellow-700 font-medium">
-                            ⚠️ Estoque: {item.estoque_disponivel}
-                          </span>
-                        )}
-                      </div>
-                      {usaFormula && produtoOriginal && (
-                        <div className="flex gap-2 text-xs text-blue-700">
-                          <span>Peso: {produtoOriginal.peso_kg_m}kg/m</span>
-                          {item.preco_por_kg_calculado && (
-                            <span>R$ {item.preco_por_kg_calculado.toFixed(2)}/kg</span>
-                          )}
-                        </div>
-                      )}
-                      {eSobra && (
-                        <div className="flex gap-2 text-xs text-orange-700">
-                          <span>Sobra de perfil</span>
-                          {item.peso && <span>· {item.peso.toFixed(3)} kg</span>}
-                        </div>
-                      )}
-                    </div>
-                    
-                    <div className="sm:col-span-1">
-                      <label className="text-xs">Qtd</label>
-                      <Input
-                        type="number"
-                        min="1"
-                        value={item.quantidade}
-                        onChange={(e) => {
-                          const newItens = [...itens];
-                          newItens[index].quantidade = parseInt(e.target.value) || 1;
-                          setItens(newItens);
-                        }}
-                        className="h-8"
-                      />
-                    </div>
-                    
-                    <div className="sm:col-span-2">
-                      <label className="text-xs">Preço Unit.</label>
-                      <div className="flex gap-1">
-                        <Input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={item.preco_unitario}
-                          onChange={(e) => {
-                            handlePrecoUnitarioChange(index, parseFloat(e.target.value) || 0);
-                          }}
-                          className="h-8 flex-1"
-                        />
-                        {usaFormula && (
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            onClick={() => abrirModalCalculoReverso(index)}
-                            className="h-8 w-8"
-                            title="Calcular preço por kg"
-                          >
-                            <Calculator className="h-3 w-3" />
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                    
-                    <div className="sm:col-span-1">
-                      <label className="text-xs">Desc. %</label>
-                      <Input
-                        type="number"
-                        min="0"
-                        max="100"
-                        step="0.01"
-                        value={item.desconto}
-                        onChange={(e) => {
-                          const newItens = [...itens];
-                          newItens[index].desconto = parseFloat(e.target.value) || 0;
-                          setItens(newItens);
-                        }}
-                        className="h-8"
-                      />
-                    </div>
-
-                    {usaFormula && produtoOriginal && (
-                      <div className="sm:col-span-12 grid sm:grid-cols-12 gap-2 items-center bg-amber-50 border border-amber-200 rounded px-2 py-1 -mt-1">
-                        <div className="sm:col-span-4">
-                          <label className="text-xs text-amber-700 font-medium">Comprimento solicitado (m)</label>
-                          <Input
-                            type="number"
-                            min="0.001"
-                            max={produtoOriginal.comprimento_barra || 6}
-                            step="0.001"
-                            placeholder={`máx ${produtoOriginal.comprimento_barra || 6} m`}
-                            value={item.comprimento_solicitado_mm != null ? item.comprimento_solicitado_mm / 1000 : ""}
-                            onChange={(e) => {
-                              const newItens = [...itens];
-                              newItens[index].comprimento_solicitado_mm = e.target.value ? parseFloat(e.target.value) * 1000 : null;
-                              setItens(newItens);
-                            }}
-                            className="h-7 text-xs border-amber-300"
-                          />
-                        </div>
-                        <div className="sm:col-span-8 text-xs text-amber-700 flex items-center gap-4 pt-4">
-                          {item.comprimento_solicitado_mm && item.comprimento_solicitado_mm > 0 && item.comprimento_solicitado_mm < (produtoOriginal.comprimento_barra || 6) * 1000 ? (
-                            <>
-                              <span>
-                                Sobra estimada: <strong>{(((produtoOriginal.comprimento_barra || 6) * 1000 - item.comprimento_solicitado_mm) / 1000).toFixed(3)} m</strong>
-                                {' '}x {item.quantidade} pc = <strong>{(((produtoOriginal.comprimento_barra || 6) * 1000 - item.comprimento_solicitado_mm) * item.quantidade / 1000).toFixed(3)} m</strong>
-                              </span>
-                              <span className="text-green-700 font-medium">Sobra sera registrada ao aprovar</span>
-                            </>
-                          ) : item.comprimento_solicitado_mm && item.comprimento_solicitado_mm >= (produtoOriginal.comprimento_barra || 6) * 1000 ? (
-                            <span className="text-red-600">Comprimento maior ou igual à barra — sem sobra</span>
-                          ) : (
-                            <span className="text-amber-600/70">Informe o comprimento para calcular a sobra automaticamente</span>
-                          )}
-                        </div>
-                      </div>
-                    )}
-
-                    <div className="sm:col-span-3 text-right">
-                      <p className="text-xs text-muted-foreground">R$ {subtotalBruto.toFixed(2)}</p>
-                      <p className="text-xs text-muted-foreground">-{item.desconto}% = R$ {valorDesconto.toFixed(2)}</p>
-                      <p className="font-semibold text-sm">R$ {subtotalLiquido.toFixed(2)}</p>
-                    </div>
-
-                    <div className="sm:col-span-1 text-right">
-                      <Button
-                        size="icon"
-                        variant="destructive"
-                        onClick={() => removeItem(index)}
-                        className="h-8 w-8"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-
-                    {mostrarCalculoReverso === index && usaFormula && produtoOriginal && (
-                      <div className="sm:sm:col-span-12 mt-3 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                        <div className="flex items-center justify-between mb-3">
-                          <h5 className="font-medium text-sm text-blue-800">Cálculo do Preço por Kg</h5>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => {
-                              setMostrarCalculoReverso(null);
-                              setNovoPrecoPorKg("");
-                            }}
-                            className="h-6 w-6 p-0"
-                          >
-                            <X className="h-3 w-3" />
-                          </Button>
-                        </div>
-                        
-                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
-                          <div>
-                            <label className="text-xs">Peso kg/m</label>
-                            <Input value={produtoOriginal.peso_kg_m} disabled className="h-8" />
-                          </div>
-                          <div>
-                            <label className="text-xs">Comprimento (m)</label>
-                            <Input value={produtoOriginal.comprimento_barra || 6} disabled className="h-8" />
-                          </div>
-                          <div>
-                            <label className="text-xs">Peso Total (kg)</label>
-                            <Input 
-                              value={((produtoOriginal.peso_kg_m || 0) * (produtoOriginal.comprimento_barra || 6)).toFixed(3)} 
-                              disabled 
-                              className="h-8" 
-                            />
-                          </div>
-                        </div>
-                        
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-                          <div>
-                            <label className="text-xs">Preço de Venda Atual</label>
-                            <Input value={item.preco_unitario.toFixed(2)} disabled className="h-8" />
-                          </div>
-                          <div>
-                            <label className="text-xs">Preço por Kg Calculado</label>
-                            <Input 
-                              value={item.preco_por_kg_calculado?.toFixed(2) || '0.00'} 
-                              disabled 
-                              className="h-8" 
-                            />
-                          </div>
-                        </div>
-
-                        <div className="space-y-3">
-                          <div>
-                            <label className="text-xs">Definir Novo Preço por Kg</label>
-                            <div className="flex gap-2">
-                              <Input
-                                type="number"
-                                step="0.01"
-                                min="0"
-                                placeholder="Digite o preço por kg"
-                                value={novoPrecoPorKg}
-                                onChange={(e) => setNovoPrecoPorKg(e.target.value)}
-                                className="h-8 flex-1"
-                              />
-                              <Button 
-                                size="sm" 
-                                onClick={() => {
-                                  const precoPorKg = parseFloat(novoPrecoPorKg) || 0;
-                                  if (precoPorKg > 0) {
-                                    aplicarPrecoPorKg(index, precoPorKg);
-                                  } else {
-                                    toast({
-                                      title: "Valor inválido",
-                                      description: "Digite um preço por kg válido",
-                                      variant: "destructive",
-                                    });
-                                  }
-                                }}
-                              >
-                                Aplicar
-                              </Button>
-                            </div>
-                          </div>
-
-                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => aplicarDescontoPrecoPorKg(index, 5)}
-                              className="text-xs"
-                            >
-                              -5%
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => aplicarDescontoPrecoPorKg(index, 10)}
-                              className="text-xs"
-                            >
-                              -10%
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => aplicarDescontoPrecoPorKg(index, 15)}
-                              className="text-xs"
-                            >
-                              -15%
-                            </Button>
-                          </div>
-
-                          <p className="text-xs text-muted-foreground mt-2">
-                            <strong>Fórmula:</strong> Preço por Kg = Preço de Venda ÷ (Peso kg/m × Comprimento)
-                            <br />
-                            <strong>Exemplo:</strong> R$ {item.preco_unitario.toFixed(2)} ÷ ({produtoOriginal.peso_kg_m} × {produtoOriginal.comprimento_barra || 6}) = R$ {item.preco_por_kg_calculado?.toFixed(2)}
-                          </p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-            <div className="pt-2 border-t text-right">
-              <p className="text-xl font-bold">
-                Total: {formatCurrency(valorTotal)}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {itens.length} item(ns) adicionado(s) | {itensComFormula} com fórmula de cálculo
-              </p>
-            </div>
-          </div>
-        )}
-      </div>
-
-      <div className="space-y-2">
-        <label className="text-sm font-medium">Observações</label>
-        <textarea
-          value={observacoes}
-          onChange={(e) => setObservacoes(e.target.value)}
-          placeholder="Informações adicionais..."
-          rows={3}
-          className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-        />
-      </div>
-
-      <div className="flex gap-2 justify-end">
-        <Button variant="outline" onClick={onClose} disabled={loading}>
-          Cancelar
-        </Button>
-        <Button 
-          onClick={() => handleSubmit(false)} 
-          disabled={loading || !formaPagamento || itens.length === 0 || !clienteId}
-        >
-          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Salvar"}
-        </Button>
-        <Button 
-          onClick={() => handleSubmit(true)} 
-          disabled={loading || !formaPagamento || itens.length === 0 || !clienteId} 
-          variant="outline"
-        >
-          <Download className="h-4 w-4 mr-2" />
-          Salvar e PDF
-        </Button>
-      </div>
-    </div>
-  );
-};
-
-// ========== COMPONENTE DE EDITAR ORÇAMENTO ==========
-const EditOrcamentoContent = ({ orcamento, onClose }: { orcamento: OrcamentoComItens, onClose: () => void }) => {
-  const [loading, setLoading] = useState(false);
-  const [clientes, setClientes] = useState<any[]>([]);
-  const [vendedores, setVendedores] = useState<Vendedor[]>([]);
-  const [produtos, setProdutos] = useState<Produto[]>([]);
-  const [kits, setKits] = useState<any[]>([]);
-  const [sobrasDisponiveis, setSobrasDisponiveis] = useState<any[]>([]);
-
-  const [clienteId, setClienteId] = useState(orcamento.cliente_id);
-  const [vendedorId, setVendedorId] = useState<string>(orcamento.vendedor_id || "");
-  const [observacoes, setObservacoes] = useState(orcamento.observacoes || "");
-  const [itens, setItens] = useState<ItemOrcamento[]>([]);
-  
-  const [formaPagamento, setFormaPagamento] = useState<string>(orcamento.forma_pagamento || "");
-  const [condicaoPagamento, setCondicaoPagamento] = useState<string>(orcamento.condicao_pagamento || "");
-  const [entradaValor, setEntradaValor] = useState<number>(orcamento.entrada_valor || 0);
-  const [parcelas, setParcelas] = useState<number>(orcamento.parcelas || 1);
-  const [valorEntrada, setValorEntrada] = useState<number>(orcamento.entrada_valor || 0);
-  const [valorParcela, setValorParcela] = useState<number>(orcamento.valor_parcela || 0);
-  const [parcelado, setParcelado] = useState<boolean>(orcamento.parcelado || false);
-  const [clienteLimite, setClienteLimite] = useState<number>(0);
-  
-  const [tipoItem, setTipoItem] = useState<'produto' | 'kit' | 'sobra'>('produto');
-  const [itemSelecionado, setItemSelecionado] = useState("");
-  const [quantidade, setQuantidade] = useState(1);
-  const [desconto, setDesconto] = useState(0);
-  const [searchTerm, setSearchTerm] = useState("");
-  
-  const [mostrarCalculoReverso, setMostrarCalculoReverso] = useState<number | null>(null);
-  const [novoPrecoPorKg, setNovoPrecoPorKg] = useState<string>("");
-  const [mostrarAplicarTodos, setMostrarAplicarTodos] = useState(false);
-  const [precoPorKgTodos, setPrecoPorKgTodos] = useState<string>("");
-
-  const calcularPrecoPorKgReverso = (precoVenda: number, pesoKgM: number, comprimentoBarra: number = 6) => {
-    const pesoTotal = pesoKgM * comprimentoBarra;
-    if (pesoTotal <= 0) return 0;
-    return precoVenda / pesoTotal;
-  };
-
-  const calcularPrecoVenda = (precoPorKg: number, pesoKgM: number, comprimentoBarra: number = 6) => {
-    const pesoTotal = pesoKgM * comprimentoBarra;
-    return pesoTotal * precoPorKg;
-  };
-
-  const produtoUsaFormula = (item: ItemOrcamento) => {
-    if (item.tipo !== 'produto') return false;
-    const produto = produtos.find(p => p.id === item.produto_id);
-    return produto && produto.peso_kg_m && produto.peso_kg_m > 0;
-  };
-
-  const contarItensComFormula = () => {
-    return itens.filter(item => produtoUsaFormula(item)).length;
-  };
-
-  const handlePrecoUnitarioChange = (index: number, novoPrecoUnitario: number) => {
-    const newItens = [...itens];
-    const item = newItens[index];
-    
-    if (item.tipo === 'produto') {
-      const produtoOriginal = produtos.find(p => p.id === item.produto_id);
-      if (produtoOriginal?.peso_kg_m && produtoOriginal.peso_kg_m > 0) {
-        const precoPorKgCalculado = calcularPrecoPorKgReverso(
-          novoPrecoUnitario, 
-          produtoOriginal.peso_kg_m, 
-          produtoOriginal.comprimento_barra || 6
-        );
-        
-        newItens[index] = {
-          ...item,
-          preco_unitario: novoPrecoUnitario,
-          preco_por_kg_calculado: precoPorKgCalculado
-        };
-      } else {
-        newItens[index].preco_unitario = novoPrecoUnitario;
-      }
-    } else {
-      newItens[index].preco_unitario = novoPrecoUnitario;
-    }
-    
-    setItens(newItens);
-  };
-
-  const aplicarPrecoPorKg = (index: number, precoPorKg: number) => {
-    const newItens = [...itens];
-    const item = newItens[index];
-    
-    if (item.tipo === 'produto') {
-      const produtoOriginal = produtos.find(p => p.id === item.produto_id);
-      if (produtoOriginal?.peso_kg_m && produtoOriginal.peso_kg_m > 0) {
-        const novoPrecoVenda = calcularPrecoVenda(
-          precoPorKg,
-          produtoOriginal.peso_kg_m,
-          produtoOriginal.comprimento_barra || 6
-        );
-        
-        newItens[index] = {
-          ...item,
-          preco_unitario: parseFloat(novoPrecoVenda.toFixed(2)),
-          preco_por_kg_calculado: precoPorKg
-        };
-        
-        setItens(newItens);
-        setNovoPrecoPorKg("");
-        setMostrarCalculoReverso(null);
-        
-        toast({
-          title: "Preço atualizado!",
-          description: `Preço por kg aplicado: R$ ${precoPorKg.toFixed(2)} | Novo preço: R$ ${novoPrecoVenda.toFixed(2)}`,
-        });
-      }
-    }
-  };
-
-  const aplicarDescontoPrecoPorKg = (index: number, percentualDesconto: number) => {
-    const item = itens[index];
-    if (item.preco_por_kg_calculado && percentualDesconto > 0) {
-      const novoPrecoPorKg = item.preco_por_kg_calculado * (1 - percentualDesconto / 100);
-      aplicarPrecoPorKg(index, parseFloat(novoPrecoPorKg.toFixed(2)));
-    }
-  };
-
-  const abrirModalCalculoReverso = (index: number) => {
-    setMostrarCalculoReverso(index);
-    const item = itens[index];
-    if (item.preco_por_kg_calculado) {
-      setNovoPrecoPorKg(item.preco_por_kg_calculado.toFixed(2));
-    } else {
-      setNovoPrecoPorKg("");
-    }
-  };
-
-  const aplicarPrecoPorKgTodos = (precoPorKg: number) => {
-    const newItens = [...itens];
-    let itensAtualizados = 0;
-    
-    newItens.forEach((item, index) => {
-      if (item.tipo === 'produto') {
-        const produtoOriginal = produtos.find(p => p.id === item.produto_id);
-        if (produtoOriginal?.peso_kg_m && produtoOriginal.peso_kg_m > 0) {
-          const novoPrecoVenda = calcularPrecoVenda(
-            precoPorKg,
-            produtoOriginal.peso_kg_m,
-            produtoOriginal.comprimento_barra || 6
-          );
-          
-          newItens[index] = {
-            ...item,
-            preco_unitario: parseFloat(novoPrecoVenda.toFixed(2)),
-            preco_por_kg_calculado: precoPorKg
-          };
-          itensAtualizados++;
-        }
-      }
-    });
-    
-    setItens(newItens);
-    setPrecoPorKgTodos("");
-    setMostrarAplicarTodos(false);
-    
-    toast({
-      title: "Preço aplicado para todos!",
-      description: `Preço por kg R$ ${precoPorKg.toFixed(2)} aplicado em ${itensAtualizados} itens do orçamento`,
-    });
-  };
-
-  const aplicarDescontoPrecoPorKgTodos = (percentualDesconto: number) => {
-    const newItens = [...itens];
-    let itensAtualizados = 0;
-    
-    newItens.forEach((item, index) => {
-      if (item.tipo === 'produto' && item.preco_por_kg_calculado) {
-        const produtoOriginal = produtos.find(p => p.id === item.produto_id);
-        if (produtoOriginal?.peso_kg_m && produtoOriginal.peso_kg_m > 0) {
-          const novoPrecoPorKg = item.preco_por_kg_calculado * (1 - percentualDesconto / 100);
-          const novoPrecoVenda = calcularPrecoVenda(
-            novoPrecoPorKg,
-            produtoOriginal.peso_kg_m,
-            produtoOriginal.comprimento_barra || 6
-          );
-          
-          newItens[index] = {
-            ...item,
-            preco_unitario: parseFloat(novoPrecoVenda.toFixed(2)),
-            preco_por_kg_calculado: parseFloat(novoPrecoPorKg.toFixed(2))
-          };
-          itensAtualizados++;
-        }
-      }
-    });
-    
-    setItens(newItens);
-    
-    toast({
-      title: "Desconto aplicado para todos!",
-      description: `Desconto de ${percentualDesconto}% aplicado em ${itensAtualizados} itens do orçamento`,
-    });
-  };
-
-  const calcularSubtotalComDesconto = (item: ItemOrcamento) => {
-    const subtotal = item.quantidade * item.preco_unitario;
-    const valorDesconto = (subtotal * item.desconto) / 100;
-    return subtotal - valorDesconto;
-  };
-
-  const calcularValorTotal = () => {
-    return itens.reduce((sum, item) => sum + calcularSubtotalComDesconto(item), 0);
-  };
-
-  const valorTotal = calcularValorTotal();
-
-  useEffect(() => {
-    fetchClientes();
-    fetchVendedores();
-    fetchProdutos();
-    fetchKits();
-    fetchSobrasDisponiveis();
-  }, []);
-
-  useEffect(() => {
-    if (valorTotal > 0) {
-      calcularPagamento();
-    }
-  }, [formaPagamento, condicaoPagamento, entradaValor, parcelas, valorTotal, parcelado]);
-
-  useEffect(() => {
-    if (clienteId) {
-      fetchClienteLimite();
-    } else {
-      setClienteLimite(0);
-    }
-  }, [clienteId]);
-
-  useEffect(() => {
-    if (orcamento.orcamento_itens && produtos.length > 0) {
-      const itensConvertidos: ItemOrcamento[] = orcamento.orcamento_itens.map(item => {
-        if (item.produto_id) {
-          const produto = produtos.find(p => p.id === item.produto_id);
-          
-          let precoPorKgCalculado = 0;
-          if (produto?.peso_kg_m && produto.peso_kg_m > 0) {
-            precoPorKgCalculado = calcularPrecoPorKgReverso(
-              item.preco_unitario,
-              produto.peso_kg_m,
-              produto.comprimento_barra || 6
-            );
-          }
-          
-          return {
-            id: item.id,
-            produto_id: item.produto_id,
-            codigo: produto?.codigo || '',
-            nome: produto?.nome || '',
-            descricao: produto?.descricao || produto?.nome || '',
-            localizacao: produto?.localizacao || '-',
-            quantidade: item.quantidade,
-            preco_unitario: item.preco_unitario,
-            peso: item.peso,
-            desconto: item.desconto || 0,
-            tipo: 'produto',
-            estoque_disponivel: produto?.estoque,
-            categoria: produto?.categoria,
-            cor: produto?.cor,
-            preco_por_kg_calculado: precoPorKgCalculado
-          };
-        } else {
-          const kit = kits.find(k => k.id === item.kit_id);
-          return {
-            id: item.id,
-            kit_id: item.kit_id || '',
-            codigo: kit?.codigo || '',
-            nome: kit?.nome || '',
-            descricao: kit?.descricao || kit?.nome || '',
-            localizacao: '-',
-            quantidade: item.quantidade,
-            preco_unitario: item.preco_unitario,
-            peso: null,
-            desconto: item.desconto || 0,
-            tipo: 'kit',
-            estoque_disponivel: kit?.estoque_disponivel
-          };
-        }
-      });
-      
-      console.log('Itens convertidos:', itensConvertidos);
-      setItens(itensConvertidos);
-    }
-  }, [orcamento, produtos, kits]);
-
-  const fetchClienteLimite = async () => {
-    const { data } = await supabase
-      .from('clientes')
-      .select('limite_credito')
-      .eq('id', clienteId)
-      .single();
-    
-    if (data) {
-      setClienteLimite(data.limite_credito || 0);
-    }
-  };
-
-  const fetchClientes = async () => {
-    const { data } = await supabase
-      .from('clientes')
-      .select('*')
-      .order('nome');
-    if (data) setClientes(data);
-  };
-
-  const fetchVendedores = async () => {
-    const { data } = await supabase
-      .from('vendedores')
-      .select('*')
-      .eq('ativo', true)
-      .order('nome');
-    if (data) setVendedores(data as Vendedor[]);
-  };
-
-  const fetchProdutos = async () => {
-    const { data } = await supabase
-      .from('produtos')
-      .select('id, codigo, nome, descricao, cor, preco, peso, estoque, localizacao, categoria, peso_kg_m, comprimento_barra, ativo, unidade, preco_por_kg, custo')
-      .eq('ativo', true)
-      .order('nome');
-    if (data) setProdutos(data as Produto[]);
-  };
-
-  const fetchKits = async () => {
-    try {
-      const { data: estoqueData, error: estoqueError } = await supabase
-        .from('kits_estoque_disponivel')
-        .select(`
-          kit_id,
-          estoque_disponivel,
-          codigo,
-          nome,
-          preco_total,
-          descricao
-        `)
-        .eq('ativo', true);
-      
-      if (estoqueError) {
-        console.error('❌ Erro ao buscar estoque dos kits:', estoqueError);
-        return;
-      }
-      
-      if (!estoqueData || estoqueData.length === 0) {
-        setKits([]);
-        return;
-      }
-      
-      const kitsFormatados = estoqueData.map(item => ({
-        id: item.kit_id,
-        codigo: item.codigo,
-        nome: item.nome,
-        preco_total: item.preco_total,
-        descricao: item.descricao,
-        estoque_disponivel: item.estoque_disponivel || 0
-      }));
-      
-      setKits(kitsFormatados);
-      
-    } catch (error) {
-      console.error('❌ Erro ao buscar kits:', error);
-      setKits([]);
-    }
-  };
-
-  const produtosFiltrados = produtos.filter(produto => {
-    if (!searchTerm) return true;
-    const search = searchTerm.toLowerCase().trim();
-    return (
-      produto.nome?.toLowerCase().includes(search) ||
-      produto.codigo?.toLowerCase().includes(search) ||
-      produto.cor?.toLowerCase().includes(search) ||
-      produto.descricao?.toLowerCase().includes(search) ||
-      produto.categoria?.toLowerCase().includes(search)
-    );
-  });
-
-  const kitsFiltrados = kits.filter(kit => {
-    if (!searchTerm) return true;
-    const search = searchTerm.toLowerCase().trim();
-    return (
-      kit.nome?.toLowerCase().includes(search) ||
-      kit.codigo?.toLowerCase().includes(search) ||
-      kit.descricao?.toLowerCase().includes(search)
-    );
-  });
-
-  const fetchSobrasDisponiveis = async () => {
-    const { data } = await supabase
-      .from('sobras_perfis')
-      .select('id, codigo_perfil, nome_perfil, comprimento_mm, peso_kg_m, valor_calculado, categoria, cor, localizacao')
-      .eq('status', 'disponivel')
-      .order('nome_perfil');
-    if (data) setSobrasDisponiveis(data);
-  };
-
-  const sobrasFiltradas = sobrasDisponiveis.filter(s => {
-    if (!searchTerm) return true;
-    const search = searchTerm.toLowerCase().trim();
-    return (
-      s.nome_perfil?.toLowerCase().includes(search) ||
-      s.codigo_perfil?.toLowerCase().includes(search) ||
-      s.cor?.toLowerCase().includes(search) ||
-      s.categoria?.toLowerCase().includes(search)
-    );
-  });
-
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-    }).format(value);
-  };
-
-  const getFormaPagamentoLabel = (forma: string) => {
-    const formas: Record<string, string> = {
-      'avista': 'À Vista',
-      'boleto': 'Boleto',
-      'credito': 'Cartão de Crédito',
-      'debito': 'Cartão de Débito',
-      'credito_cliente': 'Cliente com Crédito',
-    };
-    return formas[forma] || forma;
-  };
-
-  const getDescricaoCondicao = (condicao: string): string => {
-    const descricoes: Record<string, string> = {
-      "28": "1 parcela em 28 dias",
-      "28/56": "1ª parcela em 28 dias, 2ª parcela em 56 dias",
-      "0/28/56": "1ª parcela à vista, 2ª em 28 dias, 3ª em 56 dias",
-      "15": "1 parcela em 15 dias",
-      "15/30": "1ª parcela em 15 dias, 2ª parcela em 30 dias",
-      "0/15/30": "1ª parcela à vista, 2ª em 15 dias, 3ª em 30 dias",
-    };
-    return descricoes[condicao] || condicao;
-  };
-
-  const formatarProdutoSelect = (produto: Produto) => {
-    const nomeCurto = produto.nome.length > 40 
-      ? produto.nome.substring(0, 40) + '...' 
-      : produto.nome;
-    
-    let corInfo = produto.cor ? ` - ${produto.cor}` : '';
-    let estoqueInfo = '';
-    let estoqueColor = '';
-    
-    if (produto.estoque <= 0) {
-      estoqueInfo = ` ⚠️ SEM ESTOQUE`;
-      estoqueColor = 'text-red-600';
-    } else if (produto.estoque < 10) {
-      estoqueInfo = ` 📦 ${produto.estoque} und (baixo)`;
-      estoqueColor = 'text-yellow-600';
-    } else {
-      estoqueInfo = ` 📦 ${produto.estoque} und`;
-      estoqueColor = 'text-green-600';
-    }
-    
-    return {
-      text: `${produto.codigo} - ${nomeCurto}${corInfo} - ${formatCurrency(produto.preco)}`,
-      estoqueInfo,
-      estoqueColor
-    };
-  };
-
-  const formatarKitSelect = (kit: any) => {
-    const nomeCurto = kit.nome.length > 40 
-      ? kit.nome.substring(0, 40) + '...' 
-      : kit.nome;
-    
-    const estoque = kit.estoque_disponivel || 0;
-    
-    let estoqueInfo = '';
-    let estoqueColor = '';
-    
-    if (estoque <= 0) {
-      estoqueInfo = ` ⚠️ SEM ESTOQUE`;
-      estoqueColor = 'text-red-600';
-    } else if (estoque < 10) {
-      estoqueInfo = ` 📦 ${estoque} und (baixo)`;
-      estoqueColor = 'text-yellow-600';
-    } else {
-      estoqueInfo = ` 📦 ${estoque} und`;
-      estoqueColor = 'text-green-600';
-    }
-    
-    return {
-      text: `${kit.codigo} - ${nomeCurto} - ${formatCurrency(kit.preco_total)}`,
-      estoqueInfo,
-      estoqueColor
-    };
-  };
-
-  const addItem = () => {
-    if (!itemSelecionado || quantidade <= 0) return;
-
-    if (tipoItem === 'produto') {
-      const produto = produtos.find(p => p.id === itemSelecionado);
-      if (!produto) return;
-      
-      let precoPorKgCalculado = 0;
-      if (produto.peso_kg_m && produto.peso_kg_m > 0) {
-        precoPorKgCalculado = calcularPrecoPorKgReverso(
-          produto.preco,
-          produto.peso_kg_m,
-          produto.comprimento_barra || 6
-        );
-      }
-      
-      if (produto.estoque < quantidade) {
-        toast({
-          title: "⚠️ Estoque insuficiente",
-          description: `${produto.nome} - Estoque: ${produto.estoque}, Solicitado: ${quantidade}`,
-          variant: "default",
-        });
-      }
-
-      const itemId = `temp-${Date.now()}-${Math.random()}`;
-
-      setItens([...itens, {
-        id: itemId,
-        produto_id: produto.id,
-        codigo: produto.codigo,
-        nome: produto.nome,
-        descricao: produto.descricao || produto.nome,
-        localizacao: produto.localizacao || '-',
-        quantidade,
-        preco_unitario: produto.preco,
-        peso: produto.peso,
-        desconto: desconto,
-        tipo: 'produto',
-        estoque_disponivel: produto.estoque,
-        categoria: produto.categoria,
-        cor: produto.cor,
-        preco_por_kg_calculado: precoPorKgCalculado
-      }]);
-      
-    } else if (tipoItem === 'kit') {
-      const kit = kits.find(k => k.id === itemSelecionado);
-      if (!kit) return;
-
-      const estoqueKit = kit.estoque_disponivel || 0;
-      
-      if (estoqueKit < quantidade) {
-        toast({
-          title: "⚠️ Estoque insuficiente",
-          description: `${kit.nome} - Estoque: ${estoqueKit}, Solicitado: ${quantidade}`,
-          variant: "default",
-        });
-      }
-
-      const itemId = `temp-${Date.now()}-${Math.random()}`;
-
-      setItens([...itens, {
-        id: itemId,
-        kit_id: kit.id,
-        codigo: kit.codigo,
-        nome: kit.nome,
-        descricao: kit.descricao || kit.nome,
-        localizacao: '-',
-        quantidade,
-        preco_unitario: kit.preco_total,
-        peso: null,
-        desconto: desconto,
-        tipo: 'kit',
-        estoque_disponivel: estoqueKit
-      }]);
-    } else if (tipoItem === 'sobra') {
-      const sobra = sobrasDisponiveis.find(s => s.id === itemSelecionado);
-      if (!sobra) return;
-
-      const itemId = `temp-${Date.now()}-${Math.random()}`;
-      const comprimentoM = sobra.comprimento_mm / 1000;
-      const peso = sobra.peso_kg_m ? parseFloat((comprimentoM * sobra.peso_kg_m).toFixed(4)) : null;
-
-      setItens([...itens, {
-        id: itemId,
-        produto_id: undefined,
-        kit_id: undefined,
-        sobra_id: sobra.id,
-        codigo: sobra.codigo_perfil,
-        nome: `${sobra.nome_perfil} (Sobra ${comprimentoM.toFixed(3)}m)`,
-        descricao: `Sobra de perfil — ${comprimentoM.toFixed(3)} m`,
-        localizacao: sobra.localizacao || '-',
-        quantidade: 1,
-        preco_unitario: sobra.valor_calculado || 0,
-        peso,
-        desconto: desconto,
-        tipo: 'sobra',
-        categoria: sobra.categoria,
-        cor: sobra.cor,
-        comprimento_solicitado_mm: null,
-      }]);
-    }
-
-    setItemSelecionado("");
-    setQuantidade(1);
-    setDesconto(0);
-    setSearchTerm("");
-  };
-
-  const removeItem = (index: number) => {
-    setItens(itens.filter((_, i) => i !== index));
-    if (mostrarCalculoReverso === index) {
-      setMostrarCalculoReverso(null);
-    }
-  };
-
-  const calcularPagamento = () => {
-    if (valorTotal <= 0) {
-      setValorEntrada(0);
-      setValorParcela(0);
-      return;
-    }
-
-    if (formaPagamento === "avista" || !parcelado || formaPagamento === "credito_cliente") {
-      setValorEntrada(valorTotal);
-      setValorParcela(0);
-      setParcelas(1);
-      setEntradaValor(0);
-      setCondicaoPagamento("");
-      return;
-    }
-
-    if (formaPagamento === "boleto" || formaPagamento === "credito" || formaPagamento === "debito") {
-      
-      let totalParcelas = 1;
-      let temEntradaHoje = false;
-      
-      if (condicaoPagamento) {
-        switch (condicaoPagamento) {
-          case "28":
-          case "15":
-            totalParcelas = 1;
-            break;
-          case "28/56":
-          case "15/30":
-            totalParcelas = 2;
-            break;
-          case "0/28/56":
-          case "0/15/30":
-            totalParcelas = 3;
-            temEntradaHoje = true;
-            break;
-          default:
-            totalParcelas = parcelas;
-        }
-      } else {
-        totalParcelas = parcelas;
-      }
-      
-      setParcelas(totalParcelas);
-      
-      let valorCalculadoEntrada = entradaValor || 0;
-      
-      if (valorCalculadoEntrada > valorTotal) {
-        valorCalculadoEntrada = valorTotal;
-        setEntradaValor(valorTotal);
-      }
-      
-      if (temEntradaHoje && valorCalculadoEntrada === 0) {
-        valorCalculadoEntrada = Number((valorTotal * 0.5).toFixed(2));
-        setEntradaValor(valorCalculadoEntrada);
-      }
-      
-      let valorCalculadoParcela = 0;
-      
-      if (temEntradaHoje) {
-        const valorRestante = valorTotal - valorCalculadoEntrada;
-        const parcelasFuturas = totalParcelas - 1;
-        
-        if (parcelasFuturas > 0) {
-          valorCalculadoParcela = Number((valorRestante / parcelasFuturas).toFixed(2));
-        } else {
-          valorCalculadoParcela = 0;
-        }
-      } else if (valorCalculadoEntrada > 0) {
-        const valorRestante = valorTotal - valorCalculadoEntrada;
-        valorCalculadoParcela = totalParcelas > 0 ? Number((valorRestante / totalParcelas).toFixed(2)) : 0;
-      } else {
-        valorCalculadoParcela = totalParcelas > 0 ? Number((valorTotal / totalParcelas).toFixed(2)) : 0;
-      }
-      
-      valorCalculadoEntrada = Math.round(valorCalculadoEntrada * 100) / 100;
-      valorCalculadoParcela = Math.round(valorCalculadoParcela * 100) / 100;
-      
-      setValorEntrada(valorCalculadoEntrada);
-      setValorParcela(valorCalculadoParcela);
-    }
-  };
-
-  const validarCalculoParcelas = (): boolean => {
-    if (!parcelado || formaPagamento === "avista" || formaPagamento === "credito_cliente") {
-      return true;
-    }
-    
-    const temEntradaHoje = condicaoPagamento?.startsWith('0/') || false;
-    const parcelasFuturas = temEntradaHoje ? parcelas - 1 : parcelas;
-    
-    const totalCalculado = valorEntrada + (valorParcela * parcelasFuturas);
-    const diferenca = Math.abs(totalCalculado - valorTotal);
-    
-    if (diferenca > 0.02) {
-      toast({
-        title: "❌ Erro no cálculo",
-        description: `Diferença de R$ ${diferenca.toFixed(2)}. Ajuste os valores.`,
-        variant: "destructive",
-      });
-      return false;
-    }
-    
-    return true;
-  };
-
-  const mostrarCampoEntrada = () => {
-    return parcelado && formaPagamento !== "avista" && formaPagamento !== "credito_cliente";
-  };
-
-  const salvarOrcamento = async (gerarPDF: boolean = false) => {
-    setLoading(true);
-    
-    try {
-      let totalParcelas = parcelas;
-      if (condicaoPagamento?.startsWith('0/')) {
-        totalParcelas = parcelas;
-      }
-      
-      const entradaPercentual = valorEntrada > 0 ? (valorEntrada / valorTotal) * 100 : 0;
-      
-      let obsPagamento = "";
-      
-      if (formaPagamento === "avista" || !parcelado) {
-        obsPagamento = `Pagamento à vista - Total: ${formatCurrency(valorTotal)}`;
-      } else if (formaPagamento === "credito_cliente") {
-        obsPagamento = `Pagamento com crédito do cliente - Total: ${formatCurrency(valorTotal)} - Limite do cliente: R$ ${clienteLimite.toFixed(2)}`;
-      } else {
-        obsPagamento = `Pagamento: ${getFormaPagamentoLabel(formaPagamento)}`;
-        if (condicaoPagamento) {
-          obsPagamento += ` - ${getDescricaoCondicao(condicaoPagamento)}`;
-        }
-        if (valorEntrada > 0) {
-          obsPagamento += ` - Entrada: ${formatCurrency(valorEntrada)} (hoje)`;
-        }
-        if (valorParcela > 0) {
-          if (condicaoPagamento?.startsWith('0/')) {
-            obsPagamento += ` - ${totalParcelas - 1}x ${formatCurrency(valorParcela)}`;
-          } else {
-            obsPagamento += ` - ${totalParcelas}x ${formatCurrency(valorParcela)}`;
-          }
-        }
-      }
-
-      const observacoesCompletas = observacoes 
-        ? `${obsPagamento}\n\n${observacoes}`
-        : obsPagamento;
-
-      const { error: orcError } = await supabase
-        .from('orcamentos')
-        .update({
-          cliente_id: clienteId,
-          vendedor_id: vendedorId || null,
-          valor_total: Number(valorTotal.toFixed(2)),
-          observacoes: observacoesCompletas.substring(0, 500),
-          forma_pagamento: formaPagamento,
-          condicao_pagamento: condicaoPagamento || null,
-          entrada_percentual: entradaPercentual > 0 ? Number(entradaPercentual.toFixed(2)) : null,
-          entrada_valor: valorEntrada > 0 ? Number(valorEntrada.toFixed(2)) : null,
-          parcelas: totalParcelas || null,
-          valor_parcela: valorParcela > 0 ? Number(valorParcela.toFixed(2)) : null,
-          parcelado: parcelado,
-          numero_parcelas: parcelado ? totalParcelas : 1,
-          pagamento_misto: orcamento.pagamento_misto || false,
-          valor_credito_utilizado: orcamento.valor_credito_utilizado,
-          forma_pagamento_restante: orcamento.forma_pagamento_restante,
-          condicao_pagamento_restante: orcamento.condicao_pagamento_restante,
-          parcelas_restante: orcamento.parcelas_restante,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', orcamento.id);
-
-      if (orcError) throw orcError;
-
-      const { error: deleteError } = await supabase
-        .from('orcamento_itens')
-        .delete()
-        .eq('orcamento_id', orcamento.id);
-
-      if (deleteError) throw deleteError;
-
-      const orcamentoItens = itens.map(item => {
-        const subtotalComDesconto = calcularSubtotalComDesconto(item);
-        
-        return {
-          orcamento_id: orcamento.id,
-          produto_id: item.tipo === 'produto' ? item.produto_id : null,
-          kit_id: item.tipo === 'kit' ? item.kit_id : null,
-          quantidade: item.quantidade,
-          preco_unitario: Number(item.preco_unitario.toFixed(2)),
-          desconto: item.desconto,
-          peso: item.peso,
-          subtotal: Number(subtotalComDesconto.toFixed(2)),
-          comprimento_solicitado_mm: item.comprimento_solicitado_mm ?? null,
-        };
-      });
-
-      const { error: itensError } = await supabase
-        .from('orcamento_itens')
-        .insert(orcamentoItens);
-
-      if (itensError) throw itensError;
-
-      await supabase
-        .from('comissoes')
-        .delete()
-        .eq('orcamento_id', orcamento.id);
-
-      if (vendedorId) {
-        const vendedorSelecionado = vendedores.find(v => v.id === vendedorId);
-        if (vendedorSelecionado) {
-          const valorComissao = (valorTotal * vendedorSelecionado.comissao_percentual) / 100;
-          
-          await supabase
-            .from('comissoes')
-            .insert({
-              orcamento_id: orcamento.id,
-              vendedor_id: vendedorId,
-              valor_orcamento: valorTotal,
-              percentual_comissao: vendedorSelecionado.comissao_percentual,
-              valor_comissao: Number(valorComissao.toFixed(2)),
-              status: 'pendente',
-            });
-        }
-      }
-
-      toast({
-        title: "✅ Orçamento atualizado!",
-        description: `Orçamento ${orcamento.numero} atualizado com sucesso.`,
-      });
-
-      if (gerarPDF) {
-        setTimeout(() => {
-          toast({
-            title: "📄 PDF gerado!",
-            description: "O arquivo será baixado em instantes.",
-          });
-        }, 500);
-      }
-
-      onClose();
-      
-    } catch (error: any) {
-      console.error('❌ Erro:', error);
-      toast({
-        title: "❌ Erro ao atualizar orçamento",
-        description: error.message,
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSubmit = async (gerarPDF: boolean = false) => {
-    if (!clienteId || itens.length === 0) {
-      toast({
-        title: "Dados incompletos",
-        description: "Selecione um cliente e adicione produtos",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!formaPagamento) {
-      toast({
-        title: "Forma de pagamento obrigatória",
-        description: "Selecione uma forma de pagamento",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const formasPagamentoOpcionais = ["credito", "debito", "credito_cliente"];
-    
-    if (parcelado && !formasPagamentoOpcionais.includes(formaPagamento) && !condicaoPagamento) {
-      toast({
-        title: "Condição de pagamento obrigatória",
-        description: "Selecione uma condição de pagamento",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (parcelado && !validarCalculoParcelas()) {
-      return;
-    }
-
-    await salvarOrcamento(gerarPDF);
-  };
-
-  const itensComFormula = contarItensComFormula();
-
-  return (
-    <div className="space-y-6">
-      <div className="space-y-2">
-        <label className="text-sm font-medium">Cliente *</label>
-        <Select value={clienteId || "sem_cliente"} onValueChange={(value) => {
-          setClienteId(value === "sem_cliente" ? "" : value);
-        }}>
-          <SelectTrigger>
-            <SelectValue placeholder="Selecione um cliente" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="sem_cliente">Selecione um cliente</SelectItem>
-            {clientes.map(cliente => (
-              <SelectItem key={cliente.id} value={cliente.id}>
-                {cliente.nome} - {cliente.cpf_cnpj}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        {clienteLimite > 0 && (
-          <p className="text-xs text-blue-600">
-            Limite de crédito disponível: {formatCurrency(clienteLimite)}
-          </p>
-        )}
-      </div>
-
-      <div className="space-y-2">
-        <label className="text-sm font-medium">Vendedor (opcional)</label>
-        <Select value={vendedorId || "sem_vendedor"} onValueChange={(value) => {
-          setVendedorId(value === "sem_vendedor" ? "" : value);
-        }}>
-          <SelectTrigger>
-            <SelectValue placeholder="Selecione um vendedor" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="sem_vendedor">Sem vendedor</SelectItem>
-            {vendedores.map(vendedor => (
-              <SelectItem key={vendedor.id} value={vendedor.id}>
-                <div className="flex items-center justify-between w-full">
-                  <span>{vendedor.nome}</span>
-                  <Badge variant="outline" className="ml-2 text-xs">
-                    {vendedor.comissao_percentual}%
-                  </Badge>
-                </div>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        {vendedorId && (
-          <p className="text-xs text-green-600 mt-1">
-            Comissão de {vendedores.find(v => v.id === vendedorId)?.comissao_percentual}% será calculada automaticamente
-          </p>
-        )}
-      </div>
-
-      <div className="border rounded-lg p-4 space-y-4">
-        <h3 className="font-semibold">Condições de Pagamento</h3>
-        
-        <div className="space-y-4">
-          <div className="flex items-center space-x-2">
-            <input
-              type="checkbox"
-              id="parcelado"
-              checked={parcelado}
-              onChange={(e) => {
-                setParcelado(e.target.checked);
-                if (!e.target.checked) {
-                  setFormaPagamento("avista");
-                  setCondicaoPagamento("");
-                  setEntradaValor(0);
-                }
-              }}
-              className="h-4 w-4 rounded border-gray-300"
-              disabled={formaPagamento === "credito_cliente"}
-            />
-            <label htmlFor="parcelado" className="text-sm font-medium">
-              Pagamento Parcelado?
-            </label>
-          </div>
-          
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Forma de Pagamento *</label>
-              <Select value={formaPagamento || "sem_forma"} onValueChange={(value) => {
-                const novaForma = value === "sem_forma" ? "" : value;
-                setFormaPagamento(novaForma);
-                
-                if (novaForma === "credito_cliente") {
-                  setParcelado(false);
-                  setCondicaoPagamento("");
-                  setEntradaValor(0);
-                  setParcelas(1);
-                } else if (novaForma === "avista") {
-                  setParcelado(false);
-                  setCondicaoPagamento("");
-                  setEntradaValor(0);
-                  setParcelas(1);
-                }
-              }}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="sem_forma">Selecione uma forma</SelectItem>
-                  <SelectItem value="avista">À Vista</SelectItem>
-                  <SelectItem value="boleto">Boleto</SelectItem>
-                  <SelectItem value="credito">Cartão de Crédito</SelectItem>
-                  <SelectItem value="debito">Cartão de Débito</SelectItem>
-                  <SelectItem value="credito_cliente">Cliente com Crédito</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {parcelado && (
-              <>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">
-                    Condição de Pagamento 
-                    {formaPagamento !== "credito" && formaPagamento !== "debito" && " *"}
-                  </label>
-                  <Select 
-                    value={condicaoPagamento || "sem_condicao"} 
-                    onValueChange={(value) => {
-                      setCondicaoPagamento(value === "sem_condicao" ? "" : value);
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder={
-                        formaPagamento === "credito" || formaPagamento === "debito"
-                          ? "Opcional - pode selecionar se desejar" 
-                          : "Selecione"
-                      } />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="sem_condicao">
-                        {formaPagamento === "credito" || formaPagamento === "debito" 
-                          ? "Sem condição especial" 
-                          : "Selecione uma condição"}
-                      </SelectItem>
-                      <SelectItem value="28">28 dias</SelectItem>
-                      <SelectItem value="28/56">28/56 dias</SelectItem>
-                      <SelectItem value="0/28/56">0/28/56 dias</SelectItem>
-                      <SelectItem value="15">15 dias</SelectItem>
-                      <SelectItem value="15/30">15/30 dias</SelectItem>
-                      <SelectItem value="0/15/30">0/15/30 dias</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {(formaPagamento === "credito" || formaPagamento === "debito") && (
-                    <p className="text-xs text-muted-foreground mt-1">
-                      A condição de pagamento é opcional para cartão de crédito e débito
-                    </p>
-                  )}
-                </div>
-
-                {mostrarCampoEntrada() && (
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Valor da Entrada (R$)</label>
-                    <Input
-                      type="number"
-                      min="0"
-                      max={valorTotal}
-                      step="0.01"
-                      value={entradaValor}
-                      onChange={(e) => setEntradaValor(parseFloat(e.target.value) || 0)}
-                      placeholder="0,00"
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      {condicaoPagamento?.startsWith('0/') 
-                        ? "Entrada obrigatória - vencimento hoje"
-                        : "Entrada opcional"}
-                    </p>
-                  </div>
-                )}
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Número de Parcelas</label>
-                  <Input
-                    type="number"
-                    min="1"
-                    max="12"
-                    value={parcelas}
-                    onChange={(e) => setParcelas(parseInt(e.target.value) || 1)}
-                    disabled={!!condicaoPagamento}
-                  />
-                </div>
-              </>
-            )}
-          </div>
-
-          {valorTotal > 0 && formaPagamento && (
-            <div className="pt-4 border-t">
-              <h4 className="font-medium mb-2">Resumo do Pagamento:</h4>
-              <div className="bg-gray-50 p-3 rounded-lg text-sm space-y-1">
-                <div className="flex justify-between">
-                  <span>Valor Total:</span>
-                  <span className="font-bold">{formatCurrency(valorTotal)}</span>
-                </div>
-                
-                {formaPagamento === "credito_cliente" ? (
-                  <div className="flex justify-between text-purple-600">
-                    <span>Pagamento:</span>
-                    <span className="font-medium">Crédito do Cliente</span>
-                  </div>
-                ) : !parcelado || formaPagamento === "avista" ? (
-                  <div className="flex justify-between text-green-600">
-                    <span>Pagamento:</span>
-                    <span className="font-medium">À Vista</span>
-                  </div>
-                ) : (
-                  <>
-                    {valorEntrada > 0 && (
-                      <div className="flex justify-between text-green-600">
-                        <span>Entrada (hoje):</span>
-                        <span className="font-medium">{formatCurrency(valorEntrada)}</span>
-                      </div>
-                    )}
-                    
-                    {valorParcela > 0 && (
-                      <>
-                        <div className="flex justify-between">
-                          <span>
-                            {condicaoPagamento?.startsWith('0/') 
-                              ? `${parcelas - 1}x de:`
-                              : `${parcelas}x de:`}
-                          </span>
-                          <span className="font-medium">{formatCurrency(valorParcela)}</span>
-                        </div>
-                        
-                        <div className="flex justify-between text-xs text-gray-500 pt-1 border-t border-gray-200 mt-1">
-                          <span>Total parcelado:</span>
-                          <span>
-                            {formatCurrency(
-                              condicaoPagamento?.startsWith('0/')
-                                ? valorParcela * (parcelas - 1)
-                                : valorParcela * parcelas
-                            )}
-                          </span>
-                        </div>
-                      </>
-                    )}
-                    
-                    {condicaoPagamento && (
-                      <div className="flex justify-between text-xs text-gray-500">
-                        <span>Condição:</span>
-                        <span>{getDescricaoCondicao(condicaoPagamento)}</span>
-                      </div>
-                    )}
-                  </>
-                )}
-                
-                {valorEntrada > 0 && valorEntrada < valorTotal && (
-                  <div className="flex justify-between text-xs text-blue-600 pt-1 border-t border-blue-200 mt-1">
-                    <span>Saldo após entrada:</span>
-                    <span className="font-medium">{formatCurrency(valorTotal - valorEntrada)}</span>
-                  </div>
-                )}
-
-                {vendedorId && (
-                  <div className="flex justify-between text-xs text-green-600 pt-1 border-t border-green-200 mt-1">
-                    <span>Comissão do vendedor:</span>
-                    <span className="font-medium">
-                      {formatCurrency((valorTotal * (vendedores.find(v => v.id === vendedorId)?.comissao_percentual || 0)) / 100)}
-                    </span>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      <div className="border rounded-lg p-4 space-y-4">
-        <div className="flex justify-between items-center">
-          <h3 className="font-semibold">Itens do Orçamento</h3>
-          {itensComFormula > 0 && (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setMostrarAplicarTodos(true)}
-              className="gap-2"
-            >
-              <Zap className="h-4 w-4" />
-              Aplicar Preço por Kg para Todos
-            </Button>
-          )}
-        </div>
-
-        {mostrarAplicarTodos && (
-          <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-            <div className="flex items-center justify-between mb-3">
-              <h5 className="font-medium text-sm text-green-800">
-                Aplicar Preço por Kg para Todos os Itens
-              </h5>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => {
-                  setMostrarAplicarTodos(false);
-                  setPrecoPorKgTodos("");
-                }}
-                className="h-6 w-6 p-0"
-              >
-                <X className="h-3 w-3" />
-              </Button>
-            </div>
-            
-            <div className="space-y-3">
-              <div>
-                <label className="text-xs">Preço por Kg para Todos os Itens</label>
-                <div className="flex gap-2">
-                  <Input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    placeholder="Digite o preço por kg para todos"
-                    value={precoPorKgTodos}
-                    onChange={(e) => setPrecoPorKgTodos(e.target.value)}
-                    className="h-8 flex-1"
-                  />
-                  <Button 
-                    size="sm" 
-                    onClick={() => {
-                      const precoPorKg = parseFloat(precoPorKgTodos) || 0;
-                      if (precoPorKg > 0) {
-                        aplicarPrecoPorKgTodos(precoPorKg);
-                      } else {
-                        toast({
-                          title: "Valor inválido",
-                          description: "Digite um preço por kg válido",
-                          variant: "destructive",
-                        });
-                      }
-                    }}
-                  >
-                    Aplicar para Todos
-                  </Button>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => aplicarDescontoPrecoPorKgTodos(5)}
-                  className="text-xs"
-                >
-                  -5% Todos
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => aplicarDescontoPrecoPorKgTodos(10)}
-                  className="text-xs"
-                >
-                  -10% Todos
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => aplicarDescontoPrecoPorKgTodos(15)}
-                  className="text-xs"
-                >
-                  -15% Todos
-                </Button>
-              </div>
-
-              <p className="text-xs text-muted-foreground">
-                Esta ação aplicará o mesmo preço por kg para todos os {itensComFormula} itens que usam a fórmula de cálculo.
-              </p>
-            </div>
-          </div>
-        )}
-
-        {itens.length > 0 && (
-          <div className="space-y-2">
-            <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
-              {itens.map((item, index) => {
-                const subtotalBruto = item.quantidade * item.preco_unitario;
-                const valorDesconto = (subtotalBruto * item.desconto) / 100;
-                const subtotalLiquido = subtotalBruto - valorDesconto;
-                const usaFormula = produtoUsaFormula(item);
-                const produtoOriginal = produtos.find(p => p.id === item.produto_id);
-                const semEstoque = item.estoque_disponivel !== undefined && item.quantidade > item.estoque_disponivel;
-                
-                return (
-                  <div key={item.id} className={`grid grid-cols-1 sm:grid-cols-12 gap-2 items-start sm:items-center p-3 rounded-lg ${semEstoque ? 'bg-yellow-100 border border-yellow-300' : 'bg-secondary'}`}>
-                    <div className="sm:col-span-4">
-                      <p className="font-medium text-sm">{item.descricao}</p>
-                      <div className="flex gap-2 text-xs text-muted-foreground">
-                        <span>Cód: {item.codigo}</span>
-                        <span>| {item.tipo}</span>
-                        {item.cor && <span>| Cor: {item.cor}</span>}
-                        {semEstoque && (
-                          <span className="text-yellow-700 font-medium">
-                            ⚠️ Estoque: {item.estoque_disponivel}
-                          </span>
-                        )}
-                      </div>
-                      {usaFormula && produtoOriginal && (
-                        <div className="flex gap-2 text-xs text-blue-700">
-                          <span>Peso: {produtoOriginal.peso_kg_m}kg/m</span>
-                          {item.preco_por_kg_calculado && (
-                            <span>R$ {item.preco_por_kg_calculado.toFixed(2)}/kg</span>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                    
-                    <div className="sm:col-span-1">
-                      <label className="text-xs">Qtd</label>
-                      <Input
-                        type="number"
-                        min="1"
-                        value={item.quantidade}
-                        onChange={(e) => {
-                          const newItens = [...itens];
-                          newItens[index].quantidade = parseInt(e.target.value) || 1;
-                          setItens(newItens);
-                        }}
-                        className="h-8"
-                      />
-                    </div>
-                    
-                    <div className="sm:col-span-2">
-                      <label className="text-xs">Preço Unit.</label>
-                      <div className="flex gap-1">
-                        <Input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={item.preco_unitario}
-                          onChange={(e) => {
-                            handlePrecoUnitarioChange(index, parseFloat(e.target.value) || 0);
-                          }}
-                          className="h-8 flex-1"
-                        />
-                        {usaFormula && (
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            onClick={() => abrirModalCalculoReverso(index)}
-                            className="h-8 w-8"
-                            title="Calcular preço por kg"
-                          >
-                            <Calculator className="h-3 w-3" />
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                    
-                    <div className="sm:col-span-1">
-                      <label className="text-xs">Desc. %</label>
-                      <Input
-                        type="number"
-                        min="0"
-                        max="100"
-                        step="0.01"
-                        value={item.desconto}
-                        onChange={(e) => {
-                          const newItens = [...itens];
-                          newItens[index].desconto = parseFloat(e.target.value) || 0;
-                          setItens(newItens);
-                        }}
-                        className="h-8"
-                      />
-                    </div>
-
-                    {usaFormula && produtoOriginal && (
-                      <div className="sm:col-span-12 grid sm:grid-cols-12 gap-2 items-center bg-amber-50 border border-amber-200 rounded px-2 py-1 -mt-1">
-                        <div className="sm:col-span-4">
-                          <label className="text-xs text-amber-700 font-medium">Comprimento solicitado (m)</label>
-                          <Input
-                            type="number"
-                            min="0.001"
-                            max={produtoOriginal.comprimento_barra || 6}
-                            step="0.001"
-                            placeholder={`máx ${produtoOriginal.comprimento_barra || 6} m`}
-                            value={item.comprimento_solicitado_mm != null ? item.comprimento_solicitado_mm / 1000 : ""}
-                            onChange={(e) => {
-                              const newItens = [...itens];
-                              newItens[index].comprimento_solicitado_mm = e.target.value ? parseFloat(e.target.value) * 1000 : null;
-                              setItens(newItens);
-                            }}
-                            className="h-7 text-xs border-amber-300"
-                          />
-                        </div>
-                        <div className="sm:col-span-8 text-xs text-amber-700 flex items-center gap-4 pt-4">
-                          {item.comprimento_solicitado_mm && item.comprimento_solicitado_mm > 0 && item.comprimento_solicitado_mm < (produtoOriginal.comprimento_barra || 6) * 1000 ? (
-                            <>
-                              <span>
-                                Sobra estimada: <strong>{(((produtoOriginal.comprimento_barra || 6) * 1000 - item.comprimento_solicitado_mm) / 1000).toFixed(3)} m</strong>
-                                {' '}x {item.quantidade} pc = <strong>{(((produtoOriginal.comprimento_barra || 6) * 1000 - item.comprimento_solicitado_mm) * item.quantidade / 1000).toFixed(3)} m</strong>
-                              </span>
-                              <span className="text-green-700 font-medium">Sobra sera registrada ao aprovar</span>
-                            </>
-                          ) : item.comprimento_solicitado_mm && item.comprimento_solicitado_mm >= (produtoOriginal.comprimento_barra || 6) * 1000 ? (
-                            <span className="text-red-600">Comprimento maior ou igual à barra — sem sobra</span>
-                          ) : (
-                            <span className="text-amber-600/70">Informe o comprimento para calcular a sobra automaticamente</span>
-                          )}
-                        </div>
-                      </div>
-                    )}
-
-                    <div className="sm:col-span-3 text-right">
-                      <p className="text-xs text-muted-foreground">R$ {subtotalBruto.toFixed(2)}</p>
-                      <p className="text-xs text-muted-foreground">-{item.desconto}% = R$ {valorDesconto.toFixed(2)}</p>
-                      <p className="font-semibold text-sm">R$ {subtotalLiquido.toFixed(2)}</p>
-                    </div>
-
-                    <div className="sm:col-span-1 text-right">
-                      <Button
-                        size="icon"
-                        variant="destructive"
-                        onClick={() => removeItem(index)}
-                        className="h-8 w-8"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-
-                    {mostrarCalculoReverso === index && usaFormula && produtoOriginal && (
-                      <div className="sm:sm:col-span-12 mt-3 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                        <div className="flex items-center justify-between mb-3">
-                          <h5 className="font-medium text-sm text-blue-800">Cálculo do Preço por Kg</h5>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => {
-                              setMostrarCalculoReverso(null);
-                              setNovoPrecoPorKg("");
-                            }}
-                            className="h-6 w-6 p-0"
-                          >
-                            <X className="h-3 w-3" />
-                          </Button>
-                        </div>
-                        
-                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
-                          <div>
-                            <label className="text-xs">Peso kg/m</label>
-                            <Input value={produtoOriginal.peso_kg_m} disabled className="h-8" />
-                          </div>
-                          <div>
-                            <label className="text-xs">Comprimento (m)</label>
-                            <Input value={produtoOriginal.comprimento_barra || 6} disabled className="h-8" />
-                          </div>
-                          <div>
-                            <label className="text-xs">Peso Total (kg)</label>
-                            <Input 
-                              value={((produtoOriginal.peso_kg_m || 0) * (produtoOriginal.comprimento_barra || 6)).toFixed(3)} 
-                              disabled 
-                              className="h-8" 
-                            />
-                          </div>
-                        </div>
-                        
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-                          <div>
-                            <label className="text-xs">Preço de Venda Atual</label>
-                            <Input value={item.preco_unitario.toFixed(2)} disabled className="h-8" />
-                          </div>
-                          <div>
-                            <label className="text-xs">Preço por Kg Calculado</label>
-                            <Input 
-                              value={item.preco_por_kg_calculado?.toFixed(2) || '0.00'} 
-                              disabled 
-                              className="h-8" 
-                            />
-                          </div>
-                        </div>
-
-                        <div className="space-y-3">
-                          <div>
-                            <label className="text-xs">Definir Novo Preço por Kg</label>
-                            <div className="flex gap-2">
-                              <Input
-                                type="number"
-                                step="0.01"
-                                min="0"
-                                placeholder="Digite o preço por kg"
-                                value={novoPrecoPorKg}
-                                onChange={(e) => setNovoPrecoPorKg(e.target.value)}
-                                className="h-8 flex-1"
-                              />
-                              <Button 
-                                size="sm" 
-                                onClick={() => {
-                                  const precoPorKg = parseFloat(novoPrecoPorKg) || 0;
-                                  if (precoPorKg > 0) {
-                                    aplicarPrecoPorKg(index, precoPorKg);
-                                  } else {
-                                    toast({
-                                      title: "Valor inválido",
-                                      description: "Digite um preço por kg válido",
-                                      variant: "destructive",
-                                    });
-                                  }
-                                }}
-                              >
-                                Aplicar
-                              </Button>
-                            </div>
-                          </div>
-
-                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => aplicarDescontoPrecoPorKg(index, 5)}
-                              className="text-xs"
-                            >
-                              -5%
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => aplicarDescontoPrecoPorKg(index, 10)}
-                              className="text-xs"
-                            >
-                              -10%
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => aplicarDescontoPrecoPorKg(index, 15)}
-                              className="text-xs"
-                            >
-                              -15%
-                            </Button>
-                          </div>
-
-                          <p className="text-xs text-muted-foreground mt-2">
-                            <strong>Fórmula:</strong> Preço por Kg = Preço de Venda ÷ (Peso kg/m × Comprimento)
-                            <br />
-                            <strong>Exemplo:</strong> R$ {item.preco_unitario.toFixed(2)} ÷ ({produtoOriginal.peso_kg_m} × {produtoOriginal.comprimento_barra || 6}) = R$ {item.preco_por_kg_calculado?.toFixed(2)}
-                          </p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-            <div className="pt-2 border-t text-right">
-              <p className="text-xl font-bold">
-                Total: {formatCurrency(valorTotal)}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {itens.length} item(ns) | {itensComFormula} com fórmula de cálculo
-              </p>
-            </div>
-          </div>
-        )}
-
-        <div className="border-t pt-4">
-          <h4 className="font-medium mb-3">Adicionar Novo Item</h4>
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Pesquisar</label>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Pesquisar por nome, código ou cor..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9"
-              />
-            </div>
-          </div>
-
-          <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 md:grid-cols-5 mt-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Tipo</label>
-              <Select value={tipoItem} onValueChange={(value: 'produto' | 'kit') => {
-                setTipoItem(value);
-                setItemSelecionado("");
-              }}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="produto">Produto</SelectItem>
-                  <SelectItem value="kit">Kit</SelectItem>
-                  <SelectItem value="sobra">Sobra de Perfil</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="md:sm:col-span-2 space-y-2">
-              <label className="text-sm font-medium">{tipoItem === 'produto' ? 'Produto' : 'Kit'}</label>
-              <Select value={itemSelecionado || "sem_item"} onValueChange={(value) => {
-                setItemSelecionado(value === "sem_item" ? "" : value);
-              }}>
-                <SelectTrigger>
-                  <SelectValue placeholder={`Selecione um ${tipoItem}`} />
-                </SelectTrigger>
-                <SelectContent className="max-w-[500px]">
-                  <SelectItem value="sem_item">Selecione um {tipoItem}</SelectItem>
-                  {tipoItem === 'produto' ? (
-                    produtosFiltrados.length > 0 ? (
-                      produtosFiltrados.map(produto => {
-                        const formatted = formatarProdutoSelect(produto);
-                        return (
-                          <SelectItem key={produto.id} value={produto.id} className="py-2">
-                            <div className="flex flex-col">
-                              <span className="font-medium">{formatted.text}</span>
-                              <span className={`text-xs ${formatted.estoqueColor}`}>
-                                {formatted.estoqueInfo}
-                                {produto.peso_kg_m && ` | ${produto.peso_kg_m}kg/m`}
-                              </span>
-                            </div>
-                          </SelectItem>
-                        );
-                      })
-                    ) : (
-                      <SelectItem value="sem_item" disabled>
-                        Nenhum produto encontrado
-                      </SelectItem>
-                    )
-                  ) : (
-                    kitsFiltrados.length > 0 ? (
-                      kitsFiltrados.map(kit => {
-                        const formatted = formatarKitSelect(kit);
-                        return (
-                          <SelectItem key={kit.id} value={kit.id} className="py-2">
-                            <div className="flex flex-col">
-                              <span className="font-medium">{formatted.text}</span>
-                              <span className={`text-xs ${formatted.estoqueColor}`}>
-                                {formatted.estoqueInfo}
-                              </span>
-                            </div>
-                          </SelectItem>
-                        );
-                      })
-                    ) : (
-                      <SelectItem value="sem_item" disabled>
-                        Nenhum kit com estoque disponível
-                      </SelectItem>
-                    )
-                  )}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Qtd</label>
-              <Input
-                type="number"
-                min="1"
-                value={quantidade}
-                onChange={(e) => setQuantidade(parseInt(e.target.value) || 1)}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Desc. %</label>
-              <div className="flex gap-2">
-                <Input
-                  type="number"
-                  min="0"
-                  max="100"
-                  step="0.01"
-                  value={desconto}
-                  onChange={(e) => setDesconto(parseFloat(e.target.value) || 0)}
-                />
-                <Button 
-                  onClick={addItem} 
-                  type="button" 
-                  size="icon"
-                  disabled={!itemSelecionado || quantidade <= 0}
-                >
-                  <Plus className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        <label className="text-sm font-medium">Observações</label>
-        <textarea
-          value={observacoes}
-          onChange={(e) => setObservacoes(e.target.value)}
-          placeholder="Informações adicionais..."
-          rows={3}
-          className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-        />
-      </div>
-
-      <div className="flex gap-2 justify-end">
-        <Button variant="outline" onClick={onClose} disabled={loading}>
-          Cancelar
-        </Button>
-        <Button 
-          onClick={() => handleSubmit(false)} 
-          disabled={loading || !formaPagamento || itens.length === 0 || !clienteId}
-        >
-          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Atualizar"}
-        </Button>
-        <Button 
-          onClick={() => handleSubmit(true)} 
-          disabled={loading || !formaPagamento || itens.length === 0 || !clienteId} 
-          variant="outline"
-        >
-          <Download className="h-4 w-4 mr-2" />
-          Atualizar e PDF
-        </Button>
-      </div>
-    </div>
-  );
-};
-
 // ========== COMPONENTE PRINCIPAL ==========
 export default function OrcamentosPage() {
   const [orcamentos, setOrcamentos] = useState<OrcamentoWithRelations[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [addDialogOpen, setAddDialogOpen] = useState(false);
-  const location = useLocation();
-
-  useEffect(() => {
-    if (location.state?.sobra) {
-      setAddDialogOpen(true);
-    }
-  }, [location.state]);
-
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [orcamentoEditando, setOrcamentoEditando] = useState<OrcamentoComItens | null>(null);
   
@@ -4916,14 +1470,6 @@ export default function OrcamentosPage() {
     id: string;
     numero: string;
     orcamento: any;
-  } | null>(null);
-
-  // Estados para aprovação com estoque insuficiente
-  const [senhaDialogOpen, setSenhaDialogOpen] = useState(false);
-  const [aprovacaoPendente, setAprovacaoPendente] = useState<{
-    orcamentoId: string;
-    numero: string;
-    produtosSemEstoque: Array<{ nome: string, estoque: number, quantidade: number, faltando: number }>;
   } | null>(null);
 
   // Estados para geração de PDF com opções
@@ -5069,6 +1615,7 @@ export default function OrcamentosPage() {
         .update({ 
           status: 'aprovado',
           updated_at: new Date().toISOString(),
+          data_aprovacao: new Date().toISOString(),
           pagamento_misto: true,
           valor_credito_utilizado: pagamento.valorCredito,
           forma_pagamento_restante: pagamento.formaPagamentoRestante,
@@ -5102,7 +1649,7 @@ export default function OrcamentosPage() {
         pagamento
       );
 
-      await baixarEstoqueOrcamento(orcamentoParaAprovar.id, orcamentoParaAprovar.numero, false);
+      await baixarEstoqueOrcamento(orcamentoParaAprovar.id, orcamentoParaAprovar.numero);
 
       toast({
         title: "✅ Orçamento aprovado!",
@@ -5121,111 +1668,6 @@ export default function OrcamentosPage() {
     } finally {
       setPagamentoMistoOpen(false);
       setOrcamentoParaAprovar(null);
-    }
-  };
-
-  // Função para aprovar com estoque insuficiente (após autorização)
-  const aprovarComEstoqueInsuficiente = async () => {
-    if (!aprovacaoPendente) return;
-
-    try {
-      console.log('⚠️ APROVANDO COM ESTOQUE INSUFICIENTE (autorizado)');
-      console.log('📄 Orçamento:', aprovacaoPendente.numero);
-      console.log('📦 Produtos com falta:', aprovacaoPendente.produtosSemEstoque);
-
-      const { data: orcamento, error: orcamentoError } = await supabase
-        .from('orcamentos')
-        .select('*, clientes(*)')
-        .eq('id', aprovacaoPendente.orcamentoId)
-        .single();
-
-      if (orcamentoError) throw orcamentoError;
-
-      // Processar crédito do cliente se necessário
-      if (orcamento.forma_pagamento === 'credito_cliente') {
-        const { data: cliente } = await supabase
-          .from('clientes')
-          .select('limite_credito')
-          .eq('id', orcamento.cliente_id)
-          .single();
-
-        if (cliente) {
-          if (cliente.limite_credito >= orcamento.valor_total) {
-            const saldoAnterior = cliente.limite_credito;
-            const saldoPosterior = saldoAnterior - orcamento.valor_total;
-            
-            await supabase
-              .from('creditos_utilizados')
-              .insert({
-                cliente_id: orcamento.cliente_id,
-                orcamento_id: aprovacaoPendente.orcamentoId,
-                valor_utilizado: orcamento.valor_total,
-                data_utilizacao: new Date().toISOString().split('T')[0],
-                tipo_operacao: 'orcamento_credito_total',
-                saldo_anterior: saldoAnterior,
-                saldo_posterior: saldoPosterior,
-                observacao: `Orçamento ${aprovacaoPendente.numero} - Usado todo o crédito disponível (aprovado com estoque insuficiente)`
-              });
-
-            toast({
-              title: "💰 Crédito utilizado!",
-              description: `R$ ${orcamento.valor_total.toFixed(2)} debitado do limite do cliente. Novo limite: R$ ${saldoPosterior.toFixed(2)}`,
-            });
-            
-          } else {
-            // Pagamento misto
-            setPagamentoMistoOpen(true);
-            setOrcamentoParaAprovar({ 
-              id: aprovacaoPendente.orcamentoId, 
-              numero: aprovacaoPendente.numero, 
-              orcamento: {
-                ...orcamento,
-                clientes: orcamento.clientes
-              }
-            });
-            setSenhaDialogOpen(false);
-            setAprovacaoPendente(null);
-            return;
-          }
-        }
-      } else {
-        console.log('💰 Criando transações financeiras...');
-        await criarTransacoesFinanceiras(orcamento, orcamento.clientes?.nome);
-      }
-      
-      // Baixar estoque permitindo negativo
-      console.log('⬇️ Baixando estoque (permitindo negativo)...');
-      await baixarEstoqueOrcamento(aprovacaoPendente.orcamentoId, aprovacaoPendente.numero, true);
-      
-      // Atualizar status do orçamento
-      const { error: updateError } = await supabase
-        .from('orcamentos')
-        .update({ 
-          status: 'aprovado',
-          updated_at: new Date().toISOString(),
-          observacoes: `${orcamento.observacoes || ''}\n\n⚠️ APROVADO COM ESTOQUE INSUFICIENTE:\n${aprovacaoPendente.produtosSemEstoque.map(p => `- ${p.nome}: faltando ${p.faltando} unidade(s)`).join('\n')}`
-        })
-        .eq('id', aprovacaoPendente.orcamentoId);
-
-      if (updateError) throw updateError;
-
-      toast({
-        title: "✅ Orçamento aprovado!",
-        description: `Orçamento ${aprovacaoPendente.numero} aprovado com estoque insuficiente.`,
-      });
-
-      await fetchOrcamentos();
-      
-    } catch (error: any) {
-      console.error('❌ Erro na aprovação com estoque insuficiente:', error);
-      toast({
-        title: "❌ Erro ao aprovar orçamento",
-        description: error.message,
-        variant: "destructive",
-      });
-    } finally {
-      setSenhaDialogOpen(false);
-      setAprovacaoPendente(null);
     }
   };
 
@@ -5248,13 +1690,15 @@ export default function OrcamentosPage() {
         const verificacao = await verificarEstoqueSuficiente(orcamentoId);
         
         if (!verificacao.suficiente) {
-          // Se não tem estoque suficiente, pedir senha
-          setAprovacaoPendente({
-            orcamentoId,
-            numero,
-            produtosSemEstoque: verificacao.produtosSemEstoque
+          const mensagemErro = verificacao.produtosSemEstoque
+            .map(p => `${p.nome} (estoque: ${p.estoque}, necessário: ${p.quantidade}, faltando: ${p.faltando})`)
+            .join(', ');
+          
+          toast({
+            title: "❌ Estoque insuficiente",
+            description: `Itens sem estoque: ${mensagemErro}`,
+            variant: "destructive",
           });
-          setSenhaDialogOpen(true);
           return;
         }
 
@@ -5307,7 +1751,7 @@ export default function OrcamentosPage() {
         }
         
         console.log('⬇️ Baixando estoque...');
-        await baixarEstoqueOrcamento(orcamentoId, numero, false);
+        await baixarEstoqueOrcamento(orcamentoId, numero);
       }
 
       if (statusAtual === 'aprovado' && novoStatus !== 'aprovado') {
@@ -5348,12 +1792,15 @@ export default function OrcamentosPage() {
           .eq('status', 'pendente');
       }
 
-      if (!orcamentoParaAprovar && !aprovacaoPendente) {
+      if (!orcamentoParaAprovar) {
         const { error } = await supabase
           .from('orcamentos')
           .update({ 
             status: novoStatus,
-            updated_at: new Date().toISOString()
+            updated_at: new Date().toISOString(),
+            ...(novoStatus === 'aprovado' ? {
+              data_aprovacao: new Date().toISOString(),
+            } : {}),
           })
           .eq('id', orcamentoId);
 
@@ -6147,20 +2594,3385 @@ export default function OrcamentosPage() {
           gerando={gerandoPDF}
         />
       )}
-
-      {/* Dialog para senha de aprovação com estoque insuficiente */}
-      {aprovacaoPendente && (
-        <DialogSenhaAprovacao
-          open={senhaDialogOpen}
-          onOpenChange={(open) => {
-            setSenhaDialogOpen(open);
-            if (!open) setAprovacaoPendente(null);
-          }}
-          onConfirm={aprovarComEstoqueInsuficiente}
-          produtosSemEstoque={aprovacaoPendente.produtosSemEstoque}
-          orcamentoNumero={aprovacaoPendente.numero}
-        />
-      )}
     </div>
   );
 }
+
+// ========== COMPONENTE DE ADICIONAR ORÇAMENTO ==========
+const AddOrcamentoContent = ({ onClose }: { onClose: () => void }) => {
+  const [loading, setLoading] = useState(false);
+  const [clientes, setClientes] = useState<any[]>([]);
+  const [vendedores, setVendedores] = useState<Vendedor[]>([]);
+  const [produtos, setProdutos] = useState<Produto[]>([]);
+  const [kits, setKits] = useState<any[]>([]);
+  const [clienteId, setClienteId] = useState("");
+  const [vendedorId, setVendedorId] = useState<string>("");
+  const [observacoes, setObservacoes] = useState("");
+  const [itens, setItens] = useState<ItemOrcamento[]>([]);
+  const [tipoItem, setTipoItem] = useState<'produto' | 'kit'>('produto');
+  const [itemSelecionado, setItemSelecionado] = useState("");
+  const [quantidade, setQuantidade] = useState(1);
+  const [desconto, setDesconto] = useState(0);
+  const [searchTerm, setSearchTerm] = useState("");
+  
+  const [formaPagamento, setFormaPagamento] = useState<string>("");
+  const [condicaoPagamento, setCondicaoPagamento] = useState<string>("");
+  const [entradaValor, setEntradaValor] = useState<number>(0);
+  const [parcelas, setParcelas] = useState<number>(1);
+  const [valorEntrada, setValorEntrada] = useState<number>(0);
+  const [valorParcela, setValorParcela] = useState<number>(0);
+  const [parcelado, setParcelado] = useState<boolean>(false);
+  const [clienteLimite, setClienteLimite] = useState<number>(0);
+  
+  const [mostrarCalculoReverso, setMostrarCalculoReverso] = useState<number | null>(null);
+  const [novoPrecoPorKg, setNovoPrecoPorKg] = useState<string>("");
+  const [mostrarAplicarTodos, setMostrarAplicarTodos] = useState(false);
+  const [precoPorKgTodos, setPrecoPorKgTodos] = useState<string>("");
+
+  const calcularPrecoPorKgReverso = (precoVenda: number, pesoKgM: number, comprimentoBarra: number = 6) => {
+    const pesoTotal = pesoKgM * comprimentoBarra;
+    if (pesoTotal <= 0) return 0;
+    return precoVenda / pesoTotal;
+  };
+
+  const calcularPrecoVenda = (precoPorKg: number, pesoKgM: number, comprimentoBarra: number = 6) => {
+    const pesoTotal = pesoKgM * comprimentoBarra;
+    return pesoTotal * precoPorKg;
+  };
+
+  const produtoUsaFormula = (item: ItemOrcamento) => {
+    if (item.tipo !== 'produto') return false;
+    const produto = produtos.find(p => p.id === item.produto_id);
+    return produto && produto.peso_kg_m && produto.peso_kg_m > 0;
+  };
+
+  const contarItensComFormula = () => {
+    return itens.filter(item => produtoUsaFormula(item)).length;
+  };
+
+  const handlePrecoUnitarioChange = (index: number, novoPrecoUnitario: number) => {
+    const newItens = [...itens];
+    const item = newItens[index];
+    
+    if (item.tipo === 'produto') {
+      const produtoOriginal = produtos.find(p => p.id === item.produto_id);
+      if (produtoOriginal?.peso_kg_m && produtoOriginal.peso_kg_m > 0) {
+        const precoPorKgCalculado = calcularPrecoPorKgReverso(
+          novoPrecoUnitario, 
+          produtoOriginal.peso_kg_m, 
+          produtoOriginal.comprimento_barra || 6
+        );
+        
+        newItens[index] = {
+          ...item,
+          preco_unitario: novoPrecoUnitario,
+          preco_por_kg_calculado: precoPorKgCalculado
+        };
+      } else {
+        newItens[index].preco_unitario = novoPrecoUnitario;
+      }
+    } else {
+      newItens[index].preco_unitario = novoPrecoUnitario;
+    }
+    
+    setItens(newItens);
+  };
+
+  const aplicarPrecoPorKg = (index: number, precoPorKg: number) => {
+    const newItens = [...itens];
+    const item = newItens[index];
+    
+    if (item.tipo === 'produto') {
+      const produtoOriginal = produtos.find(p => p.id === item.produto_id);
+      if (produtoOriginal?.peso_kg_m && produtoOriginal.peso_kg_m > 0) {
+        const novoPrecoVenda = calcularPrecoVenda(
+          precoPorKg,
+          produtoOriginal.peso_kg_m,
+          produtoOriginal.comprimento_barra || 6
+        );
+        
+        newItens[index] = {
+          ...item,
+          preco_unitario: parseFloat(novoPrecoVenda.toFixed(2)),
+          preco_por_kg_calculado: precoPorKg
+        };
+        
+        setItens(newItens);
+        setNovoPrecoPorKg("");
+        setMostrarCalculoReverso(null);
+        
+        toast({
+          title: "Preço atualizado!",
+          description: `Preço por kg aplicado: R$ ${precoPorKg.toFixed(2)} | Novo preço: R$ ${novoPrecoVenda.toFixed(2)}`,
+        });
+      }
+    }
+  };
+
+  const aplicarDescontoPrecoPorKg = (index: number, percentualDesconto: number) => {
+    const item = itens[index];
+    if (item.preco_por_kg_calculado && percentualDesconto > 0) {
+      const novoPrecoPorKg = item.preco_por_kg_calculado * (1 - percentualDesconto / 100);
+      aplicarPrecoPorKg(index, parseFloat(novoPrecoPorKg.toFixed(2)));
+    }
+  };
+
+  const abrirModalCalculoReverso = (index: number) => {
+    setMostrarCalculoReverso(index);
+    const item = itens[index];
+    if (item.preco_por_kg_calculado) {
+      setNovoPrecoPorKg(item.preco_por_kg_calculado.toFixed(2));
+    } else {
+      setNovoPrecoPorKg("");
+    }
+  };
+
+  const aplicarPrecoPorKgTodos = (precoPorKg: number) => {
+    const newItens = [...itens];
+    let itensAtualizados = 0;
+    
+    newItens.forEach((item, index) => {
+      if (item.tipo === 'produto') {
+        const produtoOriginal = produtos.find(p => p.id === item.produto_id);
+        if (produtoOriginal?.peso_kg_m && produtoOriginal.peso_kg_m > 0) {
+          const novoPrecoVenda = calcularPrecoVenda(
+            precoPorKg,
+            produtoOriginal.peso_kg_m,
+            produtoOriginal.comprimento_barra || 6
+          );
+          
+          newItens[index] = {
+            ...item,
+            preco_unitario: parseFloat(novoPrecoVenda.toFixed(2)),
+            preco_por_kg_calculado: precoPorKg
+          };
+          itensAtualizados++;
+        }
+      }
+    });
+    
+    setItens(newItens);
+    setPrecoPorKgTodos("");
+    setMostrarAplicarTodos(false);
+    
+    toast({
+      title: "Preço aplicado para todos!",
+      description: `Preço por kg R$ ${precoPorKg.toFixed(2)} aplicado em ${itensAtualizados} itens do orçamento`,
+    });
+  };
+
+  const aplicarDescontoPrecoPorKgTodos = (percentualDesconto: number) => {
+    const newItens = [...itens];
+    let itensAtualizados = 0;
+    
+    newItens.forEach((item, index) => {
+      if (item.tipo === 'produto' && item.preco_por_kg_calculado) {
+        const produtoOriginal = produtos.find(p => p.id === item.produto_id);
+        if (produtoOriginal?.peso_kg_m && produtoOriginal.peso_kg_m > 0) {
+          const novoPrecoPorKg = item.preco_por_kg_calculado * (1 - percentualDesconto / 100);
+          const novoPrecoVenda = calcularPrecoVenda(
+            novoPrecoPorKg,
+            produtoOriginal.peso_kg_m,
+            produtoOriginal.comprimento_barra || 6
+          );
+          
+          newItens[index] = {
+            ...item,
+            preco_unitario: parseFloat(novoPrecoVenda.toFixed(2)),
+            preco_por_kg_calculado: parseFloat(novoPrecoPorKg.toFixed(2))
+          };
+          itensAtualizados++;
+        }
+      }
+    });
+    
+    setItens(newItens);
+    
+    toast({
+      title: "Desconto aplicado para todos!",
+      description: `Desconto de ${percentualDesconto}% aplicado em ${itensAtualizados} itens do orçamento`,
+    });
+  };
+
+  const calcularSubtotalComDesconto = (item: ItemOrcamento) => {
+    const subtotal = item.quantidade * item.preco_unitario;
+    const valorDesconto = (subtotal * item.desconto) / 100;
+    return subtotal - valorDesconto;
+  };
+
+  const calcularValorTotal = () => {
+    return itens.reduce((sum, item) => sum + calcularSubtotalComDesconto(item), 0);
+  };
+
+  const valorTotal = calcularValorTotal();
+
+  useEffect(() => {
+    fetchClientes();
+    fetchVendedores();
+    fetchProdutos();
+    fetchKits();
+  }, []);
+
+  useEffect(() => {
+    if (valorTotal > 0) {
+      calcularPagamento();
+    }
+  }, [formaPagamento, condicaoPagamento, entradaValor, parcelas, valorTotal, parcelado]);
+
+  useEffect(() => {
+    if (clienteId) {
+      fetchClienteLimite();
+    } else {
+      setClienteLimite(0);
+    }
+  }, [clienteId]);
+
+  const fetchClienteLimite = async () => {
+    const { data } = await supabase
+      .from('clientes')
+      .select('limite_credito')
+      .eq('id', clienteId)
+      .single();
+    
+    if (data) {
+      setClienteLimite(data.limite_credito || 0);
+    }
+  };
+
+  const fetchClientes = async () => {
+    const { data } = await supabase
+      .from('clientes')
+      .select('*')
+      .order('nome');
+    if (data) setClientes(data);
+  };
+
+  const fetchVendedores = async () => {
+    const { data } = await supabase
+      .from('vendedores')
+      .select('*')
+      .eq('ativo', true)
+      .order('nome');
+    if (data) setVendedores(data as Vendedor[]);
+  };
+
+  const fetchProdutos = async () => {
+    const { data } = await supabase
+      .from('produtos')
+      .select('id, codigo, nome, descricao, cor, preco, peso, estoque, localizacao, categoria, peso_kg_m, comprimento_barra, ativo, unidade, preco_por_kg, custo')
+      .eq('ativo', true)
+      .order('nome');
+    if (data) setProdutos(data as Produto[]);
+  };
+
+  const fetchKits = async () => {
+    try {
+      console.log('🔍 Buscando kits com estoque...');
+
+      const { data: kitsData, error: kitsError } = await supabase
+        .from('kits')
+        .select('id, codigo, nome, preco_total, descricao, ativo')
+        .eq('ativo', true)
+        .order('nome');
+
+      if (kitsError) {
+        console.error('❌ Erro ao buscar kits:', kitsError);
+        setKits([]);
+        return;
+      }
+
+      if (!kitsData || kitsData.length === 0) {
+        console.log('📦 Nenhum kit encontrado');
+        setKits([]);
+        return;
+      }
+
+      // Buscar todos os itens dos kits
+      const kitIds = kitsData.map(k => k.id);
+
+      const { data: kitItensData, error: kitItensError } = await supabase
+        .from('kit_itens')
+        .select('id, kit_id, produto_id, sub_kit_id, quantidade')
+        .in('kit_id', kitIds);
+
+      if (kitItensError) {
+        console.error('❌ Erro ao buscar itens dos kits:', kitItensError);
+        setKits([]);
+        return;
+      }
+
+      // Buscar estoque dos produtos
+      const produtoIds = kitItensData?.filter(i => i.produto_id).map(i => i.produto_id) || [];
+      
+      // Só fazer a consulta se houver produtoIds
+      const estoqueProdutos: Record<string, number> = {};
+      if (produtoIds.length > 0) {
+        const { data: produtosEstoque } = await supabase
+          .from('produtos')
+          .select('id, estoque')
+          .in('id', produtoIds);
+
+        (produtosEstoque || []).forEach(p => {
+          estoqueProdutos[p.id] = p.estoque || 0;
+        });
+      }
+
+      // Calcular estoque disponível para cada kit
+      const kitEstoqueMap: Record<string, number> = {};
+
+      for (const kit of kitsData) {
+        const itensDoKit = kitItensData?.filter(i => i.kit_id === kit.id) || [];
+
+        if (itensDoKit.length === 0) {
+          kitEstoqueMap[kit.id] = 999;
+          continue;
+        }
+
+        let minEstoque = Infinity;
+
+        for (const item of itensDoKit) {
+          if (item.produto_id) {
+            const estoqueDisponivel = estoqueProdutos[item.produto_id] || 0;
+            const kitsPossiveis = Math.floor(estoqueDisponivel / item.quantidade);
+            if (kitsPossiveis < minEstoque) {
+              minEstoque = kitsPossiveis;
+            }
+          }
+          // Para sub-kits, simplificamos considerando 999 (ou poderia fazer recursão)
+          if (item.sub_kit_id) {
+            // Buscar estoque do sub-kit
+            const { data: subKitItens } = await supabase
+              .from('kit_itens')
+              .select('produto_id, quantidade')
+              .eq('kit_id', item.sub_kit_id);
+
+            if (subKitItens && subKitItens.length > 0) {
+              let subKitMinEstoque = Infinity;
+              for (const subItem of subKitItens) {
+                if (subItem.produto_id) {
+                  const subEstoque = estoqueProdutos[subItem.produto_id] || 0;
+                  const subPossiveis = Math.floor(subEstoque / subItem.quantidade);
+                  if (subPossiveis < subKitMinEstoque) {
+                    subKitMinEstoque = subPossiveis;
+                  }
+                }
+              }
+              const kitsComSubKit = subKitMinEstoque !== Infinity ? Math.floor(subKitMinEstoque / item.quantidade) : 0;
+              if (kitsComSubKit < minEstoque) {
+                minEstoque = kitsComSubKit;
+              }
+            }
+          }
+        }
+
+        kitEstoqueMap[kit.id] = minEstoque === Infinity ? 999 : minEstoque;
+      }
+
+      const kitsFormatados = kitsData.map(kit => ({
+        id: kit.id,
+        codigo: kit.codigo,
+        nome: kit.nome,
+        preco_total: kit.preco_total,
+        descricao: kit.descricao,
+        estoque_disponivel: kitEstoqueMap[kit.id] || 0
+      }));
+
+      setKits(kitsFormatados);
+      console.log('✅ Kits carregados:', kitsFormatados);
+
+    } catch (error) {
+      console.error('❌ Erro ao buscar kits:', error);
+      setKits([]);
+    }
+  };
+
+  const produtosFiltrados = produtos.filter(produto => {
+    if (!searchTerm) return true;
+    const search = searchTerm.toLowerCase().trim();
+    return (
+      produto.nome?.toLowerCase().includes(search) ||
+      produto.codigo?.toLowerCase().includes(search) ||
+      produto.cor?.toLowerCase().includes(search) ||
+      produto.descricao?.toLowerCase().includes(search) ||
+      produto.categoria?.toLowerCase().includes(search)
+    );
+  });
+
+  const kitsFiltrados = kits.filter(kit => {
+    if (!searchTerm) return true;
+    const search = searchTerm.toLowerCase().trim();
+    return (
+      kit.nome?.toLowerCase().includes(search) ||
+      kit.codigo?.toLowerCase().includes(search) ||
+      kit.descricao?.toLowerCase().includes(search)
+    );
+  });
+
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+    }).format(value);
+  };
+
+  const getFormaPagamentoLabel = (forma: string) => {
+    const formas: Record<string, string> = {
+      'avista': 'À Vista',
+      'boleto': 'Boleto',
+      'credito': 'Cartão de Crédito',
+      'debito': 'Cartão de Débito',
+      'credito_cliente': 'Cliente com Crédito',
+    };
+    return formas[forma] || forma;
+  };
+
+  const getDescricaoCondicao = (condicao: string): string => {
+    const descricoes: Record<string, string> = {
+      "28": "1 parcela em 28 dias",
+      "28/56": "1ª parcela em 28 dias, 2ª parcela em 56 dias",
+      "0/28/56": "1ª parcela à vista, 2ª em 28 dias, 3ª em 56 dias",
+      "15": "1 parcela em 15 dias",
+      "15/30": "1ª parcela em 15 dias, 2ª parcela em 30 dias",
+      "0/15/30": "1ª parcela à vista, 2ª em 15 dias, 3ª em 30 dias",
+    };
+    return descricoes[condicao] || condicao;
+  };
+
+  const formatarProdutoSelect = (produto: Produto) => {
+    const nomeCurto = produto.nome.length > 40 
+      ? produto.nome.substring(0, 40) + '...' 
+      : produto.nome;
+    
+    let corInfo = produto.cor ? ` - ${produto.cor}` : '';
+    let estoqueInfo = '';
+    let estoqueColor = '';
+    
+    if (produto.estoque <= 0) {
+      estoqueInfo = ` ⚠️ SEM ESTOQUE`;
+      estoqueColor = 'text-red-600';
+    } else if (produto.estoque < 10) {
+      estoqueInfo = ` 📦 ${produto.estoque} und (baixo)`;
+      estoqueColor = 'text-yellow-600';
+    } else {
+      estoqueInfo = ` 📦 ${produto.estoque} und`;
+      estoqueColor = 'text-green-600';
+    }
+    
+    return {
+      text: `${produto.codigo} - ${nomeCurto}${corInfo} - ${formatCurrency(produto.preco)}`,
+      estoqueInfo,
+      estoqueColor
+    };
+  };
+
+  const formatarKitSelect = (kit: any) => {
+    const nomeCurto = kit.nome.length > 40 
+      ? kit.nome.substring(0, 40) + '...' 
+      : kit.nome;
+    
+    const estoque = kit.estoque_disponivel || 0;
+    
+    let estoqueInfo = '';
+    let estoqueColor = '';
+    
+    if (estoque <= 0) {
+      estoqueInfo = ` ⚠️ SEM ESTOQUE`;
+      estoqueColor = 'text-red-600';
+    } else if (estoque < 10) {
+      estoqueInfo = ` 📦 ${estoque} und (baixo)`;
+      estoqueColor = 'text-yellow-600';
+    } else {
+      estoqueInfo = ` 📦 ${estoque} und`;
+      estoqueColor = 'text-green-600';
+    }
+    
+    return {
+      text: `${kit.codigo} - ${nomeCurto} - ${formatCurrency(kit.preco_total)}`,
+      estoqueInfo,
+      estoqueColor
+    };
+  };
+
+  const addItem = () => {
+    if (!itemSelecionado || quantidade <= 0) return;
+
+    if (tipoItem === 'produto') {
+      const produto = produtos.find(p => p.id === itemSelecionado);
+      if (!produto) return;
+      
+      let precoPorKgCalculado = 0;
+      if (produto.peso_kg_m && produto.peso_kg_m > 0) {
+        precoPorKgCalculado = calcularPrecoPorKgReverso(
+          produto.preco,
+          produto.peso_kg_m,
+          produto.comprimento_barra || 6
+        );
+      }
+      
+      if (produto.estoque < quantidade) {
+        toast({
+          title: "⚠️ Estoque insuficiente",
+          description: `${produto.nome} - Estoque: ${produto.estoque}, Solicitado: ${quantidade}`,
+          variant: "default",
+        });
+      }
+
+      const itemId = `temp-${Date.now()}-${Math.random()}`;
+      
+      setItens([...itens, {
+        id: itemId,
+        produto_id: produto.id,
+        codigo: produto.codigo,
+        nome: produto.nome,
+        descricao: produto.descricao || produto.nome,
+        localizacao: produto.localizacao || '-',
+        quantidade,
+        preco_unitario: produto.preco,
+        peso: produto.peso,
+        desconto: desconto,
+        tipo: 'produto',
+        estoque_disponivel: produto.estoque,
+        categoria: produto.categoria,
+        cor: produto.cor,
+        preco_por_kg_calculado: precoPorKgCalculado
+      }]);
+      
+    } else {
+      const kit = kits.find(k => k.id === itemSelecionado);
+      if (!kit) return;
+
+      const estoqueKit = kit.estoque_disponivel || 0;
+      
+      if (estoqueKit < quantidade) {
+        toast({
+          title: "⚠️ Estoque insuficiente",
+          description: `${kit.nome} - Estoque: ${estoqueKit}, Solicitado: ${quantidade}`,
+          variant: "default",
+        });
+      }
+
+      const itemId = `temp-${Date.now()}-${Math.random()}`;
+
+      setItens([...itens, {
+        id: itemId,
+        kit_id: kit.id,
+        codigo: kit.codigo,
+        nome: kit.nome,
+        descricao: kit.descricao || kit.nome,
+        localizacao: '-',
+        quantidade,
+        preco_unitario: kit.preco_total,
+        peso: null,
+        desconto: desconto,
+        tipo: 'kit',
+        estoque_disponivel: estoqueKit
+      }]);
+    }
+
+    setItemSelecionado("");
+    setQuantidade(1);
+    setDesconto(0);
+    setSearchTerm("");
+  };
+
+  const removeItem = (index: number) => {
+    setItens(itens.filter((_, i) => i !== index));
+    if (mostrarCalculoReverso === index) {
+      setMostrarCalculoReverso(null);
+    }
+  };
+
+  const calcularPagamento = () => {
+    if (valorTotal <= 0) {
+      setValorEntrada(0);
+      setValorParcela(0);
+      return;
+    }
+
+    if (formaPagamento === "avista" || !parcelado || formaPagamento === "credito_cliente") {
+      setValorEntrada(valorTotal);
+      setValorParcela(0);
+      setParcelas(1);
+      setEntradaValor(0);
+      setCondicaoPagamento("");
+      return;
+    }
+
+    if (formaPagamento === "boleto" || formaPagamento === "credito" || formaPagamento === "debito") {
+
+      const totalParcelas = parcelas;
+      const temEntradaHoje = condicaoPagamento?.startsWith('0/') || false;
+      
+      let valorCalculadoEntrada = entradaValor || 0;
+      
+      if (valorCalculadoEntrada > valorTotal) {
+        valorCalculadoEntrada = valorTotal;
+        setEntradaValor(valorTotal);
+      }
+      
+      if (temEntradaHoje && valorCalculadoEntrada === 0) {
+        valorCalculadoEntrada = Number((valorTotal * 0.5).toFixed(2));
+        setEntradaValor(valorCalculadoEntrada);
+      }
+      
+      let valorCalculadoParcela = 0;
+      
+      if (temEntradaHoje) {
+        const valorRestante = valorTotal - valorCalculadoEntrada;
+        const parcelasFuturas = totalParcelas - 1;
+        
+        if (parcelasFuturas > 0) {
+          valorCalculadoParcela = Number((valorRestante / parcelasFuturas).toFixed(2));
+        } else {
+          valorCalculadoParcela = 0;
+        }
+      } else if (valorCalculadoEntrada > 0) {
+        const valorRestante = valorTotal - valorCalculadoEntrada;
+        valorCalculadoParcela = totalParcelas > 0 ? Number((valorRestante / totalParcelas).toFixed(2)) : 0;
+      } else {
+        valorCalculadoParcela = totalParcelas > 0 ? Number((valorTotal / totalParcelas).toFixed(2)) : 0;
+      }
+      
+      valorCalculadoEntrada = Math.round(valorCalculadoEntrada * 100) / 100;
+      valorCalculadoParcela = Math.round(valorCalculadoParcela * 100) / 100;
+      
+      setValorEntrada(valorCalculadoEntrada);
+      setValorParcela(valorCalculadoParcela);
+    }
+  };
+
+  const validarCalculoParcelas = (): boolean => {
+    if (!parcelado || formaPagamento === "avista" || formaPagamento === "credito_cliente") {
+      return true;
+    }
+    
+    const temEntradaHoje = condicaoPagamento?.startsWith('0/') || false;
+    const parcelasFuturas = temEntradaHoje ? parcelas - 1 : parcelas;
+    const entradaNum = entradaValor || 0;
+    
+    const totalCalculado = Number((entradaNum + (valorParcela * parcelasFuturas)).toFixed(2));
+    const diferenca = Math.abs(totalCalculado - Number(valorTotal.toFixed(2)));
+    
+    // Tolerância generosa para arredondamentos de centavos
+    const tolerancia = Math.max(0.05, parcelas * 0.01);
+    
+    if (diferenca > tolerancia) {
+      toast({
+        title: "❌ Erro no cálculo",
+        description: `Diferença de R$ ${diferenca.toFixed(2)}. Ajuste os valores.`,
+        variant: "destructive",
+      });
+      return false;
+    }
+    
+    return true;
+  };
+
+  const mostrarCampoEntrada = () => {
+    return parcelado && formaPagamento !== "avista" && formaPagamento !== "credito_cliente";
+  };
+
+  const salvarOrcamento = async (gerarPDF: boolean = false) => {
+    setLoading(true);
+    
+    try {
+      const { data: numeroOrcamento } = await supabase.rpc('gerar_numero_orcamento');
+
+      let totalParcelas = parcelas;
+      if (condicaoPagamento?.startsWith('0/')) {
+        totalParcelas = parcelas;
+      }
+      
+      const entradaPercentual = valorEntrada > 0 ? (valorEntrada / valorTotal) * 100 : 0;
+      
+      let obsPagamento = "";
+      
+      if (formaPagamento === "avista" || !parcelado) {
+        obsPagamento = `Pagamento à vista - Total: ${formatCurrency(valorTotal)}`;
+      } else if (formaPagamento === "credito_cliente") {
+        obsPagamento = `Pagamento com crédito do cliente - Total: ${formatCurrency(valorTotal)} - Limite do cliente: R$ ${clienteLimite.toFixed(2)}`;
+      } else {
+        obsPagamento = `Pagamento: ${getFormaPagamentoLabel(formaPagamento)}`;
+        if (condicaoPagamento) {
+          obsPagamento += ` - ${getDescricaoCondicao(condicaoPagamento)}`;
+        }
+        if (valorEntrada > 0) {
+          obsPagamento += ` - Entrada: ${formatCurrency(valorEntrada)} (hoje)`;
+        }
+        if (valorParcela > 0) {
+          if (condicaoPagamento?.startsWith('0/')) {
+            obsPagamento += ` - ${totalParcelas - 1}x ${formatCurrency(valorParcela)}`;
+          } else {
+            obsPagamento += ` - ${totalParcelas}x ${formatCurrency(valorParcela)}`;
+          }
+        }
+      }
+
+      const observacoesCompletas = observacoes 
+        ? `${obsPagamento}\n\n${observacoes}`
+        : obsPagamento;
+
+      const { data: orcamento, error: orcError } = await supabase
+        .from('orcamentos')
+        .insert({
+          numero: numeroOrcamento,
+          cliente_id: clienteId,
+          vendedor_id: vendedorId || null,
+          valor_total: Number(valorTotal.toFixed(2)),
+          observacoes: observacoesCompletas.substring(0, 500),
+          status: 'pendente',
+          forma_pagamento: formaPagamento,
+          condicao_pagamento: condicaoPagamento || null,
+          entrada_percentual: entradaPercentual > 0 ? Number(entradaPercentual.toFixed(2)) : null,
+          entrada_valor: valorEntrada > 0 ? Number(valorEntrada.toFixed(2)) : null,
+          parcelas: totalParcelas || null,
+          valor_parcela: valorParcela > 0 ? Number(valorParcela.toFixed(2)) : null,
+          parcelado: parcelado,
+          numero_parcelas: parcelado ? totalParcelas : 1,
+          pagamento_misto: false,
+          valor_credito_utilizado: null,
+          forma_pagamento_restante: null,
+          condicao_pagamento_restante: null,
+          parcelas_restante: null
+        })
+        .select()
+        .single();
+
+      if (orcError) throw orcError;
+
+      const orcamentoItens = itens.map(item => {
+        const subtotalComDesconto = calcularSubtotalComDesconto(item);
+        
+        return {
+          orcamento_id: orcamento.id,
+          produto_id: item.tipo === 'produto' ? item.produto_id : null,
+          kit_id: item.tipo === 'kit' ? item.kit_id : null,
+          quantidade: item.quantidade,
+          preco_unitario: Number(item.preco_unitario.toFixed(2)),
+          desconto: item.desconto,
+          peso: item.peso,
+          subtotal: Number(subtotalComDesconto.toFixed(2))
+        };
+      });
+
+      const { error: itensError } = await supabase
+        .from('orcamento_itens')
+        .insert(orcamentoItens);
+
+      if (itensError) throw itensError;
+
+      if (vendedorId) {
+        const vendedorSelecionado = vendedores.find(v => v.id === vendedorId);
+        if (vendedorSelecionado) {
+          const valorComissao = (valorTotal * vendedorSelecionado.comissao_percentual) / 100;
+          
+          await supabase
+            .from('comissoes')
+            .insert({
+              orcamento_id: orcamento.id,
+              vendedor_id: vendedorId,
+              valor_orcamento: valorTotal,
+              percentual_comissao: vendedorSelecionado.comissao_percentual,
+              valor_comissao: Number(valorComissao.toFixed(2)),
+              status: 'pendente',
+            });
+        }
+      }
+
+      toast({
+        title: "✅ Orçamento criado!",
+        description: `Orçamento ${numeroOrcamento} criado com sucesso.`,
+      });
+
+      if (gerarPDF) {
+        setTimeout(() => {
+          toast({
+            title: "📄 PDF gerado!",
+            description: "O arquivo será baixado em instantes.",
+          });
+        }, 500);
+      }
+
+      onClose();
+      
+    } catch (error: any) {
+      console.error('❌ Erro:', error);
+      toast({
+        title: "❌ Erro ao criar orçamento",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSubmit = async (gerarPDF: boolean = false) => {
+    if (!clienteId || itens.length === 0) {
+      toast({
+        title: "Dados incompletos",
+        description: "Selecione um cliente e adicione produtos",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!formaPagamento) {
+      toast({
+        title: "Forma de pagamento obrigatória",
+        description: "Selecione uma forma de pagamento",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const formasPagamentoOpcionais = ["credito", "debito", "credito_cliente"];
+    
+    if (parcelado && !formasPagamentoOpcionais.includes(formaPagamento) && !condicaoPagamento) {
+      toast({
+        title: "Condição de pagamento obrigatória",
+        description: "Selecione uma condição de pagamento",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (parcelado && !validarCalculoParcelas()) {
+      return;
+    }
+
+    await salvarOrcamento(gerarPDF);
+  };
+
+  const itensComFormula = contarItensComFormula();
+
+  return (
+    <div className="space-y-6">
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <label className="text-sm font-medium">Cliente *</label>
+          <AddClienteInlineDialog
+            onClienteAdded={(novoCliente) => {
+              setClientes(prev => [...prev, novoCliente]);
+              setClienteId(novoCliente.id);
+            }}
+          />
+        </div>
+        <Select value={clienteId || "sem_cliente"} onValueChange={(value) => {
+          setClienteId(value === "sem_cliente" ? "" : value);
+        }}>
+          <SelectTrigger>
+            <SelectValue placeholder="Selecione um cliente" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="sem_cliente">Selecione um cliente</SelectItem>
+            {clientes.map(cliente => (
+              <SelectItem key={cliente.id} value={cliente.id}>
+                {cliente.nome} - {cliente.cpf_cnpj}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {clienteLimite > 0 && (
+          <p className="text-xs text-blue-600">
+            Limite de crédito disponível: {formatCurrency(clienteLimite)}
+          </p>
+        )}
+      </div>
+
+      <div className="space-y-2">
+        <label className="text-sm font-medium">Vendedor (opcional)</label>
+        <Select value={vendedorId || "sem_vendedor"} onValueChange={(value) => {
+          setVendedorId(value === "sem_vendedor" ? "" : value);
+        }}>
+          <SelectTrigger>
+            <SelectValue placeholder="Selecione um vendedor" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="sem_vendedor">Sem vendedor</SelectItem>
+            {vendedores.map(vendedor => (
+              <SelectItem key={vendedor.id} value={vendedor.id}>
+                <div className="flex items-center justify-between w-full">
+                  <span>{vendedor.nome}</span>
+                  <Badge variant="outline" className="ml-2 text-xs">
+                    {vendedor.comissao_percentual}%
+                  </Badge>
+                </div>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {vendedorId && (
+          <p className="text-xs text-green-600 mt-1">
+            Comissão de {vendedores.find(v => v.id === vendedorId)?.comissao_percentual}% será calculada automaticamente
+          </p>
+        )}
+      </div>
+
+      <div className="border rounded-lg p-4 space-y-4">
+        <h3 className="font-semibold">Condições de Pagamento</h3>
+        
+        <div className="space-y-4">
+          <div className="flex items-center space-x-2">
+            <input
+              type="checkbox"
+              id="parcelado"
+              checked={parcelado}
+              onChange={(e) => {
+                setParcelado(e.target.checked);
+                if (!e.target.checked) {
+                  setFormaPagamento("avista");
+                  setCondicaoPagamento("");
+                  setEntradaValor(0);
+                }
+              }}
+              className="h-4 w-4 rounded border-gray-300"
+              disabled={formaPagamento === "credito_cliente"}
+            />
+            <label htmlFor="parcelado" className="text-sm font-medium">
+              Pagamento Parcelado?
+            </label>
+          </div>
+          
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Forma de Pagamento *</label>
+              <Select value={formaPagamento || "sem_forma"} onValueChange={(value) => {
+                const novaForma = value === "sem_forma" ? "" : value;
+                setFormaPagamento(novaForma);
+                
+                if (novaForma === "credito_cliente") {
+                  setParcelado(false);
+                  setCondicaoPagamento("");
+                  setEntradaValor(0);
+                  setParcelas(1);
+                } else if (novaForma === "avista") {
+                  setParcelado(false);
+                  setCondicaoPagamento("");
+                  setEntradaValor(0);
+                  setParcelas(1);
+                }
+              }}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="sem_forma">Selecione uma forma</SelectItem>
+                  <SelectItem value="avista">À Vista</SelectItem>
+                  <SelectItem value="boleto">Boleto</SelectItem>
+                  <SelectItem value="credito">Cartão de Crédito</SelectItem>
+                  <SelectItem value="debito">Cartão de Débito</SelectItem>
+                  <SelectItem value="credito_cliente">Cliente com Crédito</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {parcelado && (
+              <>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">
+                    Condição de Pagamento 
+                    {formaPagamento !== "credito" && formaPagamento !== "debito" && " *"}
+                  </label>
+                  <Select 
+                    value={condicaoPagamento || "sem_condicao"} 
+                    onValueChange={(value) => {
+                      setCondicaoPagamento(value === "sem_condicao" ? "" : value);
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={
+                        formaPagamento === "credito" || formaPagamento === "debito"
+                          ? "Opcional - pode selecionar se desejar" 
+                          : "Selecione"
+                      } />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="sem_condicao">
+                        {formaPagamento === "credito" || formaPagamento === "debito" 
+                          ? "Sem condição especial" 
+                          : "Selecione uma condição"}
+                      </SelectItem>
+                      <SelectItem value="28">28 dias</SelectItem>
+                      <SelectItem value="28/56">28/56 dias</SelectItem>
+                      <SelectItem value="0/28/56">0/28/56 dias</SelectItem>
+                      <SelectItem value="15">15 dias</SelectItem>
+                      <SelectItem value="15/30">15/30 dias</SelectItem>
+                      <SelectItem value="0/15/30">0/15/30 dias</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {(formaPagamento === "credito" || formaPagamento === "debito") && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      A condição de pagamento é opcional para cartão de crédito e débito
+                    </p>
+                  )}
+                </div>
+
+                {mostrarCampoEntrada() && (
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Valor da Entrada (R$)</label>
+                    <Input
+                      type="number"
+                      min="0"
+                      max={valorTotal}
+                      step="0.01"
+                      value={entradaValor === 0 ? "" : entradaValor}
+                      onChange={(e) => {
+                        const raw = e.target.value;
+                        if (raw === "" || raw === "-") {
+                          setEntradaValor(0);
+                        } else {
+                          const parsed = parseFloat(raw);
+                          if (!isNaN(parsed)) setEntradaValor(parsed);
+                        }
+                      }}
+                      placeholder="Sem entrada (opcional)"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      {condicaoPagamento?.startsWith('0/') 
+                        ? "Entrada obrigatória - vencimento hoje"
+                        : "Deixe em branco para não ter entrada"}
+                    </p>
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Número de Parcelas</label>
+                  <Input
+                    type="number"
+                    min="1"
+                    max="60"
+                    value={parcelas}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value);
+                      if (!isNaN(val) && val >= 1) setParcelas(val);
+                    }}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {condicaoPagamento
+                      ? "Condição especial selecionada - ajuste livremente o número de parcelas"
+                      : "Informe quantas parcelas"}
+                  </p>
+                </div>
+              </>
+            )}
+          </div>
+
+          {valorTotal > 0 && formaPagamento && (
+            <div className="pt-4 border-t">
+              <h4 className="font-medium mb-2">Resumo do Pagamento:</h4>
+              <div className="bg-gray-50 p-3 rounded-lg text-sm space-y-1">
+                <div className="flex justify-between">
+                  <span>Valor Total:</span>
+                  <span className="font-bold">{formatCurrency(valorTotal)}</span>
+                </div>
+                
+                {formaPagamento === "credito_cliente" ? (
+                  <div className="flex justify-between text-purple-600">
+                    <span>Pagamento:</span>
+                    <span className="font-medium">Crédito do Cliente</span>
+                  </div>
+                ) : !parcelado || formaPagamento === "avista" ? (
+                  <div className="flex justify-between text-green-600">
+                    <span>Pagamento:</span>
+                    <span className="font-medium">À Vista</span>
+                  </div>
+                ) : (
+                  <>
+                    {valorEntrada > 0 && (
+                      <div className="flex justify-between text-green-600">
+                        <span>Entrada (hoje):</span>
+                        <span className="font-medium">{formatCurrency(valorEntrada)}</span>
+                      </div>
+                    )}
+                    
+                    {valorParcela > 0 && (
+                      <>
+                        <div className="flex justify-between">
+                          <span>
+                            {condicaoPagamento?.startsWith('0/') 
+                              ? `${parcelas - 1}x de:`
+                              : `${parcelas}x de:`}
+                          </span>
+                          <span className="font-medium">{formatCurrency(valorParcela)}</span>
+                        </div>
+                        
+                        <div className="flex justify-between text-xs text-gray-500 pt-1 border-t border-gray-200 mt-1">
+                          <span>Total parcelado:</span>
+                          <span>
+                            {formatCurrency(
+                              condicaoPagamento?.startsWith('0/')
+                                ? valorParcela * (parcelas - 1)
+                                : valorParcela * parcelas
+                            )}
+                          </span>
+                        </div>
+                      </>
+                    )}
+                    
+                    {condicaoPagamento && (
+                      <div className="flex justify-between text-xs text-gray-500">
+                        <span>Condição:</span>
+                        <span>{getDescricaoCondicao(condicaoPagamento)}</span>
+                      </div>
+                    )}
+                  </>
+                )}
+                
+                {valorEntrada > 0 && valorEntrada < valorTotal && (
+                  <div className="flex justify-between text-xs text-blue-600 pt-1 border-t border-blue-200 mt-1">
+                    <span>Saldo após entrada:</span>
+                    <span className="font-medium">{formatCurrency(valorTotal - valorEntrada)}</span>
+                  </div>
+                )}
+
+                {vendedorId && (
+                  <div className="flex justify-between text-xs text-green-600 pt-1 border-t border-green-200 mt-1">
+                    <span>Comissão do vendedor:</span>
+                    <span className="font-medium">
+                      {formatCurrency((valorTotal * (vendedores.find(v => v.id === vendedorId)?.comissao_percentual || 0)) / 100)}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="border rounded-lg p-4 space-y-4">
+        <div className="flex justify-between items-center">
+          <h3 className="font-semibold">Adicionar Itens</h3>
+          {itensComFormula > 0 && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setMostrarAplicarTodos(true)}
+              className="gap-2"
+            >
+              <Zap className="h-4 w-4" />
+              Aplicar Preço por Kg para Todos
+            </Button>
+          )}
+        </div>
+
+        {mostrarAplicarTodos && (
+          <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+            <div className="flex items-center justify-between mb-3">
+              <h5 className="font-medium text-sm text-green-800">
+                Aplicar Preço por Kg para Todos os Itens
+              </h5>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  setMostrarAplicarTodos(false);
+                  setPrecoPorKgTodos("");
+                }}
+                className="h-6 w-6 p-0"
+              >
+                <X className="h-3 w-3" />
+              </Button>
+            </div>
+            
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs">Preço por Kg para Todos os Itens</label>
+                <div className="flex gap-2">
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="Digite o preço por kg para todos"
+                    value={precoPorKgTodos}
+                    onChange={(e) => setPrecoPorKgTodos(e.target.value)}
+                    className="h-8 flex-1"
+                  />
+                  <Button 
+                    size="sm" 
+                    onClick={() => {
+                      const precoPorKg = parseFloat(precoPorKgTodos) || 0;
+                      if (precoPorKg > 0) {
+                        aplicarPrecoPorKgTodos(precoPorKg);
+                      } else {
+                        toast({
+                          title: "Valor inválido",
+                          description: "Digite um preço por kg válido",
+                          variant: "destructive",
+                        });
+                      }
+                    }}
+                  >
+                    Aplicar para Todos
+                  </Button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => aplicarDescontoPrecoPorKgTodos(5)}
+                  className="text-xs"
+                >
+                  -5% Todos
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => aplicarDescontoPrecoPorKgTodos(10)}
+                  className="text-xs"
+                >
+                  -10% Todos
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => aplicarDescontoPrecoPorKgTodos(15)}
+                  className="text-xs"
+                >
+                  -15% Todos
+                </Button>
+              </div>
+
+              <p className="text-xs text-muted-foreground">
+                Esta ação aplicará o mesmo preço por kg para todos os {itensComFormula} itens que usam a fórmula de cálculo.
+              </p>
+            </div>
+          </div>
+        )}
+
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Pesquisar</label>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Pesquisar por nome, código ou cor..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+        </div>
+
+        <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 md:grid-cols-5">
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Tipo</label>
+            <Select value={tipoItem} onValueChange={(value: 'produto' | 'kit') => {
+              setTipoItem(value);
+              setItemSelecionado("");
+            }}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="produto">Produto</SelectItem>
+                <SelectItem value="kit">Kit</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="md:sm:col-span-2 space-y-2">
+            <label className="text-sm font-medium">{tipoItem === 'produto' ? 'Produto' : 'Kit'}</label>
+            <Select value={itemSelecionado || "sem_item"} onValueChange={(value) => {
+              setItemSelecionado(value === "sem_item" ? "" : value);
+            }}>
+              <SelectTrigger>
+                <SelectValue placeholder={`Selecione um ${tipoItem}`} />
+              </SelectTrigger>
+              <SelectContent className="max-w-[500px]">
+                <SelectItem value="sem_item">Selecione um {tipoItem}</SelectItem>
+                {tipoItem === 'produto' ? (
+                  produtosFiltrados.length > 0 ? (
+                    produtosFiltrados.map(produto => {
+                      const formatted = formatarProdutoSelect(produto);
+                      return (
+                        <SelectItem key={produto.id} value={produto.id} className="py-2">
+                          <div className="flex flex-col">
+                            <span className="font-medium">{formatted.text}</span>
+                            <span className={`text-xs ${formatted.estoqueColor}`}>
+                              {formatted.estoqueInfo}
+                              {produto.peso_kg_m && ` | ${produto.peso_kg_m}kg/m`}
+                            </span>
+                          </div>
+                        </SelectItem>
+                      );
+                    })
+                  ) : (
+                    <SelectItem value="sem_item" disabled>
+                      Nenhum produto encontrado
+                    </SelectItem>
+                  )
+                ) : (
+                  kitsFiltrados.length > 0 ? (
+                    kitsFiltrados.map(kit => {
+                      const formatted = formatarKitSelect(kit);
+                      return (
+                        <SelectItem key={kit.id} value={kit.id} className="py-2">
+                          <div className="flex flex-col">
+                            <span className="font-medium">{formatted.text}</span>
+                            <span className={`text-xs ${formatted.estoqueColor}`}>
+                              {formatted.estoqueInfo}
+                            </span>
+                          </div>
+                        </SelectItem>
+                      );
+                    })
+                  ) : (
+                    <SelectItem value="sem_item" disabled>
+                      Nenhum kit com estoque disponível
+                    </SelectItem>
+                  )
+                )}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Qtd</label>
+            <Input
+              type="number"
+              min="1"
+              value={quantidade}
+              onChange={(e) => setQuantidade(parseInt(e.target.value) || 1)}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Desc. %</label>
+            <div className="flex gap-2">
+              <Input
+                type="number"
+                min="0"
+                max="100"
+                step="0.01"
+                value={desconto}
+                onChange={(e) => setDesconto(parseFloat(e.target.value) || 0)}
+              />
+              <Button 
+                onClick={addItem} 
+                type="button" 
+                size="icon"
+                disabled={!itemSelecionado || quantidade <= 0}
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        {itens.length > 0 && (
+          <div className="space-y-2">
+            <h4 className="font-medium">Itens do Orçamento:</h4>
+            <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
+              {itens.map((item, index) => {
+                const subtotalBruto = item.quantidade * item.preco_unitario;
+                const valorDesconto = (subtotalBruto * item.desconto) / 100;
+                const subtotalLiquido = subtotalBruto - valorDesconto;
+                const usaFormula = produtoUsaFormula(item);
+                const produtoOriginal = produtos.find(p => p.id === item.produto_id);
+                const semEstoque = item.estoque_disponivel !== undefined && item.quantidade > item.estoque_disponivel;
+                
+                return (
+                  <div key={item.id} className={`grid grid-cols-1 sm:grid-cols-12 gap-2 items-start sm:items-center p-3 rounded-lg ${semEstoque ? 'bg-yellow-100 border border-yellow-300' : 'bg-secondary'}`}>
+                    <div className="sm:col-span-4">
+                      <p className="font-medium text-sm">{item.descricao}</p>
+                      <div className="flex gap-2 text-xs text-muted-foreground">
+                        <span>Cód: {item.codigo}</span>
+                        <span>| {item.tipo}</span>
+                        {item.cor && <span>| Cor: {item.cor}</span>}
+                        {semEstoque && (
+                          <span className="text-yellow-700 font-medium">
+                            ⚠️ Estoque: {item.estoque_disponivel}
+                          </span>
+                        )}
+                      </div>
+                      {usaFormula && produtoOriginal && (
+                        <div className="flex gap-2 text-xs text-blue-700">
+                          <span>Peso: {produtoOriginal.peso_kg_m}kg/m</span>
+                          {item.preco_por_kg_calculado && (
+                            <span>R$ {item.preco_por_kg_calculado.toFixed(2)}/kg</span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="sm:col-span-1">
+                      <label className="text-xs">Qtd</label>
+                      <Input
+                        type="number"
+                        min="1"
+                        value={item.quantidade}
+                        onChange={(e) => {
+                          const newItens = [...itens];
+                          newItens[index].quantidade = parseInt(e.target.value) || 1;
+                          setItens(newItens);
+                        }}
+                        className="h-8"
+                      />
+                    </div>
+                    
+                    <div className="sm:col-span-2">
+                      <label className="text-xs">Preço Unit.</label>
+                      <div className="flex gap-1">
+                        <Input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={item.preco_unitario}
+                          onChange={(e) => {
+                            handlePrecoUnitarioChange(index, parseFloat(e.target.value) || 0);
+                          }}
+                          className="h-8 flex-1"
+                        />
+                        {usaFormula && (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => abrirModalCalculoReverso(index)}
+                            className="h-8 w-8"
+                            title="Calcular preço por kg"
+                          >
+                            <Calculator className="h-3 w-3" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                    
+                    <div className="sm:col-span-1">
+                      <label className="text-xs">Desc. %</label>
+                      <Input
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="0.01"
+                        value={item.desconto}
+                        onChange={(e) => {
+                          const newItens = [...itens];
+                          newItens[index].desconto = parseFloat(e.target.value) || 0;
+                          setItens(newItens);
+                        }}
+                        className="h-8"
+                      />
+                    </div>
+                    
+                    <div className="sm:col-span-3 text-right">
+                      <p className="text-xs text-muted-foreground">R$ {subtotalBruto.toFixed(2)}</p>
+                      <p className="text-xs text-muted-foreground">-{item.desconto}% = R$ {valorDesconto.toFixed(2)}</p>
+                      <p className="font-semibold text-sm">R$ {subtotalLiquido.toFixed(2)}</p>
+                    </div>
+                    
+                    <div className="sm:col-span-1 text-right">
+                      <Button
+                        size="icon"
+                        variant="destructive"
+                        onClick={() => removeItem(index)}
+                        className="h-8 w-8"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+
+                    {mostrarCalculoReverso === index && usaFormula && produtoOriginal && (
+                      <div className="sm:sm:col-span-12 mt-3 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                        <div className="flex items-center justify-between mb-3">
+                          <h5 className="font-medium text-sm text-blue-800">Cálculo do Preço por Kg</h5>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => {
+                              setMostrarCalculoReverso(null);
+                              setNovoPrecoPorKg("");
+                            }}
+                            className="h-6 w-6 p-0"
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </div>
+                        
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
+                          <div>
+                            <label className="text-xs">Peso kg/m</label>
+                            <Input value={produtoOriginal.peso_kg_m} disabled className="h-8" />
+                          </div>
+                          <div>
+                            <label className="text-xs">Comprimento (m)</label>
+                            <Input value={produtoOriginal.comprimento_barra || 6} disabled className="h-8" />
+                          </div>
+                          <div>
+                            <label className="text-xs">Peso Total (kg)</label>
+                            <Input 
+                              value={((produtoOriginal.peso_kg_m || 0) * (produtoOriginal.comprimento_barra || 6)).toFixed(3)} 
+                              disabled 
+                              className="h-8" 
+                            />
+                          </div>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                          <div>
+                            <label className="text-xs">Preço de Venda Atual</label>
+                            <Input value={item.preco_unitario.toFixed(2)} disabled className="h-8" />
+                          </div>
+                          <div>
+                            <label className="text-xs">Preço por Kg Calculado</label>
+                            <Input 
+                              value={item.preco_por_kg_calculado?.toFixed(2) || '0.00'} 
+                              disabled 
+                              className="h-8" 
+                            />
+                          </div>
+                        </div>
+
+                        <div className="space-y-3">
+                          <div>
+                            <label className="text-xs">Definir Novo Preço por Kg</label>
+                            <div className="flex gap-2">
+                              <Input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                placeholder="Digite o preço por kg"
+                                value={novoPrecoPorKg}
+                                onChange={(e) => setNovoPrecoPorKg(e.target.value)}
+                                className="h-8 flex-1"
+                              />
+                              <Button 
+                                size="sm" 
+                                onClick={() => {
+                                  const precoPorKg = parseFloat(novoPrecoPorKg) || 0;
+                                  if (precoPorKg > 0) {
+                                    aplicarPrecoPorKg(index, precoPorKg);
+                                  } else {
+                                    toast({
+                                      title: "Valor inválido",
+                                      description: "Digite um preço por kg válido",
+                                      variant: "destructive",
+                                    });
+                                  }
+                                }}
+                              >
+                                Aplicar
+                              </Button>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => aplicarDescontoPrecoPorKg(index, 5)}
+                              className="text-xs"
+                            >
+                              -5%
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => aplicarDescontoPrecoPorKg(index, 10)}
+                              className="text-xs"
+                            >
+                              -10%
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => aplicarDescontoPrecoPorKg(index, 15)}
+                              className="text-xs"
+                            >
+                              -15%
+                            </Button>
+                          </div>
+
+                          <p className="text-xs text-muted-foreground mt-2">
+                            <strong>Fórmula:</strong> Preço por Kg = Preço de Venda ÷ (Peso kg/m × Comprimento)
+                            <br />
+                            <strong>Exemplo:</strong> R$ {item.preco_unitario.toFixed(2)} ÷ ({produtoOriginal.peso_kg_m} × {produtoOriginal.comprimento_barra || 6}) = R$ {item.preco_por_kg_calculado?.toFixed(2)}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            <div className="pt-2 border-t text-right">
+              <p className="text-xl font-bold">
+                Total: {formatCurrency(valorTotal)}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {itens.length} item(ns) adicionado(s) | {itensComFormula} com fórmula de cálculo
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="space-y-2">
+        <label className="text-sm font-medium">Observações</label>
+        <textarea
+          value={observacoes}
+          onChange={(e) => setObservacoes(e.target.value)}
+          placeholder="Informações adicionais..."
+          rows={3}
+          className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+        />
+      </div>
+
+      <div className="flex gap-2 justify-end">
+        <Button variant="outline" onClick={onClose} disabled={loading}>
+          Cancelar
+        </Button>
+        <Button 
+          onClick={() => handleSubmit(false)} 
+          disabled={loading || !formaPagamento || itens.length === 0 || !clienteId}
+        >
+          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Salvar"}
+        </Button>
+        <Button 
+          onClick={() => handleSubmit(true)} 
+          disabled={loading || !formaPagamento || itens.length === 0 || !clienteId} 
+          variant="outline"
+        >
+          <Download className="h-4 w-4 mr-2" />
+          Salvar e PDF
+        </Button>
+      </div>
+    </div>
+  );
+};
+
+// ========== COMPONENTE DE EDITAR ORÇAMENTO ==========
+const EditOrcamentoContent = ({ orcamento, onClose }: { orcamento: OrcamentoComItens, onClose: () => void }) => {
+  const [loading, setLoading] = useState(false);
+  const [clientes, setClientes] = useState<any[]>([]);
+  const [vendedores, setVendedores] = useState<Vendedor[]>([]);
+  const [produtos, setProdutos] = useState<Produto[]>([]);
+  const [kits, setKits] = useState<any[]>([]);
+  
+  const [clienteId, setClienteId] = useState(orcamento.cliente_id);
+  const [vendedorId, setVendedorId] = useState<string>(orcamento.vendedor_id || "");
+  const [observacoes, setObservacoes] = useState(orcamento.observacoes || "");
+  const [itens, setItens] = useState<ItemOrcamento[]>([]);
+  
+  const [formaPagamento, setFormaPagamento] = useState<string>(orcamento.forma_pagamento || "");
+  const [condicaoPagamento, setCondicaoPagamento] = useState<string>(orcamento.condicao_pagamento || "");
+  const [entradaValor, setEntradaValor] = useState<number>(orcamento.entrada_valor || 0);
+  const [parcelas, setParcelas] = useState<number>(orcamento.parcelas || 1);
+  const [valorEntrada, setValorEntrada] = useState<number>(orcamento.entrada_valor || 0);
+  const [valorParcela, setValorParcela] = useState<number>(orcamento.valor_parcela || 0);
+  const [parcelado, setParcelado] = useState<boolean>(orcamento.parcelado || false);
+  const [clienteLimite, setClienteLimite] = useState<number>(0);
+  
+  const [tipoItem, setTipoItem] = useState<'produto' | 'kit'>('produto');
+  const [itemSelecionado, setItemSelecionado] = useState("");
+  const [quantidade, setQuantidade] = useState(1);
+  const [desconto, setDesconto] = useState(0);
+  const [searchTerm, setSearchTerm] = useState("");
+  
+  const [mostrarCalculoReverso, setMostrarCalculoReverso] = useState<number | null>(null);
+  const [novoPrecoPorKg, setNovoPrecoPorKg] = useState<string>("");
+  const [mostrarAplicarTodos, setMostrarAplicarTodos] = useState(false);
+  const [precoPorKgTodos, setPrecoPorKgTodos] = useState<string>("");
+
+  const calcularPrecoPorKgReverso = (precoVenda: number, pesoKgM: number, comprimentoBarra: number = 6) => {
+    const pesoTotal = pesoKgM * comprimentoBarra;
+    if (pesoTotal <= 0) return 0;
+    return precoVenda / pesoTotal;
+  };
+
+  const calcularPrecoVenda = (precoPorKg: number, pesoKgM: number, comprimentoBarra: number = 6) => {
+    const pesoTotal = pesoKgM * comprimentoBarra;
+    return pesoTotal * precoPorKg;
+  };
+
+  const produtoUsaFormula = (item: ItemOrcamento) => {
+    if (item.tipo !== 'produto') return false;
+    const produto = produtos.find(p => p.id === item.produto_id);
+    return produto && produto.peso_kg_m && produto.peso_kg_m > 0;
+  };
+
+  const contarItensComFormula = () => {
+    return itens.filter(item => produtoUsaFormula(item)).length;
+  };
+
+  const handlePrecoUnitarioChange = (index: number, novoPrecoUnitario: number) => {
+    const newItens = [...itens];
+    const item = newItens[index];
+    
+    if (item.tipo === 'produto') {
+      const produtoOriginal = produtos.find(p => p.id === item.produto_id);
+      if (produtoOriginal?.peso_kg_m && produtoOriginal.peso_kg_m > 0) {
+        const precoPorKgCalculado = calcularPrecoPorKgReverso(
+          novoPrecoUnitario, 
+          produtoOriginal.peso_kg_m, 
+          produtoOriginal.comprimento_barra || 6
+        );
+        
+        newItens[index] = {
+          ...item,
+          preco_unitario: novoPrecoUnitario,
+          preco_por_kg_calculado: precoPorKgCalculado
+        };
+      } else {
+        newItens[index].preco_unitario = novoPrecoUnitario;
+      }
+    } else {
+      newItens[index].preco_unitario = novoPrecoUnitario;
+    }
+    
+    setItens(newItens);
+  };
+
+  const aplicarPrecoPorKg = (index: number, precoPorKg: number) => {
+    const newItens = [...itens];
+    const item = newItens[index];
+    
+    if (item.tipo === 'produto') {
+      const produtoOriginal = produtos.find(p => p.id === item.produto_id);
+      if (produtoOriginal?.peso_kg_m && produtoOriginal.peso_kg_m > 0) {
+        const novoPrecoVenda = calcularPrecoVenda(
+          precoPorKg,
+          produtoOriginal.peso_kg_m,
+          produtoOriginal.comprimento_barra || 6
+        );
+        
+        newItens[index] = {
+          ...item,
+          preco_unitario: parseFloat(novoPrecoVenda.toFixed(2)),
+          preco_por_kg_calculado: precoPorKg
+        };
+        
+        setItens(newItens);
+        setNovoPrecoPorKg("");
+        setMostrarCalculoReverso(null);
+        
+        toast({
+          title: "Preço atualizado!",
+          description: `Preço por kg aplicado: R$ ${precoPorKg.toFixed(2)} | Novo preço: R$ ${novoPrecoVenda.toFixed(2)}`,
+        });
+      }
+    }
+  };
+
+  const aplicarDescontoPrecoPorKg = (index: number, percentualDesconto: number) => {
+    const item = itens[index];
+    if (item.preco_por_kg_calculado && percentualDesconto > 0) {
+      const novoPrecoPorKg = item.preco_por_kg_calculado * (1 - percentualDesconto / 100);
+      aplicarPrecoPorKg(index, parseFloat(novoPrecoPorKg.toFixed(2)));
+    }
+  };
+
+  const abrirModalCalculoReverso = (index: number) => {
+    setMostrarCalculoReverso(index);
+    const item = itens[index];
+    if (item.preco_por_kg_calculado) {
+      setNovoPrecoPorKg(item.preco_por_kg_calculado.toFixed(2));
+    } else {
+      setNovoPrecoPorKg("");
+    }
+  };
+
+  const aplicarPrecoPorKgTodos = (precoPorKg: number) => {
+    const newItens = [...itens];
+    let itensAtualizados = 0;
+    
+    newItens.forEach((item, index) => {
+      if (item.tipo === 'produto') {
+        const produtoOriginal = produtos.find(p => p.id === item.produto_id);
+        if (produtoOriginal?.peso_kg_m && produtoOriginal.peso_kg_m > 0) {
+          const novoPrecoVenda = calcularPrecoVenda(
+            precoPorKg,
+            produtoOriginal.peso_kg_m,
+            produtoOriginal.comprimento_barra || 6
+          );
+          
+          newItens[index] = {
+            ...item,
+            preco_unitario: parseFloat(novoPrecoVenda.toFixed(2)),
+            preco_por_kg_calculado: precoPorKg
+          };
+          itensAtualizados++;
+        }
+      }
+    });
+    
+    setItens(newItens);
+    setPrecoPorKgTodos("");
+    setMostrarAplicarTodos(false);
+    
+    toast({
+      title: "Preço aplicado para todos!",
+      description: `Preço por kg R$ ${precoPorKg.toFixed(2)} aplicado em ${itensAtualizados} itens do orçamento`,
+    });
+  };
+
+  const aplicarDescontoPrecoPorKgTodos = (percentualDesconto: number) => {
+    const newItens = [...itens];
+    let itensAtualizados = 0;
+    
+    newItens.forEach((item, index) => {
+      if (item.tipo === 'produto' && item.preco_por_kg_calculado) {
+        const produtoOriginal = produtos.find(p => p.id === item.produto_id);
+        if (produtoOriginal?.peso_kg_m && produtoOriginal.peso_kg_m > 0) {
+          const novoPrecoPorKg = item.preco_por_kg_calculado * (1 - percentualDesconto / 100);
+          const novoPrecoVenda = calcularPrecoVenda(
+            novoPrecoPorKg,
+            produtoOriginal.peso_kg_m,
+            produtoOriginal.comprimento_barra || 6
+          );
+          
+          newItens[index] = {
+            ...item,
+            preco_unitario: parseFloat(novoPrecoVenda.toFixed(2)),
+            preco_por_kg_calculado: parseFloat(novoPrecoPorKg.toFixed(2))
+          };
+          itensAtualizados++;
+        }
+      }
+    });
+    
+    setItens(newItens);
+    
+    toast({
+      title: "Desconto aplicado para todos!",
+      description: `Desconto de ${percentualDesconto}% aplicado em ${itensAtualizados} itens do orçamento`,
+    });
+  };
+
+  const calcularSubtotalComDesconto = (item: ItemOrcamento) => {
+    const subtotal = item.quantidade * item.preco_unitario;
+    const valorDesconto = (subtotal * item.desconto) / 100;
+    return subtotal - valorDesconto;
+  };
+
+  const calcularValorTotal = () => {
+    return itens.reduce((sum, item) => sum + calcularSubtotalComDesconto(item), 0);
+  };
+
+  const valorTotal = calcularValorTotal();
+
+  useEffect(() => {
+    fetchClientes();
+    fetchVendedores();
+    fetchProdutos();
+    fetchKits();
+  }, []);
+
+  useEffect(() => {
+    if (valorTotal > 0) {
+      calcularPagamento();
+    }
+  }, [formaPagamento, condicaoPagamento, entradaValor, parcelas, valorTotal, parcelado]);
+
+  useEffect(() => {
+    if (clienteId) {
+      fetchClienteLimite();
+    } else {
+      setClienteLimite(0);
+    }
+  }, [clienteId]);
+
+  useEffect(() => {
+    // Converter itens do orçamento para o formato do componente
+    if (orcamento.orcamento_itens && produtos.length > 0 && kits.length > 0) {
+      const itensConvertidos: ItemOrcamento[] = orcamento.orcamento_itens.map(item => {
+        // Verifica se é um produto
+        if (item.produto_id && typeof item.produto_id === 'string' && item.produto_id.trim() !== '') {
+          const produto = produtos.find(p => p.id === item.produto_id);
+          
+          let precoPorKgCalculado = 0;
+          if (produto?.peso_kg_m && produto.peso_kg_m > 0) {
+            precoPorKgCalculado = calcularPrecoPorKgReverso(
+              item.preco_unitario,
+              produto.peso_kg_m,
+              produto.comprimento_barra || 6
+            );
+          }
+          
+          return {
+            id: item.id,
+            produto_id: item.produto_id,
+            codigo: produto?.codigo || '',
+            nome: produto?.nome || 'Produto não encontrado',
+            descricao: produto?.descricao || produto?.nome || 'Produto não encontrado',
+            localizacao: produto?.localizacao || '-',
+            quantidade: item.quantidade,
+            preco_unitario: item.preco_unitario,
+            peso: item.peso,
+            desconto: item.desconto || 0,
+            tipo: 'produto' as const,
+            estoque_disponivel: produto?.estoque,
+            categoria: produto?.categoria,
+            cor: produto?.cor,
+            preco_por_kg_calculado: precoPorKgCalculado
+          };
+        } 
+        // Verifica se é um kit
+        else if (item.kit_id && typeof item.kit_id === 'string' && item.kit_id.trim() !== '') {
+          const kit = kits.find(k => k.id === item.kit_id);
+          return {
+            id: item.id,
+            kit_id: item.kit_id,
+            codigo: kit?.codigo || '',
+            nome: kit?.nome || 'Kit não encontrado',
+            descricao: kit?.descricao || kit?.nome || 'Kit não encontrado',
+            localizacao: '-',
+            quantidade: item.quantidade,
+            preco_unitario: item.preco_unitario,
+            peso: null,
+            desconto: item.desconto || 0,
+            tipo: 'kit' as const,
+            estoque_disponivel: kit?.estoque_disponivel
+          };
+        }
+        // Fallback para itens sem produto_id e sem kit_id
+        else {
+          console.warn('Item sem produto_id e sem kit_id:', item);
+          return {
+            id: item.id,
+            codigo: 'N/A',
+            nome: 'Item inválido',
+            descricao: 'Item inválido',
+            localizacao: '-',
+            quantidade: item.quantidade,
+            preco_unitario: item.preco_unitario,
+            peso: null,
+            desconto: item.desconto || 0,
+            tipo: 'produto' as const,
+          };
+        }
+      });
+      
+      console.log('Itens convertidos:', itensConvertidos);
+      setItens(itensConvertidos);
+    }
+  }, [orcamento, produtos, kits]);
+
+  const fetchClienteLimite = async () => {
+    const { data } = await supabase
+      .from('clientes')
+      .select('limite_credito')
+      .eq('id', clienteId)
+      .single();
+    
+    if (data) {
+      setClienteLimite(data.limite_credito || 0);
+    }
+  };
+
+  const fetchClientes = async () => {
+    const { data } = await supabase
+      .from('clientes')
+      .select('*')
+      .order('nome');
+    if (data) setClientes(data);
+  };
+
+  const fetchVendedores = async () => {
+    const { data } = await supabase
+      .from('vendedores')
+      .select('*')
+      .eq('ativo', true)
+      .order('nome');
+    if (data) setVendedores(data as Vendedor[]);
+  };
+
+  const fetchProdutos = async () => {
+    const { data } = await supabase
+      .from('produtos')
+      .select('id, codigo, nome, descricao, cor, preco, peso, estoque, localizacao, categoria, peso_kg_m, comprimento_barra, ativo, unidade, preco_por_kg, custo')
+      .eq('ativo', true)
+      .order('nome');
+    if (data) setProdutos(data as Produto[]);
+  };
+
+  const fetchKits = async () => {
+    try {
+      console.log('🔍 Buscando kits com estoque...');
+
+      const { data: kitsData, error: kitsError } = await supabase
+        .from('kits')
+        .select('id, codigo, nome, preco_total, descricao, ativo')
+        .eq('ativo', true)
+        .order('nome');
+
+      if (kitsError) {
+        console.error('❌ Erro ao buscar kits:', kitsError);
+        setKits([]);
+        return;
+      }
+
+      if (!kitsData || kitsData.length === 0) {
+        console.log('📦 Nenhum kit encontrado');
+        setKits([]);
+        return;
+      }
+
+      // Buscar todos os itens dos kits
+      const kitIds = kitsData.map(k => k.id);
+
+      const { data: kitItensData, error: kitItensError } = await supabase
+        .from('kit_itens')
+        .select('id, kit_id, produto_id, sub_kit_id, quantidade')
+        .in('kit_id', kitIds);
+
+      if (kitItensError) {
+        console.error('❌ Erro ao buscar itens dos kits:', kitItensError);
+        setKits([]);
+        return;
+      }
+
+      // Buscar estoque dos produtos
+      const produtoIds = kitItensData?.filter(i => i.produto_id).map(i => i.produto_id) || [];
+      
+      // Só fazer a consulta se houver produtoIds
+      const estoqueProdutos: Record<string, number> = {};
+      if (produtoIds.length > 0) {
+        const { data: produtosEstoque } = await supabase
+          .from('produtos')
+          .select('id, estoque')
+          .in('id', produtoIds);
+
+        (produtosEstoque || []).forEach(p => {
+          estoqueProdutos[p.id] = p.estoque || 0;
+        });
+      }
+
+      // Calcular estoque disponível para cada kit
+      const kitEstoqueMap: Record<string, number> = {};
+
+      for (const kit of kitsData) {
+        const itensDoKit = kitItensData?.filter(i => i.kit_id === kit.id) || [];
+
+        if (itensDoKit.length === 0) {
+          kitEstoqueMap[kit.id] = 999;
+          continue;
+        }
+
+        let minEstoque = Infinity;
+
+        for (const item of itensDoKit) {
+          if (item.produto_id) {
+            const estoqueDisponivel = estoqueProdutos[item.produto_id] || 0;
+            const kitsPossiveis = Math.floor(estoqueDisponivel / item.quantidade);
+            if (kitsPossiveis < minEstoque) {
+              minEstoque = kitsPossiveis;
+            }
+          }
+          // Para sub-kits
+          if (item.sub_kit_id) {
+            const { data: subKitItens } = await supabase
+              .from('kit_itens')
+              .select('produto_id, quantidade')
+              .eq('kit_id', item.sub_kit_id);
+
+            if (subKitItens && subKitItens.length > 0) {
+              let subKitMinEstoque = Infinity;
+              for (const subItem of subKitItens) {
+                if (subItem.produto_id) {
+                  const subEstoque = estoqueProdutos[subItem.produto_id] || 0;
+                  const subPossiveis = Math.floor(subEstoque / subItem.quantidade);
+                  if (subPossiveis < subKitMinEstoque) {
+                    subKitMinEstoque = subPossiveis;
+                  }
+                }
+              }
+              const kitsComSubKit = subKitMinEstoque !== Infinity ? Math.floor(subKitMinEstoque / item.quantidade) : 0;
+              if (kitsComSubKit < minEstoque) {
+                minEstoque = kitsComSubKit;
+              }
+            }
+          }
+        }
+
+        kitEstoqueMap[kit.id] = minEstoque === Infinity ? 999 : minEstoque;
+      }
+
+      const kitsFormatados = kitsData.map(kit => ({
+        id: kit.id,
+        codigo: kit.codigo,
+        nome: kit.nome,
+        preco_total: kit.preco_total,
+        descricao: kit.descricao,
+        estoque_disponivel: kitEstoqueMap[kit.id] || 0
+      }));
+
+      setKits(kitsFormatados);
+      console.log('✅ Kits carregados:', kitsFormatados);
+
+    } catch (error) {
+      console.error('❌ Erro ao buscar kits:', error);
+      setKits([]);
+    }
+  };
+
+  const produtosFiltrados = produtos.filter(produto => {
+    if (!searchTerm) return true;
+    const search = searchTerm.toLowerCase().trim();
+    return (
+      produto.nome?.toLowerCase().includes(search) ||
+      produto.codigo?.toLowerCase().includes(search) ||
+      produto.cor?.toLowerCase().includes(search) ||
+      produto.descricao?.toLowerCase().includes(search) ||
+      produto.categoria?.toLowerCase().includes(search)
+    );
+  });
+
+  const kitsFiltrados = kits.filter(kit => {
+    if (!searchTerm) return true;
+    const search = searchTerm.toLowerCase().trim();
+    return (
+      kit.nome?.toLowerCase().includes(search) ||
+      kit.codigo?.toLowerCase().includes(search) ||
+      kit.descricao?.toLowerCase().includes(search)
+    );
+  });
+
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+    }).format(value);
+  };
+
+  const getFormaPagamentoLabel = (forma: string) => {
+    const formas: Record<string, string> = {
+      'avista': 'À Vista',
+      'boleto': 'Boleto',
+      'credito': 'Cartão de Crédito',
+      'debito': 'Cartão de Débito',
+      'credito_cliente': 'Cliente com Crédito',
+    };
+    return formas[forma] || forma;
+  };
+
+  const getDescricaoCondicao = (condicao: string): string => {
+    const descricoes: Record<string, string> = {
+      "28": "1 parcela em 28 dias",
+      "28/56": "1ª parcela em 28 dias, 2ª parcela em 56 dias",
+      "0/28/56": "1ª parcela à vista, 2ª em 28 dias, 3ª em 56 dias",
+      "15": "1 parcela em 15 dias",
+      "15/30": "1ª parcela em 15 dias, 2ª parcela em 30 dias",
+      "0/15/30": "1ª parcela à vista, 2ª em 15 dias, 3ª em 30 dias",
+    };
+    return descricoes[condicao] || condicao;
+  };
+
+  const formatarProdutoSelect = (produto: Produto) => {
+    const nomeCurto = produto.nome.length > 40 
+      ? produto.nome.substring(0, 40) + '...' 
+      : produto.nome;
+    
+    let corInfo = produto.cor ? ` - ${produto.cor}` : '';
+    let estoqueInfo = '';
+    let estoqueColor = '';
+    
+    if (produto.estoque <= 0) {
+      estoqueInfo = ` ⚠️ SEM ESTOQUE`;
+      estoqueColor = 'text-red-600';
+    } else if (produto.estoque < 10) {
+      estoqueInfo = ` 📦 ${produto.estoque} und (baixo)`;
+      estoqueColor = 'text-yellow-600';
+    } else {
+      estoqueInfo = ` 📦 ${produto.estoque} und`;
+      estoqueColor = 'text-green-600';
+    }
+    
+    return {
+      text: `${produto.codigo} - ${nomeCurto}${corInfo} - ${formatCurrency(produto.preco)}`,
+      estoqueInfo,
+      estoqueColor
+    };
+  };
+
+  const formatarKitSelect = (kit: any) => {
+    const nomeCurto = kit.nome.length > 40 
+      ? kit.nome.substring(0, 40) + '...' 
+      : kit.nome;
+    
+    const estoque = kit.estoque_disponivel || 0;
+    
+    let estoqueInfo = '';
+    let estoqueColor = '';
+    
+    if (estoque <= 0) {
+      estoqueInfo = ` ⚠️ SEM ESTOQUE`;
+      estoqueColor = 'text-red-600';
+    } else if (estoque < 10) {
+      estoqueInfo = ` 📦 ${estoque} und (baixo)`;
+      estoqueColor = 'text-yellow-600';
+    } else {
+      estoqueInfo = ` 📦 ${estoque} und`;
+      estoqueColor = 'text-green-600';
+    }
+    
+    return {
+      text: `${kit.codigo} - ${nomeCurto} - ${formatCurrency(kit.preco_total)}`,
+      estoqueInfo,
+      estoqueColor
+    };
+  };
+
+  const addItem = () => {
+    if (!itemSelecionado || quantidade <= 0) return;
+
+    if (tipoItem === 'produto') {
+      const produto = produtos.find(p => p.id === itemSelecionado);
+      if (!produto) return;
+      
+      let precoPorKgCalculado = 0;
+      if (produto.peso_kg_m && produto.peso_kg_m > 0) {
+        precoPorKgCalculado = calcularPrecoPorKgReverso(
+          produto.preco,
+          produto.peso_kg_m,
+          produto.comprimento_barra || 6
+        );
+      }
+      
+      if (produto.estoque < quantidade) {
+        toast({
+          title: "⚠️ Estoque insuficiente",
+          description: `${produto.nome} - Estoque: ${produto.estoque}, Solicitado: ${quantidade}`,
+          variant: "default",
+        });
+      }
+
+      const itemId = `temp-${Date.now()}-${Math.random()}`;
+
+      setItens([...itens, {
+        id: itemId,
+        produto_id: produto.id,
+        codigo: produto.codigo,
+        nome: produto.nome,
+        descricao: produto.descricao || produto.nome,
+        localizacao: produto.localizacao || '-',
+        quantidade,
+        preco_unitario: produto.preco,
+        peso: produto.peso,
+        desconto: desconto,
+        tipo: 'produto',
+        estoque_disponivel: produto.estoque,
+        categoria: produto.categoria,
+        cor: produto.cor,
+        preco_por_kg_calculado: precoPorKgCalculado
+      }]);
+      
+    } else {
+      const kit = kits.find(k => k.id === itemSelecionado);
+      if (!kit) return;
+
+      const estoqueKit = kit.estoque_disponivel || 0;
+      
+      if (estoqueKit < quantidade) {
+        toast({
+          title: "⚠️ Estoque insuficiente",
+          description: `${kit.nome} - Estoque: ${estoqueKit}, Solicitado: ${quantidade}`,
+          variant: "default",
+        });
+      }
+
+      const itemId = `temp-${Date.now()}-${Math.random()}`;
+
+      setItens([...itens, {
+        id: itemId,
+        kit_id: kit.id,
+        codigo: kit.codigo,
+        nome: kit.nome,
+        descricao: kit.descricao || kit.nome,
+        localizacao: '-',
+        quantidade,
+        preco_unitario: kit.preco_total,
+        peso: null,
+        desconto: desconto,
+        tipo: 'kit',
+        estoque_disponivel: estoqueKit
+      }]);
+    }
+
+    setItemSelecionado("");
+    setQuantidade(1);
+    setDesconto(0);
+    setSearchTerm("");
+  };
+
+  const removeItem = (index: number) => {
+    setItens(itens.filter((_, i) => i !== index));
+    if (mostrarCalculoReverso === index) {
+      setMostrarCalculoReverso(null);
+    }
+  };
+
+  const calcularPagamento = () => {
+    if (valorTotal <= 0) {
+      setValorEntrada(0);
+      setValorParcela(0);
+      return;
+    }
+
+    if (formaPagamento === "avista" || !parcelado || formaPagamento === "credito_cliente") {
+      setValorEntrada(valorTotal);
+      setValorParcela(0);
+      setParcelas(1);
+      setEntradaValor(0);
+      setCondicaoPagamento("");
+      return;
+    }
+
+    if (formaPagamento === "boleto" || formaPagamento === "credito" || formaPagamento === "debito") {
+
+      const totalParcelas = parcelas;
+      const temEntradaHoje = condicaoPagamento?.startsWith('0/') || false;
+      
+      let valorCalculadoEntrada = entradaValor || 0;
+      
+      if (valorCalculadoEntrada > valorTotal) {
+        valorCalculadoEntrada = valorTotal;
+        setEntradaValor(valorTotal);
+      }
+      
+      if (temEntradaHoje && valorCalculadoEntrada === 0) {
+        valorCalculadoEntrada = Number((valorTotal * 0.5).toFixed(2));
+        setEntradaValor(valorCalculadoEntrada);
+      }
+      
+      let valorCalculadoParcela = 0;
+      
+      if (temEntradaHoje) {
+        const valorRestante = valorTotal - valorCalculadoEntrada;
+        const parcelasFuturas = totalParcelas - 1;
+        
+        if (parcelasFuturas > 0) {
+          valorCalculadoParcela = Number((valorRestante / parcelasFuturas).toFixed(2));
+        } else {
+          valorCalculadoParcela = 0;
+        }
+      } else if (valorCalculadoEntrada > 0) {
+        const valorRestante = valorTotal - valorCalculadoEntrada;
+        valorCalculadoParcela = totalParcelas > 0 ? Number((valorRestante / totalParcelas).toFixed(2)) : 0;
+      } else {
+        valorCalculadoParcela = totalParcelas > 0 ? Number((valorTotal / totalParcelas).toFixed(2)) : 0;
+      }
+      
+      valorCalculadoEntrada = Math.round(valorCalculadoEntrada * 100) / 100;
+      valorCalculadoParcela = Math.round(valorCalculadoParcela * 100) / 100;
+      
+      setValorEntrada(valorCalculadoEntrada);
+      setValorParcela(valorCalculadoParcela);
+    }
+  };
+
+  const validarCalculoParcelas = (): boolean => {
+    if (!parcelado || formaPagamento === "avista" || formaPagamento === "credito_cliente") {
+      return true;
+    }
+    
+    const temEntradaHoje = condicaoPagamento?.startsWith('0/') || false;
+    const parcelasFuturas = temEntradaHoje ? parcelas - 1 : parcelas;
+    const entradaNum = entradaValor || 0;
+    
+    const totalCalculado = Number((entradaNum + (valorParcela * parcelasFuturas)).toFixed(2));
+    const diferenca = Math.abs(totalCalculado - Number(valorTotal.toFixed(2)));
+    
+    // Tolerância generosa para arredondamentos de centavos
+    const tolerancia = Math.max(0.05, parcelas * 0.01);
+    
+    if (diferenca > tolerancia) {
+      toast({
+        title: "❌ Erro no cálculo",
+        description: `Diferença de R$ ${diferenca.toFixed(2)}. Ajuste os valores.`,
+        variant: "destructive",
+      });
+      return false;
+    }
+    
+    return true;
+  };
+
+  const mostrarCampoEntrada = () => {
+    return parcelado && formaPagamento !== "avista" && formaPagamento !== "credito_cliente";
+  };
+
+  const salvarOrcamento = async (gerarPDF: boolean = false) => {
+    setLoading(true);
+    
+    try {
+      let totalParcelas = parcelas;
+      if (condicaoPagamento?.startsWith('0/')) {
+        totalParcelas = parcelas;
+      }
+      
+      const entradaPercentual = valorEntrada > 0 ? (valorEntrada / valorTotal) * 100 : 0;
+      
+      let obsPagamento = "";
+      
+      if (formaPagamento === "avista" || !parcelado) {
+        obsPagamento = `Pagamento à vista - Total: ${formatCurrency(valorTotal)}`;
+      } else if (formaPagamento === "credito_cliente") {
+        obsPagamento = `Pagamento com crédito do cliente - Total: ${formatCurrency(valorTotal)} - Limite do cliente: R$ ${clienteLimite.toFixed(2)}`;
+      } else {
+        obsPagamento = `Pagamento: ${getFormaPagamentoLabel(formaPagamento)}`;
+        if (condicaoPagamento) {
+          obsPagamento += ` - ${getDescricaoCondicao(condicaoPagamento)}`;
+        }
+        if (valorEntrada > 0) {
+          obsPagamento += ` - Entrada: ${formatCurrency(valorEntrada)} (hoje)`;
+        }
+        if (valorParcela > 0) {
+          if (condicaoPagamento?.startsWith('0/')) {
+            obsPagamento += ` - ${totalParcelas - 1}x ${formatCurrency(valorParcela)}`;
+          } else {
+            obsPagamento += ` - ${totalParcelas}x ${formatCurrency(valorParcela)}`;
+          }
+        }
+      }
+
+      const observacoesCompletas = observacoes 
+        ? `${obsPagamento}\n\n${observacoes}`
+        : obsPagamento;
+
+      const { error: orcError } = await supabase
+        .from('orcamentos')
+        .update({
+          cliente_id: clienteId,
+          vendedor_id: vendedorId || null,
+          valor_total: Number(valorTotal.toFixed(2)),
+          observacoes: observacoesCompletas.substring(0, 500),
+          forma_pagamento: formaPagamento,
+          condicao_pagamento: condicaoPagamento || null,
+          entrada_percentual: entradaPercentual > 0 ? Number(entradaPercentual.toFixed(2)) : null,
+          entrada_valor: valorEntrada > 0 ? Number(valorEntrada.toFixed(2)) : null,
+          parcelas: totalParcelas || null,
+          valor_parcela: valorParcela > 0 ? Number(valorParcela.toFixed(2)) : null,
+          parcelado: parcelado,
+          numero_parcelas: parcelado ? totalParcelas : 1,
+          pagamento_misto: orcamento.pagamento_misto || false,
+          valor_credito_utilizado: orcamento.valor_credito_utilizado,
+          forma_pagamento_restante: orcamento.forma_pagamento_restante,
+          condicao_pagamento_restante: orcamento.condicao_pagamento_restante,
+          parcelas_restante: orcamento.parcelas_restante,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', orcamento.id);
+
+      if (orcError) throw orcError;
+
+      const { error: deleteError } = await supabase
+        .from('orcamento_itens')
+        .delete()
+        .eq('orcamento_id', orcamento.id);
+
+      if (deleteError) throw deleteError;
+
+      const orcamentoItens = itens.map(item => {
+        const subtotalComDesconto = calcularSubtotalComDesconto(item);
+        
+        return {
+          orcamento_id: orcamento.id,
+          produto_id: item.tipo === 'produto' ? item.produto_id : null,
+          kit_id: item.tipo === 'kit' ? item.kit_id : null,
+          quantidade: item.quantidade,
+          preco_unitario: Number(item.preco_unitario.toFixed(2)),
+          desconto: item.desconto,
+          peso: item.peso,
+          subtotal: Number(subtotalComDesconto.toFixed(2))
+        };
+      });
+
+      const { error: itensError } = await supabase
+        .from('orcamento_itens')
+        .insert(orcamentoItens);
+
+      if (itensError) throw itensError;
+
+      await supabase
+        .from('comissoes')
+        .delete()
+        .eq('orcamento_id', orcamento.id);
+
+      if (vendedorId) {
+        const vendedorSelecionado = vendedores.find(v => v.id === vendedorId);
+        if (vendedorSelecionado) {
+          const valorComissao = (valorTotal * vendedorSelecionado.comissao_percentual) / 100;
+          
+          await supabase
+            .from('comissoes')
+            .insert({
+              orcamento_id: orcamento.id,
+              vendedor_id: vendedorId,
+              valor_orcamento: valorTotal,
+              percentual_comissao: vendedorSelecionado.comissao_percentual,
+              valor_comissao: Number(valorComissao.toFixed(2)),
+              status: 'pendente',
+            });
+        }
+      }
+
+      toast({
+        title: "✅ Orçamento atualizado!",
+        description: `Orçamento ${orcamento.numero} atualizado com sucesso.`,
+      });
+
+      if (gerarPDF) {
+        setTimeout(() => {
+          toast({
+            title: "📄 PDF gerado!",
+            description: "O arquivo será baixado em instantes.",
+          });
+        }, 500);
+      }
+
+      onClose();
+      
+    } catch (error: any) {
+      console.error('❌ Erro:', error);
+      toast({
+        title: "❌ Erro ao atualizar orçamento",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSubmit = async (gerarPDF: boolean = false) => {
+    if (!clienteId || itens.length === 0) {
+      toast({
+        title: "Dados incompletos",
+        description: "Selecione um cliente e adicione produtos",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!formaPagamento) {
+      toast({
+        title: "Forma de pagamento obrigatória",
+        description: "Selecione uma forma de pagamento",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const formasPagamentoOpcionais = ["credito", "debito", "credito_cliente"];
+    
+    if (parcelado && !formasPagamentoOpcionais.includes(formaPagamento) && !condicaoPagamento) {
+      toast({
+        title: "Condição de pagamento obrigatória",
+        description: "Selecione uma condição de pagamento",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (parcelado && !validarCalculoParcelas()) {
+      return;
+    }
+
+    await salvarOrcamento(gerarPDF);
+  };
+
+  const itensComFormula = contarItensComFormula();
+
+  return (
+    <div className="space-y-6">
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <label className="text-sm font-medium">Cliente *</label>
+          <AddClienteInlineDialog
+            onClienteAdded={(novoCliente) => {
+              setClientes(prev => [...prev, novoCliente]);
+              setClienteId(novoCliente.id);
+            }}
+          />
+        </div>
+        <Select value={clienteId || "sem_cliente"} onValueChange={(value) => {
+          setClienteId(value === "sem_cliente" ? "" : value);
+        }}>
+          <SelectTrigger>
+            <SelectValue placeholder="Selecione um cliente" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="sem_cliente">Selecione um cliente</SelectItem>
+            {clientes.map(cliente => (
+              <SelectItem key={cliente.id} value={cliente.id}>
+                {cliente.nome} - {cliente.cpf_cnpj}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {clienteLimite > 0 && (
+          <p className="text-xs text-blue-600">
+            Limite de crédito disponível: {formatCurrency(clienteLimite)}
+          </p>
+        )}
+      </div>
+
+      <div className="space-y-2">
+        <label className="text-sm font-medium">Vendedor (opcional)</label>
+        <Select value={vendedorId || "sem_vendedor"} onValueChange={(value) => {
+          setVendedorId(value === "sem_vendedor" ? "" : value);
+        }}>
+          <SelectTrigger>
+            <SelectValue placeholder="Selecione um vendedor" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="sem_vendedor">Sem vendedor</SelectItem>
+            {vendedores.map(vendedor => (
+              <SelectItem key={vendedor.id} value={vendedor.id}>
+                <div className="flex items-center justify-between w-full">
+                  <span>{vendedor.nome}</span>
+                  <Badge variant="outline" className="ml-2 text-xs">
+                    {vendedor.comissao_percentual}%
+                  </Badge>
+                </div>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {vendedorId && (
+          <p className="text-xs text-green-600 mt-1">
+            Comissão de {vendedores.find(v => v.id === vendedorId)?.comissao_percentual}% será calculada automaticamente
+          </p>
+        )}
+      </div>
+
+      <div className="border rounded-lg p-4 space-y-4">
+        <h3 className="font-semibold">Condições de Pagamento</h3>
+        
+        <div className="space-y-4">
+          <div className="flex items-center space-x-2">
+            <input
+              type="checkbox"
+              id="parcelado"
+              checked={parcelado}
+              onChange={(e) => {
+                setParcelado(e.target.checked);
+                if (!e.target.checked) {
+                  setFormaPagamento("avista");
+                  setCondicaoPagamento("");
+                  setEntradaValor(0);
+                }
+              }}
+              className="h-4 w-4 rounded border-gray-300"
+              disabled={formaPagamento === "credito_cliente"}
+            />
+            <label htmlFor="parcelado" className="text-sm font-medium">
+              Pagamento Parcelado?
+            </label>
+          </div>
+          
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Forma de Pagamento *</label>
+              <Select value={formaPagamento || "sem_forma"} onValueChange={(value) => {
+                const novaForma = value === "sem_forma" ? "" : value;
+                setFormaPagamento(novaForma);
+                
+                if (novaForma === "credito_cliente") {
+                  setParcelado(false);
+                  setCondicaoPagamento("");
+                  setEntradaValor(0);
+                  setParcelas(1);
+                } else if (novaForma === "avista") {
+                  setParcelado(false);
+                  setCondicaoPagamento("");
+                  setEntradaValor(0);
+                  setParcelas(1);
+                }
+              }}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="sem_forma">Selecione uma forma</SelectItem>
+                  <SelectItem value="avista">À Vista</SelectItem>
+                  <SelectItem value="boleto">Boleto</SelectItem>
+                  <SelectItem value="credito">Cartão de Crédito</SelectItem>
+                  <SelectItem value="debito">Cartão de Débito</SelectItem>
+                  <SelectItem value="credito_cliente">Cliente com Crédito</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {parcelado && (
+              <>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">
+                    Condição de Pagamento 
+                    {formaPagamento !== "credito" && formaPagamento !== "debito" && " *"}
+                  </label>
+                  <Select 
+                    value={condicaoPagamento || "sem_condicao"} 
+                    onValueChange={(value) => {
+                      setCondicaoPagamento(value === "sem_condicao" ? "" : value);
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={
+                        formaPagamento === "credito" || formaPagamento === "debito"
+                          ? "Opcional - pode selecionar se desejar" 
+                          : "Selecione"
+                      } />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="sem_condicao">
+                        {formaPagamento === "credito" || formaPagamento === "debito" 
+                          ? "Sem condição especial" 
+                          : "Selecione uma condição"}
+                      </SelectItem>
+                      <SelectItem value="28">28 dias</SelectItem>
+                      <SelectItem value="28/56">28/56 dias</SelectItem>
+                      <SelectItem value="0/28/56">0/28/56 dias</SelectItem>
+                      <SelectItem value="15">15 dias</SelectItem>
+                      <SelectItem value="15/30">15/30 dias</SelectItem>
+                      <SelectItem value="0/15/30">0/15/30 dias</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {(formaPagamento === "credito" || formaPagamento === "debito") && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      A condição de pagamento é opcional para cartão de crédito e débito
+                    </p>
+                  )}
+                </div>
+
+                {mostrarCampoEntrada() && (
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Valor da Entrada (R$)</label>
+                    <Input
+                      type="number"
+                      min="0"
+                      max={valorTotal}
+                      step="0.01"
+                      value={entradaValor === 0 ? "" : entradaValor}
+                      onChange={(e) => {
+                        const raw = e.target.value;
+                        if (raw === "" || raw === "-") {
+                          setEntradaValor(0);
+                        } else {
+                          const parsed = parseFloat(raw);
+                          if (!isNaN(parsed)) setEntradaValor(parsed);
+                        }
+                      }}
+                      placeholder="Sem entrada (opcional)"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      {condicaoPagamento?.startsWith('0/') 
+                        ? "Entrada obrigatória - vencimento hoje"
+                        : "Deixe em branco para não ter entrada"}
+                    </p>
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Número de Parcelas</label>
+                  <Input
+                    type="number"
+                    min="1"
+                    max="60"
+                    value={parcelas}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value);
+                      if (!isNaN(val) && val >= 1) setParcelas(val);
+                    }}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {condicaoPagamento
+                      ? "Condição especial selecionada - ajuste livremente o número de parcelas"
+                      : "Informe quantas parcelas"}
+                  </p>
+                </div>
+              </>
+            )}
+          </div>
+
+          {valorTotal > 0 && formaPagamento && (
+            <div className="pt-4 border-t">
+              <h4 className="font-medium mb-2">Resumo do Pagamento:</h4>
+              <div className="bg-gray-50 p-3 rounded-lg text-sm space-y-1">
+                <div className="flex justify-between">
+                  <span>Valor Total:</span>
+                  <span className="font-bold">{formatCurrency(valorTotal)}</span>
+                </div>
+                
+                {formaPagamento === "credito_cliente" ? (
+                  <div className="flex justify-between text-purple-600">
+                    <span>Pagamento:</span>
+                    <span className="font-medium">Crédito do Cliente</span>
+                  </div>
+                ) : !parcelado || formaPagamento === "avista" ? (
+                  <div className="flex justify-between text-green-600">
+                    <span>Pagamento:</span>
+                    <span className="font-medium">À Vista</span>
+                  </div>
+                ) : (
+                  <>
+                    {valorEntrada > 0 && (
+                      <div className="flex justify-between text-green-600">
+                        <span>Entrada (hoje):</span>
+                        <span className="font-medium">{formatCurrency(valorEntrada)}</span>
+                      </div>
+                    )}
+                    
+                    {valorParcela > 0 && (
+                      <>
+                        <div className="flex justify-between">
+                          <span>
+                            {condicaoPagamento?.startsWith('0/') 
+                              ? `${parcelas - 1}x de:`
+                              : `${parcelas}x de:`}
+                          </span>
+                          <span className="font-medium">{formatCurrency(valorParcela)}</span>
+                        </div>
+                        
+                        <div className="flex justify-between text-xs text-gray-500 pt-1 border-t border-gray-200 mt-1">
+                          <span>Total parcelado:</span>
+                          <span>
+                            {formatCurrency(
+                              condicaoPagamento?.startsWith('0/')
+                                ? valorParcela * (parcelas - 1)
+                                : valorParcela * parcelas
+                            )}
+                          </span>
+                        </div>
+                      </>
+                    )}
+                    
+                    {condicaoPagamento && (
+                      <div className="flex justify-between text-xs text-gray-500">
+                        <span>Condição:</span>
+                        <span>{getDescricaoCondicao(condicaoPagamento)}</span>
+                      </div>
+                    )}
+                  </>
+                )}
+                
+                {valorEntrada > 0 && valorEntrada < valorTotal && (
+                  <div className="flex justify-between text-xs text-blue-600 pt-1 border-t border-blue-200 mt-1">
+                    <span>Saldo após entrada:</span>
+                    <span className="font-medium">{formatCurrency(valorTotal - valorEntrada)}</span>
+                  </div>
+                )}
+
+                {vendedorId && (
+                  <div className="flex justify-between text-xs text-green-600 pt-1 border-t border-green-200 mt-1">
+                    <span>Comissão do vendedor:</span>
+                    <span className="font-medium">
+                      {formatCurrency((valorTotal * (vendedores.find(v => v.id === vendedorId)?.comissao_percentual || 0)) / 100)}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="border rounded-lg p-4 space-y-4">
+        <div className="flex justify-between items-center">
+          <h3 className="font-semibold">Itens do Orçamento</h3>
+          {itensComFormula > 0 && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setMostrarAplicarTodos(true)}
+              className="gap-2"
+            >
+              <Zap className="h-4 w-4" />
+              Aplicar Preço por Kg para Todos
+            </Button>
+          )}
+        </div>
+
+        {mostrarAplicarTodos && (
+          <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+            <div className="flex items-center justify-between mb-3">
+              <h5 className="font-medium text-sm text-green-800">
+                Aplicar Preço por Kg para Todos os Itens
+              </h5>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  setMostrarAplicarTodos(false);
+                  setPrecoPorKgTodos("");
+                }}
+                className="h-6 w-6 p-0"
+              >
+                <X className="h-3 w-3" />
+              </Button>
+            </div>
+            
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs">Preço por Kg para Todos os Itens</label>
+                <div className="flex gap-2">
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="Digite o preço por kg para todos"
+                    value={precoPorKgTodos}
+                    onChange={(e) => setPrecoPorKgTodos(e.target.value)}
+                    className="h-8 flex-1"
+                  />
+                  <Button 
+                    size="sm" 
+                    onClick={() => {
+                      const precoPorKg = parseFloat(precoPorKgTodos) || 0;
+                      if (precoPorKg > 0) {
+                        aplicarPrecoPorKgTodos(precoPorKg);
+                      } else {
+                        toast({
+                          title: "Valor inválido",
+                          description: "Digite um preço por kg válido",
+                          variant: "destructive",
+                        });
+                      }
+                    }}
+                  >
+                    Aplicar para Todos
+                  </Button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => aplicarDescontoPrecoPorKgTodos(5)}
+                  className="text-xs"
+                >
+                  -5% Todos
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => aplicarDescontoPrecoPorKgTodos(10)}
+                  className="text-xs"
+                >
+                  -10% Todos
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => aplicarDescontoPrecoPorKgTodos(15)}
+                  className="text-xs"
+                >
+                  -15% Todos
+                </Button>
+              </div>
+
+              <p className="text-xs text-muted-foreground">
+                Esta ação aplicará o mesmo preço por kg para todos os {itensComFormula} itens que usam a fórmula de cálculo.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {itens.length > 0 && (
+          <div className="space-y-2">
+            <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
+              {itens.map((item, index) => {
+                const subtotalBruto = item.quantidade * item.preco_unitario;
+                const valorDesconto = (subtotalBruto * item.desconto) / 100;
+                const subtotalLiquido = subtotalBruto - valorDesconto;
+                const usaFormula = produtoUsaFormula(item);
+                const produtoOriginal = produtos.find(p => p.id === item.produto_id);
+                const semEstoque = item.estoque_disponivel !== undefined && item.quantidade > item.estoque_disponivel;
+                
+                return (
+                  <div key={item.id} className={`grid grid-cols-1 sm:grid-cols-12 gap-2 items-start sm:items-center p-3 rounded-lg ${semEstoque ? 'bg-yellow-100 border border-yellow-300' : 'bg-secondary'}`}>
+                    <div className="sm:col-span-4">
+                      <p className="font-medium text-sm">{item.descricao}</p>
+                      <div className="flex gap-2 text-xs text-muted-foreground">
+                        <span>Cód: {item.codigo}</span>
+                        <span>| {item.tipo}</span>
+                        {item.cor && <span>| Cor: {item.cor}</span>}
+                        {semEstoque && (
+                          <span className="text-yellow-700 font-medium">
+                            ⚠️ Estoque: {item.estoque_disponivel}
+                          </span>
+                        )}
+                      </div>
+                      {usaFormula && produtoOriginal && (
+                        <div className="flex gap-2 text-xs text-blue-700">
+                          <span>Peso: {produtoOriginal.peso_kg_m}kg/m</span>
+                          {item.preco_por_kg_calculado && (
+                            <span>R$ {item.preco_por_kg_calculado.toFixed(2)}/kg</span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="sm:col-span-1">
+                      <label className="text-xs">Qtd</label>
+                      <Input
+                        type="number"
+                        min="1"
+                        value={item.quantidade}
+                        onChange={(e) => {
+                          const newItens = [...itens];
+                          newItens[index].quantidade = parseInt(e.target.value) || 1;
+                          setItens(newItens);
+                        }}
+                        className="h-8"
+                      />
+                    </div>
+                    
+                    <div className="sm:col-span-2">
+                      <label className="text-xs">Preço Unit.</label>
+                      <div className="flex gap-1">
+                        <Input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={item.preco_unitario}
+                          onChange={(e) => {
+                            handlePrecoUnitarioChange(index, parseFloat(e.target.value) || 0);
+                          }}
+                          className="h-8 flex-1"
+                        />
+                        {usaFormula && (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => abrirModalCalculoReverso(index)}
+                            className="h-8 w-8"
+                            title="Calcular preço por kg"
+                          >
+                            <Calculator className="h-3 w-3" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                    
+                    <div className="sm:col-span-1">
+                      <label className="text-xs">Desc. %</label>
+                      <Input
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="0.01"
+                        value={item.desconto}
+                        onChange={(e) => {
+                          const newItens = [...itens];
+                          newItens[index].desconto = parseFloat(e.target.value) || 0;
+                          setItens(newItens);
+                        }}
+                        className="h-8"
+                      />
+                    </div>
+                    
+                    <div className="sm:col-span-3 text-right">
+                      <p className="text-xs text-muted-foreground">R$ {subtotalBruto.toFixed(2)}</p>
+                      <p className="text-xs text-muted-foreground">-{item.desconto}% = R$ {valorDesconto.toFixed(2)}</p>
+                      <p className="font-semibold text-sm">R$ {subtotalLiquido.toFixed(2)}</p>
+                    </div>
+                    
+                    <div className="sm:col-span-1 text-right">
+                      <Button
+                        size="icon"
+                        variant="destructive"
+                        onClick={() => removeItem(index)}
+                        className="h-8 w-8"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+
+                    {mostrarCalculoReverso === index && usaFormula && produtoOriginal && (
+                      <div className="sm:sm:col-span-12 mt-3 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                        <div className="flex items-center justify-between mb-3">
+                          <h5 className="font-medium text-sm text-blue-800">Cálculo do Preço por Kg</h5>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => {
+                              setMostrarCalculoReverso(null);
+                              setNovoPrecoPorKg("");
+                            }}
+                            className="h-6 w-6 p-0"
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </div>
+                        
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
+                          <div>
+                            <label className="text-xs">Peso kg/m</label>
+                            <Input value={produtoOriginal.peso_kg_m} disabled className="h-8" />
+                          </div>
+                          <div>
+                            <label className="text-xs">Comprimento (m)</label>
+                            <Input value={produtoOriginal.comprimento_barra || 6} disabled className="h-8" />
+                          </div>
+                          <div>
+                            <label className="text-xs">Peso Total (kg)</label>
+                            <Input 
+                              value={((produtoOriginal.peso_kg_m || 0) * (produtoOriginal.comprimento_barra || 6)).toFixed(3)} 
+                              disabled 
+                              className="h-8" 
+                            />
+                          </div>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                          <div>
+                            <label className="text-xs">Preço de Venda Atual</label>
+                            <Input value={item.preco_unitario.toFixed(2)} disabled className="h-8" />
+                          </div>
+                          <div>
+                            <label className="text-xs">Preço por Kg Calculado</label>
+                            <Input 
+                              value={item.preco_por_kg_calculado?.toFixed(2) || '0.00'} 
+                              disabled 
+                              className="h-8" 
+                            />
+                          </div>
+                        </div>
+
+                        <div className="space-y-3">
+                          <div>
+                            <label className="text-xs">Definir Novo Preço por Kg</label>
+                            <div className="flex gap-2">
+                              <Input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                placeholder="Digite o preço por kg"
+                                value={novoPrecoPorKg}
+                                onChange={(e) => setNovoPrecoPorKg(e.target.value)}
+                                className="h-8 flex-1"
+                              />
+                              <Button 
+                                size="sm" 
+                                onClick={() => {
+                                  const precoPorKg = parseFloat(novoPrecoPorKg) || 0;
+                                  if (precoPorKg > 0) {
+                                    aplicarPrecoPorKg(index, precoPorKg);
+                                  } else {
+                                    toast({
+                                      title: "Valor inválido",
+                                      description: "Digite um preço por kg válido",
+                                      variant: "destructive",
+                                    });
+                                  }
+                                }}
+                              >
+                                Aplicar
+                              </Button>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => aplicarDescontoPrecoPorKg(index, 5)}
+                              className="text-xs"
+                            >
+                              -5%
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => aplicarDescontoPrecoPorKg(index, 10)}
+                              className="text-xs"
+                            >
+                              -10%
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => aplicarDescontoPrecoPorKg(index, 15)}
+                              className="text-xs"
+                            >
+                              -15%
+                            </Button>
+                          </div>
+
+                          <p className="text-xs text-muted-foreground mt-2">
+                            <strong>Fórmula:</strong> Preço por Kg = Preço de Venda ÷ (Peso kg/m × Comprimento)
+                            <br />
+                            <strong>Exemplo:</strong> R$ {item.preco_unitario.toFixed(2)} ÷ ({produtoOriginal.peso_kg_m} × {produtoOriginal.comprimento_barra || 6}) = R$ {item.preco_por_kg_calculado?.toFixed(2)}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            <div className="pt-2 border-t text-right">
+              <p className="text-xl font-bold">
+                Total: {formatCurrency(valorTotal)}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {itens.length} item(ns) | {itensComFormula} com fórmula de cálculo
+              </p>
+            </div>
+          </div>
+        )}
+
+        <div className="border-t pt-4">
+          <h4 className="font-medium mb-3">Adicionar Novo Item</h4>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Pesquisar</label>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Pesquisar por nome, código ou cor..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+          </div>
+
+          <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 md:grid-cols-5 mt-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Tipo</label>
+              <Select value={tipoItem} onValueChange={(value: 'produto' | 'kit') => {
+                setTipoItem(value);
+                setItemSelecionado("");
+              }}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="produto">Produto</SelectItem>
+                  <SelectItem value="kit">Kit</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="md:sm:col-span-2 space-y-2">
+              <label className="text-sm font-medium">{tipoItem === 'produto' ? 'Produto' : 'Kit'}</label>
+              <Select value={itemSelecionado || "sem_item"} onValueChange={(value) => {
+                setItemSelecionado(value === "sem_item" ? "" : value);
+              }}>
+                <SelectTrigger>
+                  <SelectValue placeholder={`Selecione um ${tipoItem}`} />
+                </SelectTrigger>
+                <SelectContent className="max-w-[500px]">
+                  <SelectItem value="sem_item">Selecione um {tipoItem}</SelectItem>
+                  {tipoItem === 'produto' ? (
+                    produtosFiltrados.length > 0 ? (
+                      produtosFiltrados.map(produto => {
+                        const formatted = formatarProdutoSelect(produto);
+                        return (
+                          <SelectItem key={produto.id} value={produto.id} className="py-2">
+                            <div className="flex flex-col">
+                              <span className="font-medium">{formatted.text}</span>
+                              <span className={`text-xs ${formatted.estoqueColor}`}>
+                                {formatted.estoqueInfo}
+                                {produto.peso_kg_m && ` | ${produto.peso_kg_m}kg/m`}
+                              </span>
+                            </div>
+                          </SelectItem>
+                        );
+                      })
+                    ) : (
+                      <SelectItem value="sem_item" disabled>
+                        Nenhum produto encontrado
+                      </SelectItem>
+                    )
+                  ) : (
+                    kitsFiltrados.length > 0 ? (
+                      kitsFiltrados.map(kit => {
+                        const formatted = formatarKitSelect(kit);
+                        return (
+                          <SelectItem key={kit.id} value={kit.id} className="py-2">
+                            <div className="flex flex-col">
+                              <span className="font-medium">{formatted.text}</span>
+                              <span className={`text-xs ${formatted.estoqueColor}`}>
+                                {formatted.estoqueInfo}
+                              </span>
+                            </div>
+                          </SelectItem>
+                        );
+                      })
+                    ) : (
+                      <SelectItem value="sem_item" disabled>
+                        Nenhum kit com estoque disponível
+                      </SelectItem>
+                    )
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Qtd</label>
+              <Input
+                type="number"
+                min="1"
+                value={quantidade}
+                onChange={(e) => setQuantidade(parseInt(e.target.value) || 1)}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Desc. %</label>
+              <div className="flex gap-2">
+                <Input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.01"
+                  value={desconto}
+                  onChange={(e) => setDesconto(parseFloat(e.target.value) || 0)}
+                />
+                <Button 
+                  onClick={addItem} 
+                  type="button" 
+                  size="icon"
+                  disabled={!itemSelecionado || quantidade <= 0}
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <label className="text-sm font-medium">Observações</label>
+        <textarea
+          value={observacoes}
+          onChange={(e) => setObservacoes(e.target.value)}
+          placeholder="Informações adicionais..."
+          rows={3}
+          className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+        />
+      </div>
+
+      <div className="flex gap-2 justify-end">
+        <Button variant="outline" onClick={onClose} disabled={loading}>
+          Cancelar
+        </Button>
+        <Button 
+          onClick={() => handleSubmit(false)} 
+          disabled={loading || !formaPagamento || itens.length === 0 || !clienteId}
+        >
+          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Atualizar"}
+        </Button>
+        <Button 
+          onClick={() => handleSubmit(true)} 
+          disabled={loading || !formaPagamento || itens.length === 0 || !clienteId} 
+          variant="outline"
+        >
+          <Download className="h-4 w-4 mr-2" />
+          Atualizar e PDF
+        </Button>
+      </div>
+    </div>
+  );
+};

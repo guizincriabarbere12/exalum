@@ -1,9 +1,9 @@
-// app/financeiro/page.tsx - VERSÃO APENAS ORÇAMENTOS (SEM VENDAS)
+// app/financeiro/page.tsx - VERSÃO COMPLETA CORRIGIDA
 "use client";
 
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { DollarSign, TrendingUp, TrendingDown, RotateCcw, AlertTriangle, Calendar, Clock, FileText, Pencil, Filter, X, CreditCard, History, Info } from "lucide-react";
+import { DollarSign, TrendingUp, TrendingDown, RotateCcw, TriangleAlert as AlertTriangle, Calendar, Clock, FileText, Pencil, Filter, X, CreditCard, History, Info, Plus, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -151,6 +151,18 @@ const compararDatas = (data1Str: string, data2Str: string): number => {
   return data1.getTime() - data2.getTime();
 };
 
+// Função para verificar se é transação manual
+const isTransacaoManual = (transacao: Transaction): boolean => {
+  return !transacao.orcamento_id && !transacao.credito_id && !transacao.origem_tipo?.includes('credito');
+};
+
+// Função para formatar data
+const formatDate = (dateStr: string) => {
+  if (!dateStr) return '';
+  const [ano, mes, dia] = dateStr.split('T')[0].split('-');
+  return `${dia}/${mes}/${ano}`;
+};
+
 export default function Financeiro() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [filteredTransactions, setFilteredTransactions] = useState<Transaction[]>([]);
@@ -192,6 +204,7 @@ export default function Financeiro() {
   useEffect(() => {
     fetchTransactions();
     fetchCreditosUtilizados();
+    verificarTransacoes();
   }, []);
 
   useEffect(() => {
@@ -208,16 +221,31 @@ export default function Financeiro() {
     aplicarFiltros();
   }, [transactions, filtros]);
 
+  const verificarTransacoes = async () => {
+    try {
+      const { count, error } = await supabase
+        .from('transacoes_financeiras')
+        .select('*', { count: 'exact', head: true });
+      
+      if (error) throw error;
+      console.log(`📊 Total de transações no banco: ${count}`);
+      
+      if (count === 0) {
+        console.warn('⚠️ Nenhuma transação encontrada no banco de dados.');
+      }
+    } catch (error) {
+      console.error('Erro ao contar transações:', error);
+    }
+  };
+
   const fetchTransactions = async () => {
     try {
       setLoading(true);
-      console.log('🔄 Buscando transações financeiras de orçamentos...');
+      console.log('🔄 Buscando transações financeiras...');
 
-      // FILTRO PRINCIPAL: Apenas transações com orcamento_id (exclui vendas automaticamente)
       const { data, error } = await supabase
         .from('transacoes_financeiras')
         .select('*')
-        .not('orcamento_id', 'is', null) // Apenas transações com orçamento_id
         .order('data', { ascending: false })
         .limit(500);
 
@@ -231,10 +259,19 @@ export default function Financeiro() {
         return;
       }
 
-      console.log('✅ Transações encontradas (apenas orçamentos):', data?.length || 0);
+      console.log('✅ Transações encontradas:', data?.length || 0);
+      
+      // Log para depuração
+      const despesasManuais = data?.filter(t => t.tipo === 'despesa' && !t.orcamento_id && !t.origem_tipo?.includes('credito')) || [];
+      const receitasManuais = data?.filter(t => t.tipo === 'receita' && !t.orcamento_id && !t.origem_tipo?.includes('credito')) || [];
+      
+      console.log(`📊 Despesas manuais encontradas: ${despesasManuais.length}`, despesasManuais);
+      console.log(`📊 Receitas manuais encontradas: ${receitasManuais.length}`, receitasManuais);
+      console.log('📋 Todas as transações:', data);
+
       setTransactions(data || []);
 
-      // Calcular totais considerando apenas orçamentos
+      // 🔧 CORREÇÃO: Calcular totais considerando TODAS as transações
       let receitasTotal = 0;
       let despesasTotal = 0;
       let creditosTotal = 0;
@@ -242,14 +279,21 @@ export default function Financeiro() {
       (data || []).forEach(t => {
         const valor = Number(t.valor) || 0;
         
+        // Créditos
         if (t.origem_tipo?.includes('credito')) {
           creditosTotal += valor;
-        } else if (t.tipo === 'receita' && (t.status === 'recebido' || t.status === 'pago')) {
+        } 
+        // Receitas (todas - tanto recebidas quanto pendentes)
+        else if (t.tipo === 'receita') {
           receitasTotal += valor;
-        } else if (t.tipo === 'despesa' && (t.status === 'recebido' || t.status === 'pago')) {
+        } 
+        // Despesas (todas - tanto pagas quanto pendentes)
+        else if (t.tipo === 'despesa') {
           despesasTotal += valor;
         }
       });
+
+      console.log(`📊 Totais calculados - Receitas: R$ ${receitasTotal.toFixed(2)}, Despesas: R$ ${despesasTotal.toFixed(2)}, Créditos: R$ ${creditosTotal.toFixed(2)}`);
 
       setReceitas(receitasTotal);
       setDespesas(despesasTotal);
@@ -305,6 +349,7 @@ export default function Financeiro() {
       const vencidas = transacoesPendentes
         .filter(t => {
           if (!t.data_vencimento) return false;
+          if (t.tipo !== 'despesa') return false;
           const dataVencimento = normalizarData(t.data_vencimento);
           dataVencimento.setHours(0, 0, 0, 0);
           return dataVencimento < hoje;
@@ -325,6 +370,7 @@ export default function Financeiro() {
       const aVencer = transacoesPendentes
         .filter(t => {
           if (!t.data_vencimento) return false;
+          if (t.tipo !== 'despesa') return false;
           const dataVencimento = normalizarData(t.data_vencimento);
           dataVencimento.setHours(0, 0, 0, 0);
           const diasRestantes = Math.floor((dataVencimento.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
@@ -436,7 +482,10 @@ export default function Financeiro() {
   };
 
   const aplicarFiltros = () => {
+    console.log('🔄 Aplicando filtros... Estado atual dos filtros:', filtros);
+    
     let filtradas = [...transactions];
+    console.log(`📊 Total de transações antes do filtro: ${filtradas.length}`);
 
     // Filtro por tipo (receita/despesa/credito)
     if (filtros.tipo !== 'todos') {
@@ -447,27 +496,27 @@ export default function Financeiro() {
           t.tipo === filtros.tipo && !t.origem_tipo?.includes('credito')
         );
       }
+      console.log(`📊 Após filtro de tipo (${filtros.tipo}): ${filtradas.length}`);
     }
 
-    // Filtro por origem (apenas orçamento e crédito)
+    // Filtro por origem
     if (filtros.origem !== 'todos') {
       if (filtros.origem === 'credito') {
         filtradas = filtradas.filter(t => t.origem_tipo?.includes('credito'));
       } else if (filtros.origem === 'orcamento') {
         filtradas = filtradas.filter(t => 
-          t.origem_tipo === 'orcamento_avista' || 
-          t.origem_tipo === 'orcamento_parcelado' ||
-          t.origem_tipo === 'orcamento_misto_avista' ||
-          t.origem_tipo === 'orcamento_misto_parcelado'
+          t.orcamento_id !== null && t.orcamento_id !== undefined
         );
       } else if (filtros.origem === 'manual') {
-        filtradas = filtradas.filter(t => t.origem_tipo === 'manual');
+        filtradas = filtradas.filter(t => isTransacaoManual(t));
       }
+      console.log(`📊 Após filtro de origem (${filtros.origem}): ${filtradas.length}`);
     }
 
     // Filtro por status
     if (filtros.status !== 'todos') {
       filtradas = filtradas.filter(t => t.status === filtros.status);
+      console.log(`📊 Após filtro de status (${filtros.status}): ${filtradas.length}`);
     }
 
     // Filtro por período (data de vencimento)
@@ -475,16 +524,19 @@ export default function Financeiro() {
       filtradas = filtradas.filter(t => 
         t.data_vencimento && compararDatas(t.data_vencimento, filtros.periodo.inicio) >= 0
       );
+      console.log(`📊 Após filtro de período inicio: ${filtradas.length}`);
     }
     if (filtros.periodo.fim) {
       filtradas = filtradas.filter(t => 
         t.data_vencimento && compararDatas(t.data_vencimento, filtros.periodo.fim) <= 0
       );
+      console.log(`📊 Após filtro de período fim: ${filtradas.length}`);
     }
 
     setFilteredTransactions(filtradas);
+    console.log(`✅ Total de transações filtradas: ${filtradas.length}`);
 
-    // Calcular somatórios das transações filtradas
+    // 🔧 CORREÇÃO: Calcular somatórios das transações filtradas considerando TODAS
     let receitasFiltradas = 0;
     let despesasFiltradas = 0;
     let creditosFiltrados = 0;
@@ -494,9 +546,9 @@ export default function Financeiro() {
       
       if (t.origem_tipo?.includes('credito')) {
         creditosFiltrados += valor;
-      } else if (t.tipo === 'receita' && (t.status === 'recebido' || t.status === 'pago')) {
+      } else if (t.tipo === 'receita') {
         receitasFiltradas += valor;
-      } else if (t.tipo === 'despesa' && (t.status === 'recebido' || t.status === 'pago')) {
+      } else if (t.tipo === 'despesa') {
         despesasFiltradas += valor;
       }
     });
@@ -607,6 +659,25 @@ export default function Financeiro() {
     setTransacaoEditando(transacao);
   };
 
+  const [dialogExcluirAberto, setDialogExcluirAberto] = useState(false);
+  const [transParaExcluir, setTransParaExcluir] = useState<Transaction | null>(null);
+
+  const handleExcluir = async () => {
+    if (!transParaExcluir) return;
+    try {
+      const { error } = await supabase
+        .from('transacoes_financeiras')
+        .delete()
+        .eq('id', transParaExcluir.id);
+      if (error) throw error;
+      toast({ title: "Transação excluída", description: transParaExcluir.descricao });
+      setDialogExcluirAberto(false); setTransParaExcluir(null);
+      fetchTransactions();
+    } catch (error: any) {
+      toast({ title: "Erro ao excluir", description: error.message, variant: "destructive" });
+    }
+  };
+
   const handleEditComplete = () => {
     setTransacaoEditando(null);
     fetchTransactions();
@@ -614,7 +685,6 @@ export default function Financeiro() {
 
   const handleReset = async () => {
     try {
-      // Reset apenas transações de orçamentos
       const { error: transError } = await supabase
         .from('transacoes_financeiras')
         .delete()
@@ -642,7 +712,7 @@ export default function Financeiro() {
   };
 
   const getOrigemBadge = (transacao: Transaction) => {
-    const { origem_tipo, parcela_numero, total_parcelas, credito_id, tipo_pagamento } = transacao;
+    const { origem_tipo, parcela_numero, total_parcelas, credito_id, orcamento_id } = transacao;
     
     if (credito_id) {
       return (
@@ -653,44 +723,54 @@ export default function Financeiro() {
       );
     }
     
-    if (origem_tipo === 'orcamento_avista') {
-      return (
-        <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-          <FileText className="h-3 w-3 mr-1" />
-          Orçamento À Vista
-        </Badge>
-      );
-    } else if (origem_tipo === 'orcamento_parcelado') {
-      return (
-        <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-          <FileText className="h-3 w-3 mr-1" />
-          Orçamento Parcelado
-          {parcela_numero && total_parcelas && ` (${parcela_numero}/${total_parcelas})`}
-        </Badge>
-      );
-    } else if (origem_tipo === 'orcamento_misto_avista') {
-      return (
-        <Badge variant="outline" className="bg-indigo-50 text-indigo-700 border-indigo-200">
-          <CreditCard className="h-3 w-3 mr-1" />
-          Pagamento Misto (à vista)
-        </Badge>
-      );
-    } else if (origem_tipo === 'orcamento_misto_parcelado') {
-      return (
-        <Badge variant="outline" className="bg-indigo-50 text-indigo-700 border-indigo-200">
-          <CreditCard className="h-3 w-3 mr-1" />
-          Pagamento Misto (parcelado)
-          {parcela_numero && total_parcelas && ` (${parcela_numero}/${total_parcelas})`}
-        </Badge>
-      );
-    } else if (origem_tipo === 'manual') {
+    if (orcamento_id) {
+      if (origem_tipo === 'orcamento_avista') {
+        return (
+          <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+            <FileText className="h-3 w-3 mr-1" />
+            Orçamento À Vista
+          </Badge>
+        );
+      } else if (origem_tipo === 'orcamento_parcelado') {
+        return (
+          <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+            <FileText className="h-3 w-3 mr-1" />
+            Orçamento Parcelado
+            {parcela_numero && total_parcelas && ` (${parcela_numero}/${total_parcelas})`}
+          </Badge>
+        );
+      } else if (origem_tipo === 'orcamento_misto_avista') {
+        return (
+          <Badge variant="outline" className="bg-indigo-50 text-indigo-700 border-indigo-200">
+            <CreditCard className="h-3 w-3 mr-1" />
+            Pagamento Misto (à vista)
+          </Badge>
+        );
+      } else if (origem_tipo === 'orcamento_misto_parcelado') {
+        return (
+          <Badge variant="outline" className="bg-indigo-50 text-indigo-700 border-indigo-200">
+            <CreditCard className="h-3 w-3 mr-1" />
+            Pagamento Misto (parcelado)
+            {parcela_numero && total_parcelas && ` (${parcela_numero}/${total_parcelas})`}
+          </Badge>
+        );
+      }
+    }
+    
+    // Manual (sem orcamento_id e sem credito_id)
+    if (isTransacaoManual(transacao)) {
       return (
         <Badge variant="outline" className="bg-gray-50 text-gray-700 border-gray-200">
           Manual
         </Badge>
       );
     }
-    return null;
+    
+    return (
+      <Badge variant="outline" className="bg-gray-50 text-gray-700 border-gray-200">
+        Manual
+      </Badge>
+    );
   };
 
   const getStatusBadge = (status: string) => {
@@ -750,7 +830,7 @@ export default function Financeiro() {
       <div className="space-y-6 animate-fade-in p-6">
         <div className="text-center py-8 text-muted-foreground">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          Carregando dados financeiros de orçamentos...
+          Carregando dados financeiros...
         </div>
       </div>
     );
@@ -760,8 +840,8 @@ export default function Financeiro() {
     <div className="space-y-6 animate-fade-in p-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-3xl font-bold text-foreground">Financeiro de Orçamentos</h2>
-          <p className="text-muted-foreground">Gerencie contas a pagar e receber de orçamentos</p>
+          <h2 className="text-3xl font-bold text-foreground">Financeiro</h2>
+          <p className="text-muted-foreground">Gerencie todas as transações financeiras</p>
         </div>
         <div className="flex gap-2">
           <Button
@@ -1001,10 +1081,10 @@ export default function Financeiro() {
       {transacoesVencidas.length > 0 && (
         <Alert variant="destructive">
           <AlertTriangle className="h-4 w-4" />
-          <AlertTitle>Contas de Orçamentos Vencidas - Atenção Urgente!</AlertTitle>
+          <AlertTitle>Contas a Pagar Vencidas - Atenção Urgente!</AlertTitle>
           <AlertDescription>
             <div className="mt-2 space-y-2">
-              <p className="font-semibold">Você tem {transacoesVencidas.length} conta(s) de orçamento vencida(s):</p>
+              <p className="font-semibold">Você tem {transacoesVencidas.length} conta(s) vencida(s):</p>
               {transacoesVencidas.slice(0, 3).map((t) => (
                 <div key={t.id} className="flex items-center justify-between bg-background/50 p-2 rounded">
                   <div>
@@ -1037,11 +1117,11 @@ export default function Financeiro() {
       {transacoesAVencer.length > 0 && (
         <Alert>
           <Clock className="h-4 w-4" />
-          <AlertTitle>Contas de Orçamentos a Vencer nos Próximos 7 Dias</AlertTitle>
+          <AlertTitle>Contas a Pagar nos Próximos 7 Dias</AlertTitle>
           <AlertDescription>
             <div className="mt-2 space-y-2">
-              <p className="font-semibold">Você tem {transacoesAVencer.length} conta(s) de orçamento próximas do vencimento:</p>
-              {transacoesAVencer.slice(0, 3).map((t) => (
+              <p className="font-semibold">Você tem {transacoesAVencer.length} conta(s) a pagar próximas do vencimento:</p>
+              {transacoesAVencer.slice(0, 5).map((t) => (
                 <div key={t.id} className="flex items-center justify-between bg-background/50 p-2 rounded">
                   <div>
                     <p className="font-medium">{t.descricao}</p>
@@ -1062,8 +1142,8 @@ export default function Financeiro() {
                   </div>
                 </div>
               ))}
-              {transacoesAVencer.length > 3 && (
-                <p className="text-sm">E mais {transacoesAVencer.length - 3} conta(s)...</p>
+              {transacoesAVencer.length > 5 && (
+                <p className="text-sm">E mais {transacoesAVencer.length - 5} conta(s)...</p>
               )}
             </div>
           </AlertDescription>
@@ -1076,12 +1156,12 @@ export default function Financeiro() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Saldo Total de Orçamentos</p>
+                <p className="text-sm font-medium text-muted-foreground">Saldo Total</p>
                 <h3 className="text-2xl font-bold text-foreground">
                   R$ {saldoTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                 </h3>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Receitas - Despesas de orçamentos
+                  Receitas - Despesas
                 </p>
               </div>
               <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
@@ -1095,12 +1175,12 @@ export default function Financeiro() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Receitas de Orçamentos</p>
+                <p className="text-sm font-medium text-muted-foreground">Receitas</p>
                 <h3 className="text-2xl font-bold text-green-600">
                   R$ {receitas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                 </h3>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Orçamentos aprovados
+                  Total de receitas
                 </p>
               </div>
               <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-green-100">
@@ -1114,12 +1194,12 @@ export default function Financeiro() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Despesas de Orçamentos</p>
+                <p className="text-sm font-medium text-muted-foreground">Despesas</p>
                 <h3 className="text-2xl font-bold text-red-600">
                   R$ {despesas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                 </h3>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Custos associados
+                  Total de despesas
                 </p>
               </div>
               <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-red-100">
@@ -1205,7 +1285,7 @@ export default function Financeiro() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5 text-primary" />
-            Transações de Orçamentos {filteredTransactions.length < transactions.length 
+            Transações {filteredTransactions.length < transactions.length 
               ? `(${filteredTransactions.length} de ${transactions.length})` 
               : `(${transactions.length})`}
           </CardTitle>
@@ -1217,8 +1297,8 @@ export default function Financeiro() {
               <h3 className="text-lg font-medium text-gray-900 mb-2">Nenhuma transação encontrada</h3>
               <p className="text-gray-500 mb-6">
                 {transactions.length > 0 
-                  ? "Nenhuma transação de orçamento corresponde aos filtros selecionados." 
-                  : "Não há transações de orçamentos cadastradas."}
+                  ? "Nenhuma transação corresponde aos filtros selecionados." 
+                  : "Não há transações cadastradas."}
               </p>
               {transactions.length > 0 && (
                 <Button variant="outline" onClick={limparFiltros}>
@@ -1270,6 +1350,7 @@ export default function Financeiro() {
                           ${isProximoVencimento ? 'bg-yellow-50 hover:bg-yellow-100' : ''}
                           ${transacao.origem_tipo?.includes('credito') ? 'bg-purple-50 hover:bg-purple-100' : ''}
                           ${transacao.tipo_pagamento === 'misto_restante' ? 'bg-indigo-50 hover:bg-indigo-100' : ''}
+                          ${isTransacaoManual(transacao) ? 'bg-gray-50 hover:bg-gray-100' : ''}
                         `}
                       >
                         <TableCell className="font-medium">
@@ -1278,6 +1359,7 @@ export default function Financeiro() {
                             {isProximoVencimento && <Clock className="h-4 w-4 text-yellow-600" />}
                             {transacao.origem_tipo?.includes('credito') && <CreditCard className="h-4 w-4 text-purple-500" />}
                             {transacao.tipo_pagamento === 'misto_restante' && <CreditCard className="h-4 w-4 text-indigo-500" />}
+                            {isTransacaoManual(transacao) && <FileText className="h-4 w-4 text-gray-400" />}
                             <div className="flex flex-col">
                               <span>{transacao.descricao}</span>
                               {orcamentoInfo && (
@@ -1359,6 +1441,7 @@ export default function Financeiro() {
                                 variant="ghost"
                                 className="h-8 w-8 p-0"
                                 onClick={() => handleEdit(transacao)}
+                                title="Editar"
                               >
                                 <Pencil className="h-4 w-4" />
                               </Button>
@@ -1374,6 +1457,17 @@ export default function Financeiro() {
                                 {transacao.tipo === 'despesa' ? 'Pagar' : 'Receber'}
                               </Button>
                             )}
+
+                            {/* Botão Excluir */}
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-8 w-8 p-0 text-red-600 hover:text-red-700"
+                              onClick={() => { setTransParaExcluir(transacao); setDialogExcluirAberto(true); }}
+                              title="Excluir"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
                           </div>
                         </TableCell>
                       </TableRow>
@@ -1385,6 +1479,24 @@ export default function Financeiro() {
           )}
         </CardContent>
       </Card>
+
+      {/* Dialog Excluir Transação */}
+      <AlertDialog open={dialogExcluirAberto} onOpenChange={setDialogExcluirAberto}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir Transação</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir a transação "{transParaExcluir?.descricao}"? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleExcluir} className="bg-red-600 hover:bg-red-700 text-white">
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Dialog de Detalhes do Crédito */}
       {creditoSelecionado && (
@@ -1456,10 +1568,3 @@ export default function Financeiro() {
     </div>
   );
 }
-
-// Função auxiliar para formatar data
-const formatDate = (dateStr: string) => {
-  if (!dateStr) return '';
-  const [ano, mes, dia] = dateStr.split('T')[0].split('-');
-  return `${dia}/${mes}/${ano}`;
-};

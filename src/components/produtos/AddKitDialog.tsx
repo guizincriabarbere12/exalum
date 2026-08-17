@@ -1,15 +1,26 @@
 // components/produtos/CriarKitDialog.tsx
-// @ts-nocheck
-import React, { useState, useEffect, lazy, Suspense, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import {
   Select,
   SelectContent,
@@ -17,10 +28,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Loader2, Trash2, Calculator, X, Zap } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Plus, Package, Search, Trash2, AlertCircle, DollarSign, Pencil, Save, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface Produto {
   id: string;
@@ -40,30 +52,94 @@ interface ItemKit {
 
 interface CriarKitDialogProps {
   onKitAdded: () => void;
+  kitParaEditar?: {
+    id: string;
+    codigo: string;
+    nome: string;
+    descricao: string | null;
+    preco_total: number;
+    itens: ItemKit[];
+  } | null;
+  isEditing?: boolean;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
-export default function CriarKitDialog({ onKitAdded }: CriarKitDialogProps) {
-  const [open, setOpen] = useState(false);
+export default function CriarKitDialog({ 
+  onKitAdded, 
+  kitParaEditar = null,
+  isEditing = false,
+  open: externalOpen,
+  onOpenChange
+}: CriarKitDialogProps) {
+  const [internalOpen, setInternalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [produtos, setProdutos] = useState<Produto[]>([]);
+  const [produtosFiltrados, setProdutosFiltrados] = useState<Produto[]>([]);
   const [termoPesquisa, setTermoPesquisa] = useState("");
   const [itens, setItens] = useState<ItemKit[]>([]);
+  const [selectedProdutoId, setSelectedProdutoId] = useState<string>("");
   
   // Dados do kit
   const [codigo, setCodigo] = useState("");
   const [nome, setNome] = useState("");
   const [descricao, setDescricao] = useState("");
   const [precoTotal, setPrecoTotal] = useState<string>("");
+  const [kitId, setKitId] = useState<string | null>(null);
+
+  // Usar externalOpen se fornecido, senão usar internalOpen
+  const open = externalOpen !== undefined ? externalOpen : internalOpen;
+  
+  const setOpen = (value: boolean) => {
+    if (onOpenChange) {
+      onOpenChange(value);
+    } else {
+      setInternalOpen(value);
+    }
+  };
 
   useEffect(() => {
     if (open) {
       fetchProdutos();
-      resetForm();
+      
+      // Se estiver editando, carregar dados do kit
+      if (isEditing && kitParaEditar) {
+        setKitId(kitParaEditar.id);
+        setCodigo(kitParaEditar.codigo);
+        setNome(kitParaEditar.nome);
+        setDescricao(kitParaEditar.descricao || "");
+        setPrecoTotal(kitParaEditar.preco_total.toString());
+        setItens(kitParaEditar.itens || []);
+      } else {
+        resetForm();
+      }
     }
-  }, [open]);
+  }, [open, isEditing, kitParaEditar]);
+
+  // Filtrar produtos quando a pesquisa ou itens mudarem
+  useEffect(() => {
+    const produtosDisponiveis = produtos.filter(produto => {
+      // Filtrar produtos que já estão no kit
+      const jaAdicionado = itens.some(item => item.produto_id === produto.id);
+      if (jaAdicionado) return false;
+      
+      // Se não tiver termo de pesquisa, mostrar todos os produtos disponíveis
+      if (!termoPesquisa.trim()) return true;
+      
+      const searchTerm = termoPesquisa.toLowerCase().trim();
+      return (
+        produto.codigo?.toLowerCase().includes(searchTerm) ||
+        produto.nome?.toLowerCase().includes(searchTerm) ||
+        (produto.descricao && produto.descricao.toLowerCase().includes(searchTerm))
+      );
+    });
+    
+    setProdutosFiltrados(produtosDisponiveis);
+  }, [produtos, itens, termoPesquisa]);
 
   const fetchProdutos = async () => {
     try {
+      console.log("🔄 Buscando produtos...");
       const { data, error } = await supabase
         .from('produtos')
         .select('id, codigo, nome, descricao, estoque, ativo, preco_venda')
@@ -71,8 +147,10 @@ export default function CriarKitDialog({ onKitAdded }: CriarKitDialogProps) {
         .order('nome');
 
       if (error) throw error;
+      console.log(`✅ ${data?.length || 0} produtos encontrados`);
       setProdutos(data || []);
     } catch (error: any) {
+      console.error("❌ Erro ao carregar produtos:", error);
       toast({
         title: "Erro ao carregar produtos",
         description: error.message,
@@ -88,27 +166,43 @@ export default function CriarKitDialog({ onKitAdded }: CriarKitDialogProps) {
     }, 0);
   };
 
-  const adicionarItem = (produtoId: string) => {
-    const produto = produtos.find(p => p.id === produtoId);
-    if (!produto) return;
+  const adicionarItem = () => {
+    if (!selectedProdutoId) {
+      toast({
+        title: "Selecione um produto",
+        description: "Escolha um produto na lista para adicionar ao kit.",
+        variant: "default",
+      });
+      return;
+    }
+    
+    console.log("➕ Adicionando produto:", selectedProdutoId);
+    
+    const produto = produtos.find(p => p.id === selectedProdutoId);
+    if (!produto) {
+      console.error("❌ Produto não encontrado:", selectedProdutoId);
+      return;
+    }
 
-    const itemExistente = itens.find(item => item.produto_id === produtoId);
+    const itemExistente = itens.find(item => item.produto_id === selectedProdutoId);
     if (itemExistente) {
       toast({
         title: "Produto já adicionado",
         description: "Este componente já está no kit. Ajuste a quantidade se necessário.",
         variant: "default",
       });
+      setSelectedProdutoId("");
       return;
     }
 
     setItens([...itens, {
-      produto_id: produtoId,
+      produto_id: selectedProdutoId,
       produto: produto,
       quantidade: 1
     }]);
     
     setTermoPesquisa("");
+    setSelectedProdutoId("");
   };
 
   const removerItem = (index: number) => {
@@ -123,11 +217,13 @@ export default function CriarKitDialog({ onKitAdded }: CriarKitDialogProps) {
     setItens(novosItens);
   };
 
-  const produtosFiltrados = produtos.filter(produto =>
-    produto.codigo?.toLowerCase().includes(termoPesquisa.toLowerCase()) ||
-    produto.nome?.toLowerCase().includes(termoPesquisa.toLowerCase()) ||
-    (produto.descricao && produto.descricao.toLowerCase().includes(termoPesquisa.toLowerCase()))
-  );
+  const limparPesquisa = () => {
+    setTermoPesquisa("");
+  };
+
+  console.log("📊 Produtos filtrados:", produtosFiltrados.length);
+  console.log("📦 Itens no kit:", itens.length);
+  console.log("🔍 Termo de pesquisa:", termoPesquisa);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -171,68 +267,135 @@ export default function CriarKitDialog({ onKitAdded }: CriarKitDialogProps) {
 
     setLoading(true);
     try {
-      console.log("🆕 Criando novo kit...");
-      
-      // Inserir o kit com preco_total (campo NOT NULL)
-      const { data: kitData, error: kitError } = await supabase
-        .from('kits')
-        .insert({
-          codigo: codigo.trim().toUpperCase(),
-          nome: nome.trim(),
-          descricao: descricao.trim() || null,
-          preco_total: parseFloat(precoTotal), // Campo obrigatório
-          ativo: true
-        })
-        .select()
-        .single();
+      if (isEditing && kitId) {
+        // EDITAR KIT EXISTENTE
+        console.log("✏️ Editando kit...", kitId);
+        
+        // Atualizar dados do kit
+        const { error: kitError } = await supabase
+          .from('kits')
+          .update({
+            codigo: codigo.trim().toUpperCase(),
+            nome: nome.trim(),
+            descricao: descricao.trim() || null,
+            preco_total: parseFloat(precoTotal),
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', kitId);
 
-      if (kitError) {
-        console.error("❌ Erro ao inserir kit:", kitError);
-        if (kitError.code === '23505') {
-          toast({
-            title: "Código já existe",
-            description: "Já existe um kit com este código. Escolha um código diferente.",
-            variant: "destructive",
-          });
-          return;
+        if (kitError) {
+          console.error("❌ Erro ao atualizar kit:", kitError);
+          if (kitError.code === '23505') {
+            toast({
+              title: "Código já existe",
+              description: "Já existe um kit com este código. Escolha um código diferente.",
+              variant: "destructive",
+            });
+            return;
+          }
+          throw kitError;
         }
-        throw kitError;
-      }
 
-      console.log("✅ Kit criado:", kitData);
-
-      // Inserir os itens do kit
-      if (itens.length > 0) {
-        const itensParaInserir = itens.map(item => ({
-          kit_id: kitData.id,
-          produto_id: item.produto_id,
-          quantidade: item.quantidade
-        }));
-
-        const { error: itensError } = await supabase
+        // Remover itens antigos
+        const { error: deleteError } = await supabase
           .from('kit_itens')
-          .insert(itensParaInserir);
+          .delete()
+          .eq('kit_id', kitId);
 
-        if (itensError) {
-          console.error("❌ Erro ao inserir itens:", itensError);
-          throw itensError;
+        if (deleteError) {
+          console.error("❌ Erro ao remover itens antigos:", deleteError);
+          throw deleteError;
         }
 
-        console.log(`✅ ${itens.length} componentes adicionados`);
-      }
+        // Inserir novos itens
+        if (itens.length > 0) {
+          const itensParaInserir = itens.map(item => ({
+            kit_id: kitId,
+            produto_id: item.produto_id,
+            quantidade: item.quantidade
+          }));
 
-      toast({
-        title: "Kit criado com sucesso!",
-        description: `O kit ${kitData.codigo} - ${kitData.nome} foi criado com ${itens.length} componente(s).`,
-      });
+          const { error: itensError } = await supabase
+            .from('kit_itens')
+            .insert(itensParaInserir);
+
+          if (itensError) {
+            console.error("❌ Erro ao inserir itens:", itensError);
+            throw itensError;
+          }
+
+          console.log(`✅ ${itens.length} componentes atualizados`);
+        }
+
+        toast({
+          title: "Kit atualizado com sucesso!",
+          description: `O kit ${codigo} - ${nome} foi atualizado com ${itens.length} componente(s).`,
+        });
+
+      } else {
+        // CRIAR NOVO KIT
+        console.log("🆕 Criando novo kit...");
+        
+        const { data: kitData, error: kitError } = await supabase
+          .from('kits')
+          .insert({
+            codigo: codigo.trim().toUpperCase(),
+            nome: nome.trim(),
+            descricao: descricao.trim() || null,
+            preco_total: parseFloat(precoTotal),
+            ativo: true
+          })
+          .select()
+          .single();
+
+        if (kitError) {
+          console.error("❌ Erro ao inserir kit:", kitError);
+          if (kitError.code === '23505') {
+            toast({
+              title: "Código já existe",
+              description: "Já existe um kit com este código. Escolha um código diferente.",
+              variant: "destructive",
+            });
+            return;
+          }
+          throw kitError;
+        }
+
+        console.log("✅ Kit criado:", kitData);
+
+        // Inserir os itens do kit
+        if (itens.length > 0) {
+          const itensParaInserir = itens.map(item => ({
+            kit_id: kitData.id,
+            produto_id: item.produto_id,
+            quantidade: item.quantidade
+          }));
+
+          const { error: itensError } = await supabase
+            .from('kit_itens')
+            .insert(itensParaInserir);
+
+          if (itensError) {
+            console.error("❌ Erro ao inserir itens:", itensError);
+            throw itensError;
+          }
+
+          console.log(`✅ ${itens.length} componentes adicionados`);
+        }
+
+        toast({
+          title: "Kit criado com sucesso!",
+          description: `O kit ${kitData.codigo} - ${kitData.nome} foi criado com ${itens.length} componente(s).`,
+        });
+      }
 
       setOpen(false);
       resetForm();
       onKitAdded();
     } catch (error: any) {
-      console.error("❌ Erro ao criar kit:", error);
+      console.error("❌ Erro ao salvar kit:", error);
       toast({
-        title: "Erro ao criar kit",
+        title: isEditing ? "Erro ao atualizar kit" : "Erro ao criar kit",
         description: error.message,
         variant: "destructive",
       });
@@ -248,6 +411,9 @@ export default function CriarKitDialog({ onKitAdded }: CriarKitDialogProps) {
     setPrecoTotal("");
     setItens([]);
     setTermoPesquisa("");
+    setKitId(null);
+    setSelectedProdutoId("");
+    setProdutosFiltrados([]);
   };
 
   const custoTotal = calcularCustoTotal();
@@ -258,20 +424,29 @@ export default function CriarKitDialog({ onKitAdded }: CriarKitDialogProps) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button>
-          <Plus className="mr-2 h-4 w-4" />
-          Novo Kit
-        </Button>
+        {isEditing ? (
+          <Button variant="outline" size="sm">
+            <Pencil className="h-4 w-4 mr-2" />
+            Editar
+          </Button>
+        ) : (
+          <Button>
+            <Plus className="mr-2 h-4 w-4" />
+            Novo Kit
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Package className="h-5 w-5 text-primary" />
-              Criar Novo Kit
+              {isEditing ? 'Editar Kit' : 'Criar Novo Kit'}
             </DialogTitle>
             <DialogDescription>
-              Preencha as informações do kit, defina o preço total e adicione os componentes.
+              {isEditing 
+                ? 'Edite as informações do kit, ajuste o preço total e modifique os componentes.'
+                : 'Preencha as informações do kit, defina o preço total e adicione os componentes.'}
             </DialogDescription>
           </DialogHeader>
 
@@ -287,7 +462,13 @@ export default function CriarKitDialog({ onKitAdded }: CriarKitDialogProps) {
                   value={codigo}
                   onChange={(e) => setCodigo(e.target.value)}
                   placeholder="Ex: KIT-001"
+                  disabled={isEditing}
                 />
+                {isEditing && (
+                  <p className="text-xs text-muted-foreground">
+                    O código não pode ser alterado
+                  </p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="nome">
@@ -355,12 +536,25 @@ export default function CriarKitDialog({ onKitAdded }: CriarKitDialogProps) {
                       placeholder="Buscar componente por código ou nome..."
                       value={termoPesquisa}
                       onChange={(e) => setTermoPesquisa(e.target.value)}
-                      className="pl-9"
+                      className="pl-9 pr-8"
                     />
+                    {termoPesquisa && (
+                      <button
+                        type="button"
+                        onClick={limparPesquisa}
+                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    )}
                   </div>
-                  <Select onValueChange={adicionarItem} value="">
+                  
+                  <Select 
+                    value={selectedProdutoId} 
+                    onValueChange={setSelectedProdutoId}
+                  >
                     <SelectTrigger className="w-[220px]">
-                      <SelectValue placeholder="Adicionar componente" />
+                      <SelectValue placeholder="Selecione um produto" />
                     </SelectTrigger>
                     <SelectContent>
                       {produtosFiltrados.length > 0 ? (
@@ -384,12 +578,33 @@ export default function CriarKitDialog({ onKitAdded }: CriarKitDialogProps) {
                         ))
                       ) : (
                         <div className="px-2 py-1.5 text-sm text-muted-foreground">
-                          {termoPesquisa ? 'Nenhum produto encontrado' : 'Digite para buscar...'}
+                          {termoPesquisa ? 'Nenhum produto encontrado' : 'Nenhum produto disponível'}
                         </div>
                       )}
                     </SelectContent>
                   </Select>
+                  
+                  <Button 
+                    type="button" 
+                    onClick={adicionarItem}
+                    disabled={!selectedProdutoId}
+                    className="gap-2"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Adicionar
+                  </Button>
                 </div>
+                
+                {produtosFiltrados.length === 0 && itens.length > 0 && produtos.length > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    Todos os produtos disponíveis já foram adicionados ao kit.
+                  </p>
+                )}
+                {produtos.length === 0 && (
+                  <p className="text-xs text-destructive">
+                    Nenhum produto cadastrado. Cadastre produtos antes de criar um kit.
+                  </p>
+                )}
               </div>
 
               {/* Tabela de componentes */}
@@ -461,7 +676,7 @@ export default function CriarKitDialog({ onKitAdded }: CriarKitDialogProps) {
                 <Alert>
                   <AlertCircle className="h-4 w-4" />
                   <AlertDescription>
-                    Nenhum componente adicionado. Use a busca acima para encontrar e adicionar produtos ao kit.
+                    Nenhum componente adicionado. Selecione um produto na lista e clique em "Adicionar".
                   </AlertDescription>
                 </Alert>
               )}
@@ -506,14 +721,24 @@ export default function CriarKitDialog({ onKitAdded }: CriarKitDialogProps) {
             <Button 
               type="submit" 
               disabled={loading || itens.length === 0 || !precoTotal}
+              className="gap-2"
             >
               {loading ? (
                 <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  Criando...
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  {isEditing ? 'Salvando...' : 'Criando...'}
                 </>
               ) : (
-                'Criar Kit'
+                <>
+                  {isEditing ? (
+                    <>
+                      <Save className="h-4 w-4" />
+                      Salvar Alterações
+                    </>
+                  ) : (
+                    'Criar Kit'
+                  )}
+                </>
               )}
             </Button>
           </DialogFooter>

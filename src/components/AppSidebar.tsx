@@ -1,5 +1,12 @@
+import { useState } from "react";
 import { NavLink } from "react-router-dom";
-import { LayoutDashboard, Package, Warehouse, Users, FileText, ShoppingCart, Truck, DollarSign, ChartBar as BarChart3, Settings, ClipboardList, Store, History, Boxes, ShoppingBag, Wallet, ClipboardCheck, Scissors } from "lucide-react";
+import {
+  LayoutDashboard, Package, Warehouse, Users, FileText, ShoppingCart, Truck,
+  DollarSign, ChartBar as BarChart3, Settings, ClipboardList, Store, History,
+  Boxes, ShoppingBag, Wallet, UserCheck, PaintBucket, Building2, ArrowLeftRight,
+  ChevronDown, ChevronRight, Landmark, CreditCard, ArrowDownCircle, ArrowUpCircle,
+  Send, FileSpreadsheet, Percent, Receipt, ClipboardCheck, BarChart3 as BarChartIcon,
+} from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import {
   Sidebar,
@@ -11,6 +18,9 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarHeader,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
   useSidebar,
 } from "@/components/ui/sidebar";
 
@@ -20,25 +30,36 @@ const menuItems = [
   { title: "Kits Acessórios", url: "/kits", icon: Boxes },
   { title: "Kits Montados", url: "/kits-montados", icon: Package },
   { title: "Estoque", url: "/estoque", icon: Warehouse },
-  { title: "Sobras de Perfis", url: "/sobras-perfis", icon: Scissors },
+  { title: "Ord. Produção", url: "/ordens-producao", icon: PaintBucket },
+  { title: "Filiais", url: "/filiais", icon: Building2 },
+  { title: "Transferências", url: "/transferencias-estoque", icon: ArrowLeftRight },
   { title: "Clientes", url: "/clientes", icon: Users },
-  
-  // Novo item - Saldo de Clientes (abaixo de Clientes)
   { title: "Saldo Clientes", url: "/saldo-clientes", icon: Wallet },
-  
   { title: "Orçamentos", url: "/orcamentos", icon: FileText },
-  { title: "Conferência", url: "/conferencia-materiais", icon: ClipboardCheck },
   { title: "Vendas", url: "/vendas", icon: ShoppingCart },
   { title: "Pedidos", url: "/pedidos", icon: ClipboardList },
   { title: "Compras", url: "/compras", icon: ShoppingBag },
   { title: "Fornecedores", url: "/fornecedores", icon: Truck },
-  { title: "Financeiro", url: "/financeiro", icon: DollarSign },
-  { title: "Relatórios", url: "/relatorios", icon: BarChart3 },
+  { title: "Vendedores", url: "/vendedores", icon: UserCheck },
+];
+
+const financeiroSubItems = [
+  { title: "Gestão Financeira", url: "/financeiro", icon: DollarSign },
+  { title: "Caixas e Bancos", url: "/financeiro/caixas-bancos", icon: Landmark },
+  { title: "Contas a Pagar", url: "/financeiro/contas-pagar", icon: ArrowDownCircle },
+  { title: "Contas a Receber", url: "/financeiro/contas-receber", icon: ArrowUpCircle },
+  { title: "Remessas e Retornos", url: "/financeiro/remessas-retornos", icon: Send },
+  { title: "Ficha Financeira", url: "/financeiro/ficha-financeira", icon: FileSpreadsheet },
+  { title: "Comissões", url: "/financeiro/comissoes", icon: Percent },
+  { title: "Controle de Caixa", url: "/financeiro/controle-caixa", icon: Receipt },
+  { title: "Faturamento Agrupado", url: "/financeiro/faturamento-agrupado", icon: ClipboardCheck },
+  { title: "Relatórios Financeiros", url: "/financeiro/relatorios", icon: BarChartIcon },
 ];
 
 export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
+  const [financeiroOpen, setFinanceiroOpen] = useState(true);
 
   return (
     <Sidebar collapsible="icon">
@@ -86,6 +107,65 @@ export function AppSidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
+
+              {/* Financeiro com sub-itens */}
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  onClick={() => setFinanceiroOpen(!financeiroOpen)}
+                  className="hover:bg-sidebar-accent/70 hover:translate-x-1 transition-all duration-200 cursor-pointer"
+                >
+                  <DollarSign className="h-4 w-4" />
+                  {!collapsed && (
+                    <>
+                      <span>Financeiro</span>
+                      <span className="ml-auto">
+                        {financeiroOpen ? (
+                          <ChevronDown className="h-4 w-4 text-sidebar-foreground/50" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4 text-sidebar-foreground/50" />
+                        )}
+                      </span>
+                    </>
+                  )}
+                </SidebarMenuButton>
+                {!collapsed && financeiroOpen && (
+                  <SidebarMenuSub>
+                    {financeiroSubItems.map((sub) => (
+                      <SidebarMenuSubItem key={sub.title}>
+                        <SidebarMenuSubButton asChild>
+                          <NavLink
+                            to={sub.url}
+                            className={({ isActive }) =>
+                              isActive
+                                ? "bg-primary/15 text-sidebar-foreground font-medium border-l-2 border-primary"
+                                : "hover:bg-sidebar-accent/70 transition-all duration-200"
+                            }
+                          >
+                            <sub.icon className="h-3.5 w-3.5" />
+                            <span className="text-sm">{sub.title}</span>
+                          </NavLink>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                    ))}
+                  </SidebarMenuSub>
+                )}
+              </SidebarMenuItem>
+
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild>
+                  <NavLink
+                    to="/relatorios"
+                    className={({ isActive }) =>
+                      isActive
+                        ? "bg-gradient-to-r from-primary/20 to-accent/20 text-sidebar-foreground font-semibold border-l-4 border-primary shadow-sm"
+                        : "hover:bg-sidebar-accent/70 hover:translate-x-1 transition-all duration-200"
+                    }
+                  >
+                    <BarChart3 className="h-4 w-4" />
+                    {!collapsed && <span>Relatórios</span>}
+                  </NavLink>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

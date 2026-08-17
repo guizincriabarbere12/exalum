@@ -159,22 +159,25 @@ export type Database = {
           created_at: string | null
           id: string
           kit_id: string
-          produto_id: string
+          produto_id: string | null
           quantidade: number
+          sub_kit_id: string | null
         }
         Insert: {
           created_at?: string | null
           id?: string
           kit_id: string
-          produto_id: string
+          produto_id?: string | null
           quantidade: number
+          sub_kit_id?: string | null
         }
         Update: {
           created_at?: string | null
           id?: string
           kit_id?: string
-          produto_id?: string
+          produto_id?: string | null
           quantidade?: number
+          sub_kit_id?: string | null
         }
         Relationships: [
           {
@@ -191,6 +194,13 @@ export type Database = {
             referencedRelation: "produtos"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "kit_itens_sub_kit_id_fkey"
+            columns: ["sub_kit_id"]
+            isOneToOne: false
+            referencedRelation: "kits"
+            referencedColumns: ["id"]
+          },
         ]
       }
       kits: {
@@ -201,7 +211,7 @@ export type Database = {
           descricao: string | null
           id: string
           nome: string
-          preco_venda: number
+          preco_total: number
           updated_at: string | null
         }
         Insert: {
@@ -211,7 +221,7 @@ export type Database = {
           descricao?: string | null
           id?: string
           nome: string
-          preco_venda: number
+          preco_total: number
           updated_at?: string | null
         }
         Update: {
@@ -221,7 +231,7 @@ export type Database = {
           descricao?: string | null
           id?: string
           nome?: string
-          preco_venda?: number
+          preco_total?: number
           updated_at?: string | null
         }
         Relationships: []
@@ -410,9 +420,12 @@ export type Database = {
           id: string
           numero: string
           observacoes: string | null
+          orcamento_id: string | null
+          origem: string | null
           status: string
           updated_at: string
           valor_total: number
+          vendedor_id: string | null
         }
         Insert: {
           cliente_id: string
@@ -425,9 +438,12 @@ export type Database = {
           id?: string
           numero: string
           observacoes?: string | null
+          orcamento_id?: string | null
+          origem?: string | null
           status?: string
           updated_at?: string
           valor_total?: number
+          vendedor_id?: string | null
         }
         Update: {
           cliente_id?: string
@@ -440,9 +456,12 @@ export type Database = {
           id?: string
           numero?: string
           observacoes?: string | null
+          orcamento_id?: string | null
+          origem?: string | null
           status?: string
           updated_at?: string
           valor_total?: number
+          vendedor_id?: string | null
         }
         Relationships: [
           {
@@ -461,14 +480,15 @@ export type Database = {
           created_at: string | null
           created_by: string | null
           descricao: string
-          imagem_url: string | null
+          foto_url: string | null
           id: string
           liga: string | null
           localizacao: string | null
           peso: number | null
+          preco: number | null
           preco_custo: number | null
           preco_por_kg: number | null
-          preco_venda: number
+          preco_venda: number | null
           tipo: string | null
           unidade: string
           updated_at: string | null
@@ -479,14 +499,15 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           descricao: string
-          imagem_url?: string | null
+          foto_url?: string | null
           id?: string
           liga?: string | null
           localizacao?: string | null
           peso?: number | null
+          preco?: number | null
           preco_custo?: number | null
           preco_por_kg?: number | null
-          preco_venda: number
+          preco_venda?: number | null
           tipo?: string | null
           unidade?: string
           updated_at?: string | null
@@ -497,14 +518,15 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           descricao?: string
-          imagem_url?: string | null
+          foto_url?: string | null
           id?: string
           liga?: string | null
           localizacao?: string | null
           peso?: number | null
+          preco?: number | null
           preco_custo?: number | null
           preco_por_kg?: number | null
-          preco_venda?: number
+          preco_venda?: number | null
           tipo?: string | null
           unidade?: string
           updated_at?: string | null
@@ -528,6 +550,42 @@ export type Database = {
           created_at?: string | null
           full_name?: string
           id?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      vendedores: {
+        Row: {
+          id: string
+          user_id: string | null
+          nome: string
+          email: string
+          comissao_percentual: number
+          telefone: string | null
+          ativo: boolean | null
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          user_id?: string | null
+          nome: string
+          email: string
+          comissao_percentual?: number
+          telefone?: string | null
+          ativo?: boolean | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          user_id?: string | null
+          nome?: string
+          email?: string
+          comissao_percentual?: number
+          telefone?: string | null
+          ativo?: boolean | null
+          created_at?: string | null
           updated_at?: string | null
         }
         Relationships: []
@@ -660,6 +718,7 @@ export type Database = {
           status: string
           updated_at: string | null
           valor_total: number | null
+          vendedor_id: string | null
         }
         Insert: {
           cliente_id: string
@@ -672,6 +731,7 @@ export type Database = {
           status?: string
           updated_at?: string | null
           valor_total?: number | null
+          vendedor_id?: string | null
         }
         Update: {
           cliente_id?: string
@@ -684,6 +744,7 @@ export type Database = {
           status?: string
           updated_at?: string | null
           valor_total?: number | null
+          vendedor_id?: string | null
         }
         Relationships: [
           {

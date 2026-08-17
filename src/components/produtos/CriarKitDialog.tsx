@@ -29,7 +29,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Package, Search, Trash2, AlertCircle, DollarSign } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Plus, Package, Search, Trash2, CircleAlert as AlertCircle, DollarSign, Save, Layers } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -44,45 +45,112 @@ interface Produto {
   preco?: number;
 }
 
+interface Kit {
+  id: string;
+  codigo: string;
+  nome: string;
+  descricao: string | null;
+  preco_total: number;
+  ativo: boolean | null;
+}
+
 interface ItemKit {
-  produto_id: string;
+  id?: string;
+  produto_id?: string;
   produto?: Produto;
+  sub_kit_id?: string;
+  sub_kit?: Kit;
   quantidade: number;
 }
 
 interface CriarKitDialogProps {
   onKitAdded: () => void;
+  kitParaEditar?: {
+    id: string;
+    codigo: string;
+    nome: string;
+    descricao: string | null;
+    preco_total: number;
+    itens: ItemKit[];
+  } | null;
+  isEditing?: boolean;
+  trigger?: React.ReactNode;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
-export default function CriarKitDialog({ onKitAdded }: CriarKitDialogProps) {
-  const [open, setOpen] = useState(false);
+export default function CriarKitDialog({
+  onKitAdded,
+  kitParaEditar = null,
+  isEditing = false,
+  trigger,
+  open: externalOpen,
+  onOpenChange: externalOnOpenChange
+}: CriarKitDialogProps) {
+  const [internalOpen, setInternalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [produtos, setProdutos] = useState<Produto[]>([]);
+  const [kitsDisponiveis, setKitsDisponiveis] = useState<Kit[]>([]);
   const [termoPesquisa, setTermoPesquisa] = useState("");
+  const [termoPesquisaKit, setTermoPesquisaKit] = useState("");
   const [itens, setItens] = useState<ItemKit[]>([]);
-  
+
   // Dados do kit
   const [codigo, setCodigo] = useState("");
   const [nome, setNome] = useState("");
   const [descricao, setDescricao] = useState("");
   const [precoTotal, setPrecoTotal] = useState<string>("");
+  const [kitId, setKitId] = useState<string | null>(null);
+  const [codigoOriginal, setCodigoOriginal] = useState("");
 
+  // Controlar estado de abertura (suporta controlled e uncontrolled)
+  const open = externalOpen !== undefined ? externalOpen : internalOpen;
+  const setOpen = externalOnOpenChange || setInternalOpen;
+
+  // Efeito para abrir o dialog quando estiver em modo de edição
   useEffect(() => {
-    if (open) {
+    if (isEditing && kitParaEditar) {
+      // Popula os dados do kit para edição
+      setKitId(kitParaEditar.id);
+      setCodigo(kitParaEditar.codigo);
+      setCodigoOriginal(kitParaEditar.codigo);
+      setNome(kitParaEditar.nome);
+      setDescricao(kitParaEditar.descricao || "");
+      setPrecoTotal(kitParaEditar.preco_total.toString());
+
+      // Garantir que os itens estão no formato correto
+      const itensComProduto = kitParaEditar.itens.map(item => ({
+        id: item.id,
+        produto_id: item.produto_id,
+        sub_kit_id: item.sub_kit_id,
+        quantidade: item.quantidade,
+        produto: item.produto || undefined,
+        sub_kit: item.sub_kit || undefined
+      }));
+
+      setItens(itensComProduto);
+
+      // Buscar produtos e kits para o select
       fetchProdutos();
-    }
-  }, [open]);
+      fetchKitsDisponiveis(kitParaEditar.id);
 
-  // Reset apenas quando abrir, não a cada render
+      // Abrir o dialog se não estiver aberto
+      if (!open) {
+        setOpen(true);
+      }
+    }
+  }, [isEditing, kitParaEditar]);
+
   useEffect(() => {
-    if (open) {
+    if (open && !isEditing) {
+      fetchProdutos();
+      fetchKitsDisponiveis();
       resetForm();
     }
   }, [open]);
 
   const fetchProdutos = async () => {
     try {
-      console.log("📦 Buscando produtos...");
       const { data, error } = await supabase
         .from('produtos')
         .select('id, codigo, nome, descricao, estoque, ativo, preco')
@@ -90,10 +158,8 @@ export default function CriarKitDialog({ onKitAdded }: CriarKitDialogProps) {
         .order('nome');
 
       if (error) throw error;
-      console.log(`✅ ${data?.length} produtos encontrados`);
       setProdutos(data || []);
     } catch (error: any) {
-      console.error("❌ Erro ao carregar produtos:", error);
       toast({
         title: "Erro ao carregar produtos",
         description: error.message,
@@ -102,14 +168,47 @@ export default function CriarKitDialog({ onKitAdded }: CriarKitDialogProps) {
     }
   };
 
+  const fetchKitsDisponiveis = async (excludeKitId?: string) => {
+    try {
+      let query = supabase
+        .from('kits')
+        .select('id, codigo, nome, descricao, preco_total, ativo')
+        .eq('ativo', true)
+        .order('nome');
+
+      // Exclude current kit to prevent circular references
+      if (excludeKitId) {
+        query = query.neq('id', excludeKitId);
+      }
+
+      const { data, error } = await query;
+
+      if (error) throw error;
+
+      // Also exclude kits that are already added as sub-kits to prevent duplicates
+      const addedSubKitIds = itens.filter(i => i.sub_kit_id).map(i => i.sub_kit_id);
+      const filteredData = (data || []).filter(k => !addedSubKitIds.includes(k.id));
+
+      setKitsDisponiveis(filteredData);
+    } catch (error: any) {
+      toast({
+        title: "Erro ao carregar kits",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
   const calcularCustoTotal = () => {
     return itens.reduce((total, item) => {
-      const precoUnitario = item.produto?.preco || 0;
+      const precoUnitario = item.produto?.preco || item.sub_kit?.preco_total || 0;
       return total + (precoUnitario * item.quantidade);
     }, 0);
   };
 
   const adicionarItem = (produtoId: string) => {
+    if (!produtoId) return;
+
     const produto = produtos.find(p => p.id === produtoId);
     if (!produto) return;
 
@@ -128,11 +227,43 @@ export default function CriarKitDialog({ onKitAdded }: CriarKitDialogProps) {
       produto: produto,
       quantidade: 1
     }]);
-    
+
     setTermoPesquisa("");
   };
 
+  const adicionarSubKit = (subKitId: string) => {
+    if (!subKitId) return;
+
+    const subKit = kitsDisponiveis.find(k => k.id === subKitId);
+    if (!subKit) return;
+
+    const itemExistente = itens.find(item => item.sub_kit_id === subKitId);
+    if (itemExistente) {
+      toast({
+        title: "Kit já adicionado",
+        description: "Este sub-kit já está no kit. Ajuste a quantidade se necessário.",
+        variant: "default",
+      });
+      return;
+    }
+
+    setItens([...itens, {
+      sub_kit_id: subKitId,
+      sub_kit: subKit,
+      quantidade: 1
+    }]);
+
+    // Remove from available kits list
+    setKitsDisponiveis(prev => prev.filter(k => k.id !== subKitId));
+    setTermoPesquisaKit("");
+  };
+
   const removerItem = (index: number) => {
+    const itemToRemove = itens[index];
+    // If removing a sub-kit, add it back to available kits
+    if (itemToRemove.sub_kit_id && itemToRemove.sub_kit) {
+      setKitsDisponiveis(prev => [...prev, itemToRemove.sub_kit!]);
+    }
     setItens(itens.filter((_, i) => i !== index));
   };
 
@@ -148,6 +279,12 @@ export default function CriarKitDialog({ onKitAdded }: CriarKitDialogProps) {
     produto.codigo?.toLowerCase().includes(termoPesquisa.toLowerCase()) ||
     produto.nome?.toLowerCase().includes(termoPesquisa.toLowerCase()) ||
     (produto.descricao && produto.descricao.toLowerCase().includes(termoPesquisa.toLowerCase()))
+  );
+
+  const kitsFiltrados = kitsDisponiveis.filter(kit =>
+    kit.codigo?.toLowerCase().includes(termoPesquisaKit.toLowerCase()) ||
+    kit.nome?.toLowerCase().includes(termoPesquisaKit.toLowerCase()) ||
+    (kit.descricao && kit.descricao.toLowerCase().includes(termoPesquisaKit.toLowerCase()))
   );
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -192,95 +329,164 @@ export default function CriarKitDialog({ onKitAdded }: CriarKitDialogProps) {
 
     setLoading(true);
     try {
-      console.log("🆕 Criando novo kit...");
-      console.log("Dados do kit:", {
-        codigo: codigo.trim().toUpperCase(),
-        nome: nome.trim(),
-        descricao: descricao.trim() || null,
-        preco_total: parseFloat(precoTotal),
-        ativo: true
-      });
-      
-      // Inserir o kit com preco_total (campo NOT NULL)
-      const { data: kitData, error: kitError } = await supabase
-        .from('kits')
-        .insert({
-          codigo: codigo.trim().toUpperCase(),
-          nome: nome.trim(),
-          descricao: descricao.trim() || null,
-          preco_total: parseFloat(precoTotal), // Campo obrigatório
-          ativo: true
-        })
-        .select()
-        .single();
-
-      if (kitError) {
-        console.error("❌ Erro ao inserir kit:", kitError);
+      if (isEditing && kitId) {
+        // EDITAR KIT EXISTENTE
+        console.log("✏️ Editando kit...", kitId);
+        console.log(`Código original: ${codigoOriginal}, Novo código: ${codigo}`);
         
-        // Tratar erro de código duplicado
-        if (kitError.code === '23505') {
-          toast({
-            title: "Código já existe",
-            description: "Já existe um kit com este código. Escolha um código diferente.",
-            variant: "destructive",
-          });
-          return;
+        // Verificar se o código foi alterado e se já existe outro kit com este código
+        if (codigoOriginal !== codigo.trim().toUpperCase()) {
+          const { data: existingKit, error: checkError } = await supabase
+            .from('kits')
+            .select('id')
+            .eq('codigo', codigo.trim().toUpperCase())
+            .neq('id', kitId)
+            .maybeSingle();
+
+          if (checkError) {
+            console.error("❌ Erro ao verificar código:", checkError);
+            throw checkError;
+          }
+
+          if (existingKit) {
+            toast({
+              title: "Código já existe",
+              description: "Já existe outro kit com este código. Escolha um código diferente.",
+              variant: "destructive",
+            });
+            setLoading(false);
+            return;
+          }
         }
         
-        // Tratar erro de campo obrigatório
-        if (kitError.message?.includes('null value in column')) {
-          toast({
-            title: "Erro de validação",
-            description: "Todos os campos obrigatórios devem ser preenchidos.",
-            variant: "destructive",
-          });
-          return;
+        // Atualizar dados do kit
+        const { error: kitError } = await supabase
+          .from('kits')
+          .update({
+            codigo: codigo.trim().toUpperCase(),
+            nome: nome.trim(),
+            descricao: descricao.trim() || null,
+            preco_total: parseFloat(precoTotal),
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', kitId);
+
+        if (kitError) {
+          console.error("❌ Erro ao atualizar kit:", kitError);
+          if (kitError.code === '23505') {
+            toast({
+              title: "Código já existe",
+              description: "Já existe um kit com este código. Escolha um código diferente.",
+              variant: "destructive",
+            });
+            return;
+          }
+          throw kitError;
         }
-        
-        throw kitError;
-      }
 
-      console.log("✅ Kit criado:", kitData);
-
-      // Inserir os itens do kit
-      if (itens.length > 0) {
-        const itensParaInserir = itens.map(item => ({
-          kit_id: kitData.id,
-          produto_id: item.produto_id,
-          quantidade: item.quantidade
-        }));
-
-        console.log("📦 Inserindo itens:", itensParaInserir);
-
-        const { error: itensError } = await supabase
+        // Remover itens antigos
+        const { error: deleteError } = await supabase
           .from('kit_itens')
-          .insert(itensParaInserir);
+          .delete()
+          .eq('kit_id', kitId);
 
-        if (itensError) {
-          console.error("❌ Erro ao inserir itens:", itensError);
-          
-          // Se erro nos itens, deletar o kit criado para não ficar órfão
-          await supabase.from('kits').delete().eq('id', kitData.id);
-          
-          throw itensError;
+        if (deleteError) {
+          console.error("❌ Erro ao remover itens antigos:", deleteError);
+          throw deleteError;
         }
 
-        console.log(`✅ ${itens.length} componentes adicionados`);
-      }
+        // Inserir novos itens
+        if (itens.length > 0) {
+          const itensParaInserir = itens.map(item => ({
+            kit_id: kitId,
+            produto_id: item.produto_id || null,
+            sub_kit_id: item.sub_kit_id || null,
+            quantidade: item.quantidade
+          }));
 
-      toast({
-        title: "Kit criado com sucesso!",
-        description: `O kit ${kitData.codigo} - ${kitData.nome} foi criado com ${itens.length} componente(s).`,
-      });
+          const { error: itensError } = await supabase
+            .from('kit_itens')
+            .insert(itensParaInserir);
+
+          if (itensError) {
+            console.error("❌ Erro ao inserir itens:", itensError);
+            throw itensError;
+          }
+
+          console.log(`✅ ${itens.length} componentes atualizados`);
+        }
+
+        toast({
+          title: "Kit atualizado com sucesso!",
+          description: `O kit ${codigo} - ${nome} foi atualizado com ${itens.length} componente(s).`,
+        });
+
+      } else {
+        // CRIAR NOVO KIT
+        console.log("🆕 Criando novo kit...");
+        
+        const { data: kitData, error: kitError } = await supabase
+          .from('kits')
+          .insert({
+            codigo: codigo.trim().toUpperCase(),
+            nome: nome.trim(),
+            descricao: descricao.trim() || null,
+            preco_total: parseFloat(precoTotal),
+            ativo: true
+          })
+          .select()
+          .single();
+
+        if (kitError) {
+          console.error("❌ Erro ao inserir kit:", kitError);
+          if (kitError.code === '23505') {
+            toast({
+              title: "Código já existe",
+              description: "Já existe um kit com este código. Escolha um código diferente.",
+              variant: "destructive",
+            });
+            return;
+          }
+          throw kitError;
+        }
+
+        console.log("✅ Kit criado:", kitData);
+
+        // Inserir os itens do kit
+        if (itens.length > 0) {
+          const itensParaInserir = itens.map(item => ({
+            kit_id: kitData.id,
+            produto_id: item.produto_id || null,
+            sub_kit_id: item.sub_kit_id || null,
+            quantidade: item.quantidade
+          }));
+
+          const { error: itensError } = await supabase
+            .from('kit_itens')
+            .insert(itensParaInserir);
+
+          if (itensError) {
+            console.error("❌ Erro ao inserir itens:", itensError);
+            throw itensError;
+          }
+
+          console.log(`✅ ${itens.length} componentes adicionados`);
+        }
+
+        toast({
+          title: "Kit criado com sucesso!",
+          description: `O kit ${kitData.codigo} - ${kitData.nome} foi criado com ${itens.length} componente(s).`,
+        });
+      }
 
       setOpen(false);
       resetForm();
       onKitAdded();
     } catch (error: any) {
-      console.error("❌ Erro ao criar kit:", error);
+      console.error("❌ Erro ao salvar kit:", error);
       toast({
-        title: "Erro ao criar kit",
-        description: error.message || "Ocorreu um erro ao criar o kit. Tente novamente.",
+        title: isEditing ? "Erro ao atualizar kit" : "Erro ao criar kit",
+        description: error.message,
         variant: "destructive",
       });
     } finally {
@@ -289,12 +495,16 @@ export default function CriarKitDialog({ onKitAdded }: CriarKitDialogProps) {
   };
 
   const resetForm = () => {
-    setCodigo("");
-    setNome("");
-    setDescricao("");
-    setPrecoTotal("");
-    setItens([]);
-    setTermoPesquisa("");
+    if (!isEditing) {
+      setCodigo("");
+      setNome("");
+      setDescricao("");
+      setPrecoTotal("");
+      setItens([]);
+      setTermoPesquisa("");
+      setKitId(null);
+      setCodigoOriginal("");
+    }
   };
 
   const custoTotal = calcularCustoTotal();
@@ -304,21 +514,27 @@ export default function CriarKitDialog({ onKitAdded }: CriarKitDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button>
-          <Plus className="mr-2 h-4 w-4" />
-          Novo Kit
-        </Button>
-      </DialogTrigger>
+      {!isEditing && (
+        <DialogTrigger asChild>
+          {trigger || (
+            <Button>
+              <Plus className="mr-2 h-4 w-4" />
+              Novo Kit
+            </Button>
+          )}
+        </DialogTrigger>
+      )}
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Package className="h-5 w-5 text-primary" />
-              Criar Novo Kit
+              {isEditing ? 'Editar Kit' : 'Criar Novo Kit'}
             </DialogTitle>
             <DialogDescription>
-              Preencha as informações do kit, defina o preço total e adicione os componentes.
+              {isEditing 
+                ? 'Edite as informações do kit, ajuste o preço total e modifique os componentes.'
+                : 'Preencha as informações do kit, defina o preço total e adicione os componentes.'}
             </DialogDescription>
           </DialogHeader>
 
@@ -334,9 +550,14 @@ export default function CriarKitDialog({ onKitAdded }: CriarKitDialogProps) {
                   value={codigo}
                   onChange={(e) => setCodigo(e.target.value)}
                   placeholder="Ex: KIT-001"
-                  maxLength={50}
-                  required
+                  className={isEditing ? "border-yellow-400 focus:border-yellow-500" : ""}
                 />
+                {isEditing && (
+                  <p className="text-xs text-yellow-600 flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" />
+                    Você pode alterar o código do kit. Certifique-se de que ele seja único.
+                  </p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="nome">
@@ -347,8 +568,6 @@ export default function CriarKitDialog({ onKitAdded }: CriarKitDialogProps) {
                   value={nome}
                   onChange={(e) => setNome(e.target.value)}
                   placeholder="Ex: Kit Emergencial"
-                  maxLength={100}
-                  required
                 />
               </div>
             </div>
@@ -369,7 +588,6 @@ export default function CriarKitDialog({ onKitAdded }: CriarKitDialogProps) {
                     onChange={(e) => setPrecoTotal(e.target.value)}
                     placeholder="0,00"
                     className="pl-9"
-                    required
                   />
                 </div>
                 <p className="text-xs text-muted-foreground">
@@ -399,50 +617,108 @@ export default function CriarKitDialog({ onKitAdded }: CriarKitDialogProps) {
                 </Badge>
               </div>
 
-              <div className="space-y-2">
-                <div className="flex gap-2">
-                  <div className="flex-1 relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      placeholder="Buscar componente por código ou nome..."
-                      value={termoPesquisa}
-                      onChange={(e) => setTermoPesquisa(e.target.value)}
-                      className="pl-9"
-                    />
+              <Tabs defaultValue="produtos" className="w-full">
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="produtos" className="flex items-center gap-2">
+                    <Package className="h-4 w-4" />
+                    Produtos
+                  </TabsTrigger>
+                  <TabsTrigger value="kits" className="flex items-center gap-2">
+                    <Layers className="h-4 w-4" />
+                    Sub-Kits
+                  </TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="produtos" className="space-y-2 mt-4">
+                  <div className="flex gap-2">
+                    <div className="flex-1 relative">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Buscar produto por código ou nome..."
+                        value={termoPesquisa}
+                        onChange={(e) => setTermoPesquisa(e.target.value)}
+                        className="pl-9"
+                      />
+                    </div>
+                    <Select onValueChange={adicionarItem} value="">
+                      <SelectTrigger className="w-[220px]">
+                        <SelectValue placeholder="Adicionar produto" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {produtosFiltrados.length > 0 ? (
+                          produtosFiltrados.map(produto => (
+                            <SelectItem key={produto.id} value={produto.id}>
+                              <div className="flex items-center justify-between w-full gap-4">
+                                <span>
+                                  <span className="font-mono text-xs">{produto.codigo}</span>
+                                  <span className="ml-2">{produto.nome}</span>
+                                </span>
+                                <div className="flex items-center gap-2">
+                                  <Badge variant="outline" className="text-xs">
+                                    Est: {produto.estoque}
+                                  </Badge>
+                                  <Badge variant="secondary" className="text-xs">
+                                    R$ {produto.preco?.toFixed(2)}
+                                  </Badge>
+                                </div>
+                              </div>
+                            </SelectItem>
+                          ))
+                        ) : (
+                          <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                            {termoPesquisa ? 'Nenhum produto encontrado' : 'Digite para buscar...'}
+                          </div>
+                        )}
+                      </SelectContent>
+                    </Select>
                   </div>
-                  <Select onValueChange={adicionarItem} value="">
-                    <SelectTrigger className="w-[220px]">
-                      <SelectValue placeholder="Adicionar componente" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {produtosFiltrados.length > 0 ? (
-                        produtosFiltrados.map(produto => (
-                          <SelectItem key={produto.id} value={produto.id}>
-                            <div className="flex items-center justify-between w-full gap-4">
-                              <span>
-                                <span className="font-mono text-xs">{produto.codigo}</span>
-                                <span className="ml-2">{produto.nome}</span>
-                              </span>
-                              <div className="flex items-center gap-2">
-                                <Badge variant="outline" className="text-xs">
-                                  Est: {produto.estoque}
-                                </Badge>
+                </TabsContent>
+
+                <TabsContent value="kits" className="space-y-2 mt-4">
+                  <div className="flex gap-2">
+                    <div className="flex-1 relative">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Buscar kit por código ou nome..."
+                        value={termoPesquisaKit}
+                        onChange={(e) => setTermoPesquisaKit(e.target.value)}
+                        className="pl-9"
+                      />
+                    </div>
+                    <Select onValueChange={adicionarSubKit} value="">
+                      <SelectTrigger className="w-[220px]">
+                        <SelectValue placeholder="Adicionar kit" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {kitsFiltrados.length > 0 ? (
+                          kitsFiltrados.map(kit => (
+                            <SelectItem key={kit.id} value={kit.id}>
+                              <div className="flex items-center justify-between w-full gap-4">
+                                <span>
+                                  <span className="font-mono text-xs">{kit.codigo}</span>
+                                  <span className="ml-2">{kit.nome}</span>
+                                </span>
                                 <Badge variant="secondary" className="text-xs">
-                                  R$ {produto.preco?.toFixed(2)}
+                                  R$ {kit.preco_total?.toFixed(2)}
                                 </Badge>
                               </div>
-                            </div>
-                          </SelectItem>
-                        ))
-                      ) : (
-                        <div className="px-2 py-1.5 text-sm text-muted-foreground">
-                          {termoPesquisa ? 'Nenhum produto encontrado' : 'Digite para buscar...'}
-                        </div>
-                      )}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
+                            </SelectItem>
+                          ))
+                        ) : (
+                          <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                            {termoPesquisaKit ? 'Nenhum kit encontrado' : kitsDisponiveis.length === 0 ? 'Nenhum kit disponível' : 'Digite para buscar...'}
+                          </div>
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {isEditing && kitsDisponiveis.length === 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      Kits já adicionados ou kit atual não disponível (referência circular).
+                    </p>
+                  )}
+                </TabsContent>
+              </Tabs>
 
               {/* Tabela de componentes */}
               {itens.length > 0 ? (
@@ -450,6 +726,7 @@ export default function CriarKitDialog({ onKitAdded }: CriarKitDialogProps) {
                   <Table>
                     <TableHeader>
                       <TableRow>
+                        <TableHead>Tipo</TableHead>
                         <TableHead>Código</TableHead>
                         <TableHead>Componente</TableHead>
                         <TableHead className="text-right">Estoque</TableHead>
@@ -461,24 +738,38 @@ export default function CriarKitDialog({ onKitAdded }: CriarKitDialogProps) {
                     </TableHeader>
                     <TableBody>
                       {itens.map((item, index) => {
-                        const subtotal = (item.produto?.preco || 0) * item.quantidade;
-                        const estoqueInsuficiente = (item.produto?.estoque || 0) < item.quantidade;
-                        
+                        const isSubKit = !!item.sub_kit_id;
+                        const codigo = isSubKit ? item.sub_kit?.codigo : item.produto?.codigo;
+                        const nome = isSubKit ? item.sub_kit?.nome : item.produto?.nome;
+                        const precoUnitario = isSubKit ? item.sub_kit?.preco_total : item.produto?.preco;
+                        const subtotal = (precoUnitario || 0) * item.quantidade;
+
                         return (
-                          <TableRow key={item.produto_id}>
-                            <TableCell className="font-mono text-sm">
-                              {item.produto?.codigo}
-                            </TableCell>
+                          <TableRow key={item.produto_id || item.sub_kit_id}>
                             <TableCell>
-                              <p className="font-medium">{item.produto?.nome}</p>
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <Badge variant={estoqueInsuficiente ? "destructive" : "outline"}>
-                                {item.produto?.estoque || 0}
+                              <Badge variant={isSubKit ? "secondary" : "outline"} className="flex items-center gap-1 w-fit">
+                                {isSubKit ? <Layers className="h-3 w-3" /> : <Package className="h-3 w-3" />}
+                                {isSubKit ? 'Kit' : 'Produto'}
                               </Badge>
                             </TableCell>
+                            <TableCell className="font-mono text-sm">
+                              {codigo}
+                            </TableCell>
+                            <TableCell>
+                              <p className="font-medium">{nome}</p>
+                            </TableCell>
                             <TableCell className="text-right">
-                              R$ {item.produto?.preco?.toFixed(2)}
+                              {!isSubKit && (
+                                <Badge variant={(item.produto?.estoque || 0) < item.quantidade ? "destructive" : "outline"}>
+                                  {item.produto?.estoque || 0}
+                                </Badge>
+                              )}
+                              {isSubKit && (
+                                <span className="text-xs text-muted-foreground">-</span>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              R$ {precoUnitario?.toFixed(2)}
                             </TableCell>
                             <TableCell className="text-right">
                               <Input
@@ -513,7 +804,7 @@ export default function CriarKitDialog({ onKitAdded }: CriarKitDialogProps) {
                 <Alert>
                   <AlertCircle className="h-4 w-4" />
                   <AlertDescription>
-                    Nenhum componente adicionado. Use a busca acima para encontrar e adicionar produtos ao kit.
+                    Nenhum componente adicionado. Use as abas acima para adicionar produtos ou sub-kits.
                   </AlertDescription>
                 </Alert>
               )}
@@ -558,14 +849,24 @@ export default function CriarKitDialog({ onKitAdded }: CriarKitDialogProps) {
             <Button 
               type="submit" 
               disabled={loading || itens.length === 0 || !precoTotal}
+              className="gap-2"
             >
               {loading ? (
                 <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  Criando...
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  {isEditing ? 'Salvando...' : 'Criando...'}
                 </>
               ) : (
-                'Criar Kit'
+                <>
+                  {isEditing ? (
+                    <>
+                      <Save className="h-4 w-4" />
+                      Salvar Alterações
+                    </>
+                  ) : (
+                    'Criar Kit'
+                  )}
+                </>
               )}
             </Button>
           </DialogFooter>

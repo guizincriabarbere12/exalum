@@ -42,8 +42,8 @@ export default function EditProductDialog({ product, open, onOpenChange, onProdu
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(product.imagem_url);
 
+  // Lista de categorias que usam a fórmula de preço + 70%
   const categoriasComMarkup = [
-    "COMPONENTES",
     "ACESSORIO", 
     "ACESSORIO CAIXA",
     "ESCOVA",
@@ -51,6 +51,12 @@ export default function EditProductDialog({ product, open, onOpenChange, onProdu
     "GUARNIÇÕES",
     "PARAFUSO"
   ];
+
+  // Categoria especial onde o preço é direto (sem fórmula)
+  const CATEGORIA_PRECO_DIRETO = "COMPONENTES";
+
+  // Categoria PERFIL usa a fórmula padrão (peso_kg/m × comprimento × preço/kg)
+  const CATEGORIA_PERFIL = "PERFIL";
 
   const [formData, setFormData] = useState({
     codigo: product.codigo,
@@ -87,16 +93,35 @@ export default function EditProductDialog({ product, open, onOpenChange, onProdu
     setImagePreview(product.imagem_url);
   }, [product]);
 
+  // Função para verificar se a categoria usa markup de 70%
   const isCategoriaComMarkup = (categoria: string) => {
     return categoriasComMarkup.includes(categoria.toUpperCase());
   };
 
+  // Função para verificar se é a categoria de preço direto
+  const isCategoriaPrecoDireto = (categoria: string) => {
+    return categoria.toUpperCase() === CATEGORIA_PRECO_DIRETO;
+  };
+
+  // Função para verificar se é a categoria PERFIL (usa fórmula padrão)
+  const isCategoriaPerfil = (categoria: string) => {
+    return categoria.toUpperCase() === CATEGORIA_PERFIL;
+  };
+
+  // Função para calcular o preço baseado na categoria
   const calcularPreco = () => {
     const precoPorKg = parseFloat(formData.preco_por_kg) || 0;
     
+    // Se for COMPONENTES, retorna o preço direto
+    if (isCategoriaPrecoDireto(formData.categoria)) {
+      return precoPorKg;
+    }
+    
     if (isCategoriaComMarkup(formData.categoria)) {
+      // Para categorias com markup: preço por kg + 70%
       return precoPorKg * 1.7;
     } else {
+      // Para PERFIL e outras categorias: cálculo normal com kg/m
       const pesoKgM = parseFloat(formData.peso_kg_m) || 0;
       const comprimentoBarra = parseFloat(formData.comprimento_barra) || 0;
       const pesoTotal = pesoKgM * comprimentoBarra;
@@ -104,30 +129,14 @@ export default function EditProductDialog({ product, open, onOpenChange, onProdu
     }
   };
 
+  // Função para calcular o peso total (apenas para categorias sem markup e sem preço direto)
   const calcularPesoTotal = () => {
-    if (!isCategoriaComMarkup(formData.categoria)) {
+    if (!isCategoriaComMarkup(formData.categoria) && !isCategoriaPrecoDireto(formData.categoria)) {
       const pesoKgM = parseFloat(formData.peso_kg_m) || 0;
       const comprimentoBarra = parseFloat(formData.comprimento_barra) || 0;
       return pesoKgM * comprimentoBarra;
     }
     return 0;
-  };
-
-  const regenerarQRCode = async () => {
-    try {
-      const { error } = await supabase.rpc('gerar_qrcode_produto', {
-        p_produto_id: product.id
-      });
-      
-      if (error) {
-        console.warn("Erro ao regenerar QR Code:", error);
-        return false;
-      }
-      return true;
-    } catch (error) {
-      console.error("Erro ao regenerar QR Code:", error);
-      return false;
-    }
   };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -161,7 +170,10 @@ export default function EditProductDialog({ product, open, onOpenChange, onProdu
       return;
     }
 
-    if (!isCategoriaComMarkup(formData.categoria)) {
+    // Validações específicas para categorias que precisam de peso
+    const precisaPeso = !isCategoriaComMarkup(formData.categoria) && !isCategoriaPrecoDireto(formData.categoria);
+    
+    if (precisaPeso) {
       const pesoKgM = parseFloat(formData.peso_kg_m);
       const comprimentoBarra = parseFloat(formData.comprimento_barra);
 
@@ -197,11 +209,13 @@ export default function EditProductDialog({ product, open, onOpenChange, onProdu
         imagem_url: imagePreview || null,
       };
 
-      if (!isCategoriaComMarkup(formData.categoria)) {
+      // Atualiza peso_kg_m e comprimento_barra apenas para categorias que precisam
+      if (precisaPeso) {
         updateData.peso_kg_m = parseFloat(formData.peso_kg_m);
         updateData.comprimento_barra = parseFloat(formData.comprimento_barra);
         updateData.peso = pesoTotal;
       } else {
+        // Para categorias com markup ou preço direto, zera esses campos
         updateData.peso_kg_m = 0;
         updateData.comprimento_barra = 0;
         updateData.peso = 0;
@@ -214,12 +228,9 @@ export default function EditProductDialog({ product, open, onOpenChange, onProdu
 
       if (error) throw error;
 
-      // Regenerar QR Code com dados atualizados
-      await regenerarQRCode();
-
       toast({
         title: "Sucesso!",
-        description: "Produto atualizado e QR Code regenerado.",
+        description: "Produto atualizado com sucesso.",
       });
 
       onOpenChange(false);
@@ -237,7 +248,9 @@ export default function EditProductDialog({ product, open, onOpenChange, onProdu
   };
 
   const usaMarkup = isCategoriaComMarkup(formData.categoria);
-  const mostraCamposPeso = !usaMarkup;
+  const precoDireto = isCategoriaPrecoDireto(formData.categoria);
+  const isPerfil = isCategoriaPerfil(formData.categoria);
+  const mostraCamposPeso = !usaMarkup && !precoDireto;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -321,6 +334,16 @@ export default function EditProductDialog({ product, open, onOpenChange, onProdu
                 onChange={(e) => setFormData({ ...formData, categoria: e.target.value })}
                 placeholder="Ex: Perfil, Componentes, Acessório, etc."
               />
+              {precoDireto && (
+                <p className="text-xs text-blue-600 mt-1">
+                  ⚡ Categoria COMPONENTES: preço direto (sem fórmula)
+                </p>
+              )}
+              {isPerfil && (
+                <p className="text-xs text-green-600 mt-1">
+                  📐 Categoria PERFIL: fórmula padrão (peso_kg/m × comprimento × preço/kg)
+                </p>
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="cor">Cor</Label>
@@ -345,7 +368,9 @@ export default function EditProductDialog({ product, open, onOpenChange, onProdu
           {mostraCamposPeso && (
             <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="peso_kg_m">Peso kg/m *</Label>
+                <Label htmlFor="peso_kg_m">
+                  {isPerfil ? "Peso kg/m *" : "Peso kg/m *"}
+                </Label>
                 <Input
                   id="peso_kg_m"
                   type="number"
@@ -358,7 +383,9 @@ export default function EditProductDialog({ product, open, onOpenChange, onProdu
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="comprimento_barra">Comprimento Barra (m) *</Label>
+                <Label htmlFor="comprimento_barra">
+                  {isPerfil ? "Comprimento Barra (m) *" : "Comprimento Barra (m) *"}
+                </Label>
                 <Input
                   id="comprimento_barra"
                   type="number"
@@ -399,7 +426,9 @@ export default function EditProductDialog({ product, open, onOpenChange, onProdu
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="preco_por_kg">Preço por Kg *</Label>
+                <Label htmlFor="preco_por_kg">
+                  {precoDireto ? "Preço de Venda *" : "Preço por Kg *"}
+                </Label>
                 <Input
                   id="preco_por_kg"
                   type="number"
@@ -408,14 +437,21 @@ export default function EditProductDialog({ product, open, onOpenChange, onProdu
                   required
                   value={formData.preco_por_kg}
                   onChange={(e) => setFormData({ ...formData, preco_por_kg: e.target.value })}
-                  placeholder="0.00"
+                  placeholder={precoDireto ? "0.00" : "0.00"}
                 />
               </div>
             </div>
             {formData.preco_por_kg && (
               <div className="text-sm bg-primary/10 p-3 rounded">
                 <div className="space-y-1">
-                  {usaMarkup ? (
+                  {precoDireto ? (
+                    <>
+                      <p><strong>Preço de Venda:</strong> R$ {calcularPreco().toFixed(2)}</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        ⚡ Categoria COMPONENTES: valor direto sem fórmula
+                      </p>
+                    </>
+                  ) : usaMarkup ? (
                     <>
                       <p><strong>Preço de Venda:</strong> R$ {calcularPreco().toFixed(2)}</p>
                       <p className="text-xs text-muted-foreground mt-1">
@@ -429,7 +465,11 @@ export default function EditProductDialog({ product, open, onOpenChange, onProdu
                           <p><strong>Peso Total:</strong> {calcularPesoTotal().toFixed(3)} kg</p>
                           <p><strong>Preço de Venda:</strong> R$ {calcularPreco().toFixed(2)}</p>
                           <p className="text-xs text-muted-foreground mt-1">
-                            Fórmula: peso_kg/m × comprimento × preço/kg
+                            {isPerfil ? (
+                              "📐 Fórmula PERFIL: peso_kg/m × comprimento × preço/kg"
+                            ) : (
+                              "Fórmula: peso_kg/m × comprimento × preço/kg"
+                            )}
                           </p>
                         </>
                       )}

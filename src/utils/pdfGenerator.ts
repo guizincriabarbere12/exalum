@@ -45,12 +45,6 @@ interface DadosOrcamento {
   valor_total: number;
   observacoes?: string;
   pagamento?: any;
-  assinatura?: {
-    base64: string;
-    nome: string;
-    cargo?: string;
-    data: string;
-  } | null;
 }
 
 const THUMB_SIZE = 56;
@@ -637,62 +631,6 @@ export async function gerarPDFOrcamento(
 
     doc.setTextColor(...redColor);
     doc.text(splitObs, 20, yPos + 5);
-  }
-
-  // Assinatura eletronica
-  if (dados.assinatura?.base64) {
-    const sigHeight = 45;
-    if (yPos + sigHeight > pageHeight - 30) {
-      doc.addPage();
-      drawHeader(false);
-      yPos = 50;
-    }
-
-    yPos += 10;
-
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(...primaryColor);
-    doc.text('ASSINATURA ELETRONICA', 20, yPos);
-
-    yPos += 6;
-
-    doc.setDrawColor(180, 180, 180);
-    doc.setLineWidth(0.3);
-    doc.roundedRect(15, yPos, pageWidth - 30, sigHeight, 2, 2);
-
-    try {
-      const sigFormat = dados.assinatura.base64.startsWith('data:image/png') ? 'PNG' : 'JPEG';
-      doc.addImage(dados.assinatura.base64, sigFormat, 20, yPos + 3, 60, 25);
-    } catch (e) {
-      console.error('Erro ao adicionar assinatura ao PDF:', e);
-    }
-
-    doc.setFontSize(8);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(0, 0, 0);
-
-    const sigDataX = 85;
-    doc.setFont('helvetica', 'bold');
-    doc.text('Assinado por:', sigDataX, yPos + 8);
-    doc.setFont('helvetica', 'normal');
-    doc.text(dados.assinatura.nome, sigDataX + 28, yPos + 8);
-
-    if (dados.assinatura.cargo) {
-      doc.setFont('helvetica', 'bold');
-      doc.text('Cargo:', sigDataX, yPos + 14);
-      doc.setFont('helvetica', 'normal');
-      doc.text(dados.assinatura.cargo, sigDataX + 28, yPos + 14);
-    }
-
-    doc.setFont('helvetica', 'bold');
-    doc.text('Data:', sigDataX, yPos + 20);
-    doc.setFont('helvetica', 'normal');
-    doc.text(new Date(dados.assinatura.data).toLocaleString('pt-BR'), sigDataX + 28, yPos + 20);
-
-    doc.setFontSize(6);
-    doc.setTextColor(120, 120, 120);
-    doc.text('Assinatura eletronica - Documento valido conforme MP 2.200-2/2001', 20, yPos + sigHeight - 3);
   }
 
   const totalPages = (doc as any).internal.getNumberOfPages();

@@ -26,8 +26,11 @@ import MeusPedidos from "./pages/MeusPedidos";
 import CatalogoPublico from "./pages/CatalogoPublico";
 import Compras from "./pages/Compras";
 import SaldoClientes from "./pages/SaldoClientes";
-import ConferenciaMateriais from "./pages/ConferenciaMateriais";
-import SobrasPerfis from "./pages/SobrasPerfis";
+import Vendedores from "./pages/Vendedores";
+import OrdensProducao from "./pages/OrdensProducao";
+import Filiais from "./pages/Filiais";
+import TransferenciasEstoque from "./pages/TransferenciasEstoque";
+import FinanceiroSub from "./pages/FinanceiroSub";
 
 const queryClient = new QueryClient();
 
@@ -147,28 +150,7 @@ const App = () => (
               </ProtectedRoute>
             }
           />
-          <Route
-            path="/conferencia-materiais"
-            element={
-              <ProtectedRoute>
-                <AppLayout>
-                  <ConferenciaMateriais />
-                </AppLayout>
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
-            path="/sobras-perfis"
-            element={
-              <ProtectedRoute>
-                <AppLayout>
-                  <SobrasPerfis />
-                </AppLayout>
-              </ProtectedRoute>
-            }
-          />
-
+          
           <Route
             path="/orcamentos"
             element={
@@ -220,6 +202,16 @@ const App = () => (
             }
           />
           <Route
+            path="/vendedores"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <Vendedores />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/financeiro"
             element={
               <ProtectedRoute>
@@ -228,6 +220,42 @@ const App = () => (
                 </AppLayout>
               </ProtectedRoute>
             }
+          />
+          <Route
+            path="/financeiro/caixas-bancos"
+            element={<ProtectedRoute><AppLayout><FinanceiroSub /></AppLayout></ProtectedRoute>}
+          />
+          <Route
+            path="/financeiro/contas-pagar"
+            element={<ProtectedRoute><AppLayout><FinanceiroSub /></AppLayout></ProtectedRoute>}
+          />
+          <Route
+            path="/financeiro/contas-receber"
+            element={<ProtectedRoute><AppLayout><FinanceiroSub /></AppLayout></ProtectedRoute>}
+          />
+          <Route
+            path="/financeiro/remessas-retornos"
+            element={<ProtectedRoute><AppLayout><FinanceiroSub /></AppLayout></ProtectedRoute>}
+          />
+          <Route
+            path="/financeiro/ficha-financeira"
+            element={<ProtectedRoute><AppLayout><FinanceiroSub /></AppLayout></ProtectedRoute>}
+          />
+          <Route
+            path="/financeiro/comissoes"
+            element={<ProtectedRoute><AppLayout><FinanceiroSub /></AppLayout></ProtectedRoute>}
+          />
+          <Route
+            path="/financeiro/controle-caixa"
+            element={<ProtectedRoute><AppLayout><FinanceiroSub /></AppLayout></ProtectedRoute>}
+          />
+          <Route
+            path="/financeiro/faturamento-agrupado"
+            element={<ProtectedRoute><AppLayout><FinanceiroSub /></AppLayout></ProtectedRoute>}
+          />
+          <Route
+            path="/financeiro/relatorios"
+            element={<ProtectedRoute><AppLayout><FinanceiroSub /></AppLayout></ProtectedRoute>}
           />
           <Route
             path="/relatorios"
@@ -282,6 +310,36 @@ const App = () => (
             }
           />
           
+          <Route
+            path="/ordens-producao"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <OrdensProducao />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/filiais"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <Filiais />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/transferencias-estoque"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <TransferenciasEstoque />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

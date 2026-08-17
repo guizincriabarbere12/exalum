@@ -3,29 +3,7 @@
 
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { 
-  Package, 
-  DollarSign, 
-  FileText, 
-  TrendingUp, 
-  AlertTriangle, 
-  Users, 
-  Clock,
-  Scale,
-  Box,
-  BarChart3,
-  PieChart as PieChartIcon,
-  Activity,
-  RefreshCw,
-  CheckCircle,
-  XCircle,
-  Calendar,
-  TrendingDown,
-  ShoppingBag,
-  Truck,
-  Building2,
-  Percent
-} from "lucide-react";
+import { Package, DollarSign, FileText, TrendingUp, TriangleAlert as AlertTriangle, Users, Clock, Scale, Box, ChartBar as BarChart3, ChartPie as PieChartIcon, Activity, RefreshCw, CircleCheck as CheckCircle, Circle as XCircle, Calendar, TrendingDown, ShoppingBag, Truck, Building2, Percent } from "lucide-react";
 import {
   ResponsiveContainer,
   BarChart,
@@ -122,8 +100,8 @@ export default function Dashboard() {
     valor_orcamentos_aprovados: 0,
     orcamentos_mes: 0,
     valor_orcamentos_mes: 0,
-    total_clientes: 0,
-    total_fornecedores: 0
+    total_despesas: 0,
+    total_receitas: 0
   });
 
   const [faturamento, setFaturamento] = useState({
@@ -384,15 +362,17 @@ export default function Dashboard() {
           preco: p.preco
         }));
 
-      // 1️⃣1️⃣ BUSCAR TOTAL DE CLIENTES
-      const { count: total_clientes } = await supabase
-        .from('clientes')
-        .select('*', { count: 'exact', head: true });
+      // 1️⃣1️⃣ BUSCAR DESPESAS E RECEITAS
+      const { data: transacoesData } = await supabase
+        .from('transacoes_financeiras')
+        .select('tipo, valor, data');
 
-      // 1️⃣2️⃣ BUSCAR TOTAL DE FORNECEDORES
-      const { count: total_fornecedores } = await supabase
-        .from('fornecedores')
-        .select('*', { count: 'exact', head: true });
+      const total_despesas = (transacoesData || [])
+        .filter((t: any) => t.tipo === 'despesa')
+        .reduce((acc: number, t: any) => acc + (Number(t.valor) || 0), 0);
+      const total_receitas = (transacoesData || [])
+        .filter((t: any) => t.tipo === 'receita')
+        .reduce((acc: number, t: any) => acc + (Number(t.valor) || 0), 0);
 
       // 1️⃣3️⃣ PRODUTOS COM MAIS ESTOQUE
       const produtosMaisEstoque = produtos
@@ -469,8 +449,8 @@ export default function Dashboard() {
         valor_orcamentos_aprovados,
         orcamentos_mes,
         valor_orcamentos_mes: faturamento_mes,
-        total_clientes: total_clientes || 0,
-        total_fornecedores: total_fornecedores || 0
+        total_despesas,
+        total_receitas
       });
 
       setFaturamento({
@@ -732,14 +712,18 @@ export default function Dashboard() {
           description={formatCurrency(stats.valor_orcamentos_aprovados)}
         />
         <StatsCard
-          title="Clientes"
-          value={formatNumber(stats.total_clientes)}
-          icon={Users}
+          title="Total de Despesas"
+          value={formatCurrency(stats.total_despesas)}
+          icon={TrendingDown}
+          valueColor="text-red-600"
+          description="Saídas financeiras"
         />
         <StatsCard
-          title="Fornecedores"
-          value={formatNumber(stats.total_fornecedores)}
-          icon={Building2}
+          title="Total de Receitas"
+          value={formatCurrency(stats.total_receitas)}
+          icon={TrendingUp}
+          valueColor="text-green-600"
+          description="Entradas financeiras"
         />
       </div>
 
