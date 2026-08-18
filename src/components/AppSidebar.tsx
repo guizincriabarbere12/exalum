@@ -6,10 +6,11 @@ import {
   Boxes, ShoppingBag, Wallet, UserCheck, PaintBucket, Building2, ArrowLeftRight,
   ChevronDown, ChevronRight, Landmark, CreditCard, ArrowDownCircle, ArrowUpCircle,
   Send, FileSpreadsheet, Percent, Receipt, ClipboardCheck, BarChart3 as BarChartIcon,
-  Hammer,
+  Hammer, ShieldCheck,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useCompanyConfig } from "@/hooks/useCompanyConfig";
+import { usePermissions } from "@/hooks/usePermissions";
 import { cn } from "@/lib/utils";
 import {
   Sidebar,
@@ -28,23 +29,23 @@ import {
 } from "@/components/ui/sidebar";
 
 const menuItems = [
-  { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
-  { title: "Produtos", url: "/produtos", icon: Package },
-  { title: "Kits Acessórios", url: "/kits", icon: Boxes },
-  { title: "Kits Montados", url: "/kits-montados", icon: Package },
-  { title: "Estoque", url: "/estoque", icon: Warehouse },
-  { title: "Ord. Produção", url: "/ordens-producao", icon: PaintBucket },
-  { title: "Filiais", url: "/filiais", icon: Building2 },
-  { title: "Transferências", url: "/transferencias-estoque", icon: ArrowLeftRight },
-  { title: "Clientes", url: "/clientes", icon: Users },
-  { title: "Saldo Clientes", url: "/saldo-clientes", icon: Wallet },
-  { title: "Orçamentos", url: "/orcamentos", icon: FileText },
-  { title: "Vendas", url: "/vendas", icon: ShoppingCart },
-  { title: "Pedidos", url: "/pedidos", icon: ClipboardList },
-  { title: "Requisições", url: "/requisicoes-material", icon: Hammer },
-  { title: "Compras", url: "/compras", icon: ShoppingBag },
-  { title: "Fornecedores", url: "/fornecedores", icon: Truck },
-  { title: "Vendedores", url: "/vendedores", icon: UserCheck },
+  { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard, modulo: "dashboard" },
+  { title: "Produtos", url: "/produtos", icon: Package, modulo: "produtos" },
+  { title: "Kits Acessórios", url: "/kits", icon: Boxes, modulo: "kits" },
+  { title: "Kits Montados", url: "/kits-montados", icon: Package, modulo: "kits-montados" },
+  { title: "Estoque", url: "/estoque", icon: Warehouse, modulo: "estoque" },
+  { title: "Ord. Produção", url: "/ordens-producao", icon: PaintBucket, modulo: "ordens-producao" },
+  { title: "Filiais", url: "/filiais", icon: Building2, modulo: "filiais" },
+  { title: "Transferências", url: "/transferencias-estoque", icon: ArrowLeftRight, modulo: "transferencias-estoque" },
+  { title: "Clientes", url: "/clientes", icon: Users, modulo: "clientes" },
+  { title: "Saldo Clientes", url: "/saldo-clientes", icon: Wallet, modulo: "saldo-clientes" },
+  { title: "Orçamentos", url: "/orcamentos", icon: FileText, modulo: "orcamentos" },
+  { title: "Vendas", url: "/vendas", icon: ShoppingCart, modulo: "vendas" },
+  { title: "Pedidos", url: "/pedidos", icon: ClipboardList, modulo: "pedidos" },
+  { title: "Requisições", url: "/requisicoes-material", icon: Hammer, modulo: "requisicoes-material" },
+  { title: "Compras", url: "/compras", icon: ShoppingBag, modulo: "compras" },
+  { title: "Fornecedores", url: "/fornecedores", icon: Truck, modulo: "fornecedores" },
+  { title: "Vendedores", url: "/vendedores", icon: UserCheck, modulo: "vendedores" },
 ];
 
 const financeiroSubItems = [
@@ -66,6 +67,9 @@ export function AppSidebar() {
   const [financeiroOpen, setFinanceiroOpen] = useState(true);
   const { nomeEmpresa, logoUrl } = useCompanyConfig();
   const { isAdmin } = useAuth();
+  const { canAccess, podeGerenciarPermissoes } = usePermissions();
+
+  const menuItemsVisiveis = menuItems.filter((item) => canAccess(item.modulo));
 
   const LogoBadge = () => (
     <div
@@ -104,7 +108,7 @@ export function AppSidebar() {
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {menuItems.map((item) => (
+              {menuItemsVisiveis.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
                     <NavLink
@@ -124,63 +128,67 @@ export function AppSidebar() {
               ))}
 
               {/* Financeiro com sub-itens */}
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  onClick={() => setFinanceiroOpen(!financeiroOpen)}
-                  className="hover:bg-sidebar-accent/70 hover:translate-x-1 transition-all duration-200 cursor-pointer"
-                >
-                  <DollarSign className="h-4 w-4" />
-                  {!collapsed && (
-                    <>
-                      <span>Financeiro</span>
-                      <span className="ml-auto">
-                        {financeiroOpen ? (
-                          <ChevronDown className="h-4 w-4 text-sidebar-foreground/50" />
-                        ) : (
-                          <ChevronRight className="h-4 w-4 text-sidebar-foreground/50" />
-                        )}
-                      </span>
-                    </>
-                  )}
-                </SidebarMenuButton>
-                {!collapsed && financeiroOpen && (
-                  <SidebarMenuSub>
-                    {financeiroSubItems.map((sub) => (
-                      <SidebarMenuSubItem key={sub.title}>
-                        <SidebarMenuSubButton asChild>
-                          <NavLink
-                            to={sub.url}
-                            className={({ isActive }) =>
-                              isActive
-                                ? "bg-primary/15 text-sidebar-foreground font-medium border-l-2 border-primary"
-                                : "hover:bg-sidebar-accent/70 transition-all duration-200"
-                            }
-                          >
-                            <sub.icon className="h-3.5 w-3.5" />
-                            <span className="text-sm">{sub.title}</span>
-                          </NavLink>
-                        </SidebarMenuSubButton>
-                      </SidebarMenuSubItem>
-                    ))}
-                  </SidebarMenuSub>
-                )}
-              </SidebarMenuItem>
-
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild>
-                  <NavLink
-                    to="/relatorios"
-                    className={({ isActive }) =>
-                      isActive
-                        ? "bg-gradient-to-r from-primary/20 to-accent/20 text-sidebar-foreground font-semibold border-l-4 border-primary shadow-sm"
-                        : "hover:bg-sidebar-accent/70 hover:translate-x-1 transition-all duration-200"
-                    }
+              {canAccess("financeiro") && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    onClick={() => setFinanceiroOpen(!financeiroOpen)}
+                    className="hover:bg-sidebar-accent/70 hover:translate-x-1 transition-all duration-200 cursor-pointer"
                   >
-                    <BarChart3 className="h-4 w-4" />
-                    {!collapsed && <span>Relatórios</span>}
-                  </NavLink>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
+                    <DollarSign className="h-4 w-4" />
+                    {!collapsed && (
+                      <>
+                        <span>Financeiro</span>
+                        <span className="ml-auto">
+                          {financeiroOpen ? (
+                            <ChevronDown className="h-4 w-4 text-sidebar-foreground/50" />
+                          ) : (
+                            <ChevronRight className="h-4 w-4 text-sidebar-foreground/50" />
+                          )}
+                        </span>
+                      </>
+                    )}
+                  </SidebarMenuButton>
+                  {!collapsed && financeiroOpen && (
+                    <SidebarMenuSub>
+                      {financeiroSubItems.map((sub) => (
+                        <SidebarMenuSubItem key={sub.title}>
+                          <SidebarMenuSubButton asChild>
+                            <NavLink
+                              to={sub.url}
+                              className={({ isActive }) =>
+                                isActive
+                                  ? "bg-primary/15 text-sidebar-foreground font-medium border-l-2 border-primary"
+                                  : "hover:bg-sidebar-accent/70 transition-all duration-200"
+                              }
+                            >
+                              <sub.icon className="h-3.5 w-3.5" />
+                              <span className="text-sm">{sub.title}</span>
+                            </NavLink>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      ))}
+                    </SidebarMenuSub>
+                  )}
+                </SidebarMenuItem>
+              )}
+
+              {canAccess("relatorios") && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild>
+                    <NavLink
+                      to="/relatorios"
+                      className={({ isActive }) =>
+                        isActive
+                          ? "bg-gradient-to-r from-primary/20 to-accent/20 text-sidebar-foreground font-semibold border-l-4 border-primary shadow-sm"
+                          : "hover:bg-sidebar-accent/70 hover:translate-x-1 transition-all duration-200"
+                      }
+                    >
+                      <BarChart3 className="h-4 w-4" />
+                      {!collapsed && <span>Relatórios</span>}
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -188,7 +196,7 @@ export function AppSidebar() {
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
-              {isAdmin && (
+              {isAdmin && canAccess("auditoria") && (
                 <SidebarMenuItem>
                   <SidebarMenuButton asChild>
                     <NavLink
@@ -205,21 +213,40 @@ export function AppSidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               )}
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild>
-                  <NavLink
-                    to="/configuracoes"
-                    className={({ isActive }) =>
-                      isActive
-                        ? "bg-gradient-to-r from-primary/20 to-accent/20 text-sidebar-foreground font-semibold border-l-4 border-primary shadow-sm"
-                        : "hover:bg-sidebar-accent/70 hover:translate-x-1 transition-all duration-200"
-                    }
-                  >
-                    <Settings className="h-4 w-4" />
-                    {!collapsed && <span>Configurações</span>}
-                  </NavLink>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
+              {podeGerenciarPermissoes && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild>
+                    <NavLink
+                      to="/permissoes"
+                      className={({ isActive }) =>
+                        isActive
+                          ? "bg-gradient-to-r from-primary/20 to-accent/20 text-sidebar-foreground font-semibold border-l-4 border-primary shadow-sm"
+                          : "hover:bg-sidebar-accent/70 hover:translate-x-1 transition-all duration-200"
+                      }
+                    >
+                      <ShieldCheck className="h-4 w-4" />
+                      {!collapsed && <span>Permissões</span>}
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
+              {canAccess("configuracoes") && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild>
+                    <NavLink
+                      to="/configuracoes"
+                      className={({ isActive }) =>
+                        isActive
+                          ? "bg-gradient-to-r from-primary/20 to-accent/20 text-sidebar-foreground font-semibold border-l-4 border-primary shadow-sm"
+                          : "hover:bg-sidebar-accent/70 hover:translate-x-1 transition-all duration-200"
+                      }
+                    >
+                      <Settings className="h-4 w-4" />
+                      {!collapsed && <span>Configurações</span>}
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

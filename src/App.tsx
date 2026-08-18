@@ -35,6 +35,7 @@ import TransferenciasEstoque from "./pages/TransferenciasEstoque";
 import FinanceiroSub from "./pages/FinanceiroSub";
 import Perfil from "./pages/Perfil";
 import Auditoria from "./pages/Auditoria";
+import Permissoes from "./pages/Permissoes";
 import PedidoSerralheiro from "./pages/PedidoSerralheiro";
 import MeusPedidosSerralheiro from "./pages/MeusPedidosSerralheiro";
 import RequisicoesMateriais from "./pages/RequisicoesMateriais";
@@ -368,6 +369,16 @@ const App = () => (
               <ProtectedRoute>
                 <AppLayout>
                   <Auditoria />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/permissoes"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <Permissoes />
                 </AppLayout>
               </ProtectedRoute>
             }

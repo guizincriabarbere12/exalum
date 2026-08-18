@@ -1,11 +1,12 @@
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { Bell, User, LogOut } from "lucide-react";
+import { Bell, User, LogOut, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { useCompanyConfig } from "@/hooks/useCompanyConfig";
-import { useNavigate, Navigate } from "react-router-dom";
+import { usePermissions, moduloDaRota } from "@/hooks/usePermissions";
+import { useNavigate, Navigate, useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import { logActivity } from "@/lib/auditLog";
 
@@ -16,11 +17,16 @@ interface AppLayoutProps {
 export function AppLayout({ children }: AppLayoutProps) {
   const { signOut, isAdmin, isSerralheiro } = useAuth();
   const { nomeEmpresa, logoUrl } = useCompanyConfig();
+  const { canAccess, loading: permissoesCarregando } = usePermissions();
   const navigate = useNavigate();
+  const location = useLocation();
 
   if (isSerralheiro) {
     return <Navigate to="/serralheiro/pedido" replace />;
   }
+
+  const moduloAtual = moduloDaRota(location.pathname);
+  const acessoNegado = !permissoesCarregando && moduloAtual && !canAccess(moduloAtual);
 
   const handleLogout = async () => {
     await logActivity({ acao: "logout", entidade: "auth" });
@@ -74,7 +80,19 @@ export function AppLayout({ children }: AppLayoutProps) {
               </Button>
             </div>
           </header>
-          <main className="flex-1 p-3 sm:p-6 animate-fade-in overflow-x-hidden">{children}</main>
+          <main className="flex-1 p-3 sm:p-6 animate-fade-in overflow-x-hidden">
+            {acessoNegado ? (
+              <div className="flex flex-col items-center justify-center py-24 text-center gap-3">
+                <ShieldAlert className="h-12 w-12 text-muted-foreground" />
+                <h2 className="text-xl font-semibold">Acesso restrito</h2>
+                <p className="text-muted-foreground max-w-sm">
+                  Você não tem permissão para acessar esta tela. Fale com quem administra as permissões do sistema.
+                </p>
+              </div>
+            ) : (
+              children
+            )}
+          </main>
         </div>
       </div>
     </SidebarProvider>
