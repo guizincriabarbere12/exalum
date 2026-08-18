@@ -98,19 +98,28 @@ export default function Filiais() {
   };
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="container mx-auto p-4 sm:p-6 space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-foreground flex items-center gap-3"><Building2 className="h-8 w-8 text-primary" /> Filiais</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground flex items-center gap-3"><Building2 className="h-7 w-7 sm:h-8 sm:w-8 text-primary shrink-0" /> Filiais</h1>
           <p className="text-muted-foreground mt-1">Gerencie as filiais e faça transferências de estoque entre elas</p>
         </div>
-        <Button onClick={abrirDialogNovo} className="bg-primary hover:bg-primary/90"><Plus className="mr-2 h-4 w-4" /> Nova Filial</Button>
+        <Button onClick={abrirDialogNovo} className="bg-primary hover:bg-primary/90 w-full sm:w-auto"><Plus className="mr-2 h-4 w-4" /> Nova Filial</Button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card><CardContent className="pt-6"><div className="flex items-center justify-between"><div><p className="text-sm font-medium text-muted-foreground">Total de Filiais</p><p className="text-2xl font-bold">{filiais.length}</p></div><div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10"><Building2 className="h-6 w-6 text-primary" /></div></div></CardContent></Card>
-        <Card><CardContent className="pt-6"><div className="flex items-center justify-between"><div><p className="text-sm font-medium text-muted-foreground">Ativas</p><p className="text-2xl font-bold text-green-600">{filiais.filter(f => f.ativo).length}</p></div><div className="flex h-12 w-12 items-center justify-center rounded-lg bg-green-100"><Building2 className="h-6 w-6 text-green-600" /></div></div></CardContent></Card>
-        <Card><CardContent className="pt-6"><div className="flex items-center justify-between"><div><p className="text-sm font-medium text-muted-foreground">Inativas</p><p className="text-2xl font-bold text-red-600">{filiais.filter(f => !f.ativo).length}</p></div><div className="flex h-12 w-12 items-center justify-center rounded-lg bg-red-100"><Building2 className="h-6 w-6 text-red-600" /></div></div></CardContent></Card>
+        <Card className="relative overflow-hidden border-0 shadow-lg bg-gradient-to-br from-card to-blue-50/30 hover:shadow-xl transition-all duration-300">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-primary/5 rounded-full blur-2xl" />
+          <CardContent className="pt-6 relative z-10"><div className="flex items-center justify-between"><div><p className="text-sm font-medium text-muted-foreground">Total de Filiais</p><p className="text-2xl font-bold">{filiais.length}</p></div><div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-accent shadow-lg"><Building2 className="h-6 w-6 text-white" /></div></div></CardContent>
+        </Card>
+        <Card className="relative overflow-hidden border-0 shadow-lg bg-gradient-to-br from-card to-green-50/30 hover:shadow-xl transition-all duration-300">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-green-500/5 rounded-full blur-2xl" />
+          <CardContent className="pt-6 relative z-10"><div className="flex items-center justify-between"><div><p className="text-sm font-medium text-muted-foreground">Ativas</p><p className="text-2xl font-bold text-green-600">{filiais.filter(f => f.ativo).length}</p></div><div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-success shadow-lg"><Building2 className="h-6 w-6 text-white" /></div></div></CardContent>
+        </Card>
+        <Card className="relative overflow-hidden border-0 shadow-lg bg-gradient-to-br from-card to-red-50/30 hover:shadow-xl transition-all duration-300">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-red-500/5 rounded-full blur-2xl" />
+          <CardContent className="pt-6 relative z-10"><div className="flex items-center justify-between"><div><p className="text-sm font-medium text-muted-foreground">Inativas</p><p className="text-2xl font-bold text-red-600">{filiais.filter(f => !f.ativo).length}</p></div><div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-red-500 to-rose-600 shadow-lg"><Building2 className="h-6 w-6 text-white" /></div></div></CardContent>
+        </Card>
       </div>
 
       <Card><CardContent className="pt-6">

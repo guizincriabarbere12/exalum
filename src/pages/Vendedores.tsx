@@ -263,13 +263,13 @@ export default function Vendedores() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-bold text-foreground">Vendedores</h2>
+          <h2 className="text-2xl sm:text-3xl font-bold text-foreground">Vendedores</h2>
           <p className="text-muted-foreground">Gerencie seus vendedores e comissões</p>
         </div>
         {isAdmin && (
-          <Button onClick={() => setIsAddDialogOpen(true)}>
+          <Button onClick={() => setIsAddDialogOpen(true)} className="w-full sm:w-auto">
             <UserPlus className="h-4 w-4 mr-2" />
             Novo Vendedor
           </Button>

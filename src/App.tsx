@@ -1,10 +1,12 @@
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { ThemeProvider } from "next-themes";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { AppLayout } from "./components/layout/AppLayout";
+import { SerralheiroLayout } from "./components/layout/SerralheiroLayout";
 import Dashboard from "./pages/Dashboard";
 import Produtos from "./pages/Produtos";
 import Kits from "./pages/Kits";
@@ -31,6 +33,11 @@ import OrdensProducao from "./pages/OrdensProducao";
 import Filiais from "./pages/Filiais";
 import TransferenciasEstoque from "./pages/TransferenciasEstoque";
 import FinanceiroSub from "./pages/FinanceiroSub";
+import Perfil from "./pages/Perfil";
+import Auditoria from "./pages/Auditoria";
+import PedidoSerralheiro from "./pages/PedidoSerralheiro";
+import MeusPedidosSerralheiro from "./pages/MeusPedidosSerralheiro";
+import RequisicoesMateriais from "./pages/RequisicoesMateriais";
 
 const queryClient = new QueryClient();
 
@@ -53,7 +60,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 }
 
 function RootRedirect() {
-  const { user, loading } = useAuth();
+  const { user, loading, isSerralheiro } = useAuth();
 
   if (loading) {
     return (
@@ -63,15 +70,20 @@ function RootRedirect() {
     );
   }
 
-  return <Navigate to={user ? "/dashboard" : "/auth"} replace />;
+  if (!user) {
+    return <Navigate to="/auth" replace />;
+  }
+
+  return <Navigate to={isSerralheiro ? "/serralheiro/pedido" : "/dashboard"} replace />;
 }
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
+  <ThemeProvider attribute="class" defaultTheme="system" enableSystem storageKey="exalum-theme">
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
         <Routes>
           <Route path="/auth" element={<Auth />} />
           <Route path="/" element={<RootRedirect />} />
@@ -340,11 +352,65 @@ const App = () => (
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/perfil"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <Perfil />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/auditoria"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <Auditoria />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/requisicoes-material"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <RequisicoesMateriais />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Área do Serralheiro */}
+          <Route
+            path="/serralheiro/pedido"
+            element={
+              <ProtectedRoute>
+                <SerralheiroLayout>
+                  <PedidoSerralheiro />
+                </SerralheiroLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/serralheiro/meus-pedidos"
+            element={
+              <ProtectedRoute>
+                <SerralheiroLayout>
+                  <MeusPedidosSerralheiro />
+                </SerralheiroLayout>
+              </ProtectedRoute>
+            }
+          />
+
           <Route path="*" element={<NotFound />} />
         </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
+  </ThemeProvider>
 );
 
 export default App;

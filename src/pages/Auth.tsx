@@ -7,12 +7,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
+import { useCompanyConfig } from "@/hooks/useCompanyConfig";
+import { logActivity } from "@/lib/auditLog";
 
 export default function Auth() {
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const navigate = useNavigate();
+  const { nomeEmpresa, logoUrl } = useCompanyConfig();
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,6 +28,7 @@ export default function Auth() {
       });
 
       if (error) throw error;
+      await logActivity({ acao: "login", entidade: "auth", descricao: `Login de ${email}` });
       toast.success("Login realizado com sucesso!");
       navigate("/dashboard");
     } catch (error: any) {
@@ -35,20 +39,24 @@ export default function Auth() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-slate-50 to-blue-100 p-4 relative overflow-hidden">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-slate-50 to-blue-100 dark:from-background dark:via-background dark:to-background p-4 relative overflow-hidden">
       <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHBhdGggZD0iTSAxMCAwIEwgMCAwIDAgMTAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzAwMDAwMCIgc3Ryb2tlLW9wYWNpdHk9IjAuMDIiIHN0cm9rZS13aWR0aD0iMSIvPjwvcGF0dGVybj48L2RlZnM+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0idXJsKCNncmlkKSIvPjwvc3ZnPg==')] opacity-40"></div>
       <div className="absolute top-20 left-20 w-72 h-72 bg-primary/20 rounded-full blur-3xl animate-pulse"></div>
       <div className="absolute bottom-20 right-20 w-96 h-96 bg-accent/20 rounded-full blur-3xl animate-pulse" style={{animationDelay: '1s'}}></div>
-      <Card className="w-full max-w-md shadow-2xl border-0 backdrop-blur-sm bg-white/90 relative z-10 animate-scale-in">
+      <Card className="w-full max-w-md shadow-2xl border-0 backdrop-blur-sm bg-card/90 relative z-10 animate-scale-in">
         <div className="h-2 w-full bg-gradient-to-r from-primary via-accent to-primary rounded-t-xl"></div>
         <CardHeader className="space-y-3 pt-8">
           <div className="flex justify-center mb-2">
-            <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-xl">
-              <span className="text-white font-bold text-2xl">E</span>
-            </div>
+            {logoUrl ? (
+              <img src={logoUrl} alt={nomeEmpresa} className="h-16 w-16 rounded-2xl object-contain shadow-xl" />
+            ) : (
+              <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-xl">
+                <span className="text-white font-bold text-2xl">{nomeEmpresa.charAt(0).toUpperCase()}</span>
+              </div>
+            )}
           </div>
           <CardTitle className="text-3xl font-bold text-center bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-            Exalum Manager
+            {nomeEmpresa} Manager
           </CardTitle>
           <CardDescription className="text-center text-base">
             Entre com sua conta

@@ -709,12 +709,12 @@ export default function FinanceiroSub() {
   // 🔧 RENDERIZAÇÃO ESPECÍFICA PARA COMISSÕES
   if (slug === "comissoes") {
     return (
-      <div className="container mx-auto p-6 space-y-6">
+      <div className="container mx-auto p-4 sm:p-6 space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-foreground flex items-center gap-3">
-              <Percent className="h-8 w-8 text-primary" /> Comissões
+            <h1 className="text-2xl sm:text-3xl font-bold text-foreground flex items-center gap-3">
+              <Percent className="h-7 w-7 sm:h-8 sm:w-8 text-primary shrink-0" /> Comissões
             </h1>
             <p className="text-muted-foreground mt-1">Gerenciamento de comissões de vendedores</p>
           </div>
@@ -730,54 +730,58 @@ export default function FinanceiroSub() {
 
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card>
-            <CardContent className="pt-6">
+          <Card className="relative overflow-hidden border-0 shadow-lg bg-gradient-to-br from-card to-blue-50/30 hover:shadow-xl transition-all duration-300">
+            <div className="absolute top-0 right-0 w-24 h-24 bg-primary/5 rounded-full blur-2xl" />
+            <CardContent className="pt-6 relative z-10">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Total Comissões</p>
                   <p className="text-2xl font-bold text-primary">{formatCurrency(totalComissoes)}</p>
                 </div>
-                <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
-                  <Percent className="h-6 w-6 text-primary" />
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-accent shadow-lg">
+                  <Percent className="h-6 w-6 text-white" />
                 </div>
               </div>
             </CardContent>
           </Card>
-          <Card>
-            <CardContent className="pt-6">
+          <Card className="relative overflow-hidden border-0 shadow-lg bg-gradient-to-br from-card to-green-50/30 hover:shadow-xl transition-all duration-300">
+            <div className="absolute top-0 right-0 w-24 h-24 bg-green-500/5 rounded-full blur-2xl" />
+            <CardContent className="pt-6 relative z-10">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Recebidas</p>
                   <p className="text-2xl font-bold text-green-600">{formatCurrency(totalComissoesRecebidas)}</p>
                 </div>
-                <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-green-100">
-                  <TrendingUp className="h-6 w-6 text-green-600" />
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-success shadow-lg">
+                  <TrendingUp className="h-6 w-6 text-white" />
                 </div>
               </div>
             </CardContent>
           </Card>
-          <Card>
-            <CardContent className="pt-6">
+          <Card className="relative overflow-hidden border-0 shadow-lg bg-gradient-to-br from-card to-yellow-50/30 hover:shadow-xl transition-all duration-300">
+            <div className="absolute top-0 right-0 w-24 h-24 bg-yellow-500/5 rounded-full blur-2xl" />
+            <CardContent className="pt-6 relative z-10">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Pendentes</p>
                   <p className="text-2xl font-bold text-yellow-600">{formatCurrency(totalComissoesPendentes)}</p>
                 </div>
-                <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-yellow-100">
-                  <Wallet className="h-6 w-6 text-yellow-600" />
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-yellow-400 to-amber-500 shadow-lg">
+                  <Wallet className="h-6 w-6 text-white" />
                 </div>
               </div>
             </CardContent>
           </Card>
-          <Card>
-            <CardContent className="pt-6">
+          <Card className="relative overflow-hidden border-0 shadow-lg bg-gradient-to-br from-card to-blue-50/30 hover:shadow-xl transition-all duration-300">
+            <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/5 rounded-full blur-2xl" />
+            <CardContent className="pt-6 relative z-10">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Vendedores</p>
                   <p className="text-2xl font-bold text-blue-600">{comissoesPorVendedor.length}</p>
                 </div>
-                <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-blue-100">
-                  <Users className="h-6 w-6 text-blue-600" />
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-cyan-600 shadow-lg">
+                  <Users className="h-6 w-6 text-white" />
                 </div>
               </div>
             </CardContent>
@@ -1164,12 +1168,12 @@ export default function FinanceiroSub() {
   }, [filtradas]);
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <div className="container mx-auto p-4 sm:p-6 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-foreground flex items-center gap-3">
-            <Icon className="h-8 w-8 text-primary" /> {config.title}
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground flex items-center gap-3">
+            <Icon className="h-7 w-7 sm:h-8 sm:w-8 text-primary" /> {config.title}
           </h1>
           <p className="text-muted-foreground mt-1">{config.description}</p>
         </div>
@@ -1189,30 +1193,42 @@ export default function FinanceiroSub() {
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card><CardContent className="pt-6">
-          <div className="flex items-center justify-between">
-            <div><p className="text-sm font-medium text-muted-foreground">Entradas</p><p className="text-2xl font-bold text-green-600">{formatCurrency(totalEntradas)}</p></div>
-            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-green-100"><TrendingUp className="h-6 w-6 text-green-600" /></div>
-          </div>
-        </CardContent></Card>
-        <Card><CardContent className="pt-6">
-          <div className="flex items-center justify-between">
-            <div><p className="text-sm font-medium text-muted-foreground">Saídas</p><p className="text-2xl font-bold text-red-600">{formatCurrency(totalSaidas)}</p></div>
-            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-red-100"><TrendingDown className="h-6 w-6 text-red-600" /></div>
-          </div>
-        </CardContent></Card>
-        <Card><CardContent className="pt-6">
-          <div className="flex items-center justify-between">
-            <div><p className="text-sm font-medium text-muted-foreground">Pendente</p><p className="text-2xl font-bold text-yellow-600">{formatCurrency(totalPendente)}</p></div>
-            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-yellow-100"><Wallet className="h-6 w-6 text-yellow-600" /></div>
-          </div>
-        </CardContent></Card>
-        <Card><CardContent className="pt-6">
-          <div className="flex items-center justify-between">
-            <div><p className="text-sm font-medium text-muted-foreground">Saldo</p><p className={`text-2xl font-bold ${saldo >= 0 ? "text-primary" : "text-red-600"}`}>{formatCurrency(saldo)}</p></div>
-            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10"><DollarSign className="h-6 w-6 text-primary" /></div>
-          </div>
-        </CardContent></Card>
+        <Card className="relative overflow-hidden border-0 shadow-lg bg-gradient-to-br from-card to-green-50/30 hover:shadow-xl transition-all duration-300">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-green-500/5 rounded-full blur-2xl" />
+          <CardContent className="pt-6 relative z-10">
+            <div className="flex items-center justify-between">
+              <div><p className="text-sm font-medium text-muted-foreground">Entradas</p><p className="text-2xl font-bold text-green-600">{formatCurrency(totalEntradas)}</p></div>
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-success shadow-lg"><TrendingUp className="h-6 w-6 text-white" /></div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="relative overflow-hidden border-0 shadow-lg bg-gradient-to-br from-card to-red-50/30 hover:shadow-xl transition-all duration-300">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-red-500/5 rounded-full blur-2xl" />
+          <CardContent className="pt-6 relative z-10">
+            <div className="flex items-center justify-between">
+              <div><p className="text-sm font-medium text-muted-foreground">Saídas</p><p className="text-2xl font-bold text-red-600">{formatCurrency(totalSaidas)}</p></div>
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-red-500 to-rose-600 shadow-lg"><TrendingDown className="h-6 w-6 text-white" /></div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="relative overflow-hidden border-0 shadow-lg bg-gradient-to-br from-card to-yellow-50/30 hover:shadow-xl transition-all duration-300">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-yellow-500/5 rounded-full blur-2xl" />
+          <CardContent className="pt-6 relative z-10">
+            <div className="flex items-center justify-between">
+              <div><p className="text-sm font-medium text-muted-foreground">Pendente</p><p className="text-2xl font-bold text-yellow-600">{formatCurrency(totalPendente)}</p></div>
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-yellow-400 to-amber-500 shadow-lg"><Wallet className="h-6 w-6 text-white" /></div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="relative overflow-hidden border-0 shadow-lg bg-gradient-to-br from-card to-blue-50/30 hover:shadow-xl transition-all duration-300">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-primary/5 rounded-full blur-2xl" />
+          <CardContent className="pt-6 relative z-10">
+            <div className="flex items-center justify-between">
+              <div><p className="text-sm font-medium text-muted-foreground">Saldo</p><p className={`text-2xl font-bold ${saldo >= 0 ? "text-primary" : "text-red-600"}`}>{formatCurrency(saldo)}</p></div>
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-accent shadow-lg"><DollarSign className="h-6 w-6 text-white" /></div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Caixas e Bancos */}

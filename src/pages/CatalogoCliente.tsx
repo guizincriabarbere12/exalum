@@ -299,15 +299,15 @@ export default function CatalogoCliente() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-bold text-foreground">Catálogo de Produtos</h2>
+          <h2 className="text-2xl sm:text-3xl font-bold text-foreground">Catálogo de Produtos</h2>
           <p className="text-muted-foreground">Navegue e adicione produtos ao carrinho</p>
         </div>
         <Button
           size="lg"
           onClick={() => setShowCart(true)}
-          className="relative"
+          className="relative w-full sm:w-auto"
         >
           <ShoppingCart className="h-5 w-5 mr-2" />
           Carrinho

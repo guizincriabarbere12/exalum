@@ -26,6 +26,7 @@ import { ChevronDown, ChevronUp } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { logActivity } from "@/lib/auditLog";
 
 interface Filial { id: string; nome: string; codigo: string; }
 interface ProdutoEstoque {
@@ -270,6 +271,12 @@ export default function Estoque() {
           });
           if (movInsertError) console.error('Erro ao registrar movimentação do componente do kit:', movInsertError);
         }
+        await logActivity({
+          acao: "ajuste_estoque",
+          entidade: "estoque",
+          entidadeId: itemAjuste.id,
+          descricao: `${tipoAjuste === "entrada" ? "Entrada" : "Saída"} de ${qtdAjuste} kit(s) "${itemAjuste.nome}" - ${nomeFilialSel}`,
+        });
         toast({ title: "Estoque do kit ajustado!", description: `${itemAjuste.nome}: ${qtdAjuste} kit(s) - ${tipoAjuste === "entrada" ? "entrada" : "saída"}` });
       } else {
         // Product adjustment
@@ -289,6 +296,12 @@ export default function Estoque() {
           data: new Date().toISOString(),
         });
         if (movInsertError) console.error('Erro ao registrar movimentação:', movInsertError);
+        await logActivity({
+          acao: "ajuste_estoque",
+          entidade: "estoque",
+          entidadeId: itemAjuste.id,
+          descricao: `${tipoAjuste === "entrada" ? "Entrada" : "Saída"} manual de ${itemAjuste.nome} (${estoqueAtual} → ${novoEstoque}) - ${nomeFilialSel}`,
+        });
         toast({ title: "Estoque ajustado!", description: `${itemAjuste.nome}: ${estoqueAtual} → ${novoEstoque}` });
       }
 
@@ -311,15 +324,15 @@ export default function Estoque() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-bold text-foreground">Controle de Estoque</h2>
+          <h2 className="text-2xl sm:text-3xl font-bold text-foreground">Controle de Estoque</h2>
           <p className="text-muted-foreground">Gerencie entradas e saídas de produtos e kits por filial</p>
         </div>
         <div className="flex items-center gap-2">
-          <Building2 className="h-5 w-5 text-muted-foreground" />
+          <Building2 className="h-5 w-5 text-muted-foreground shrink-0" />
           <Select value={filialSel} onValueChange={setFilialSel}>
-            <SelectTrigger className="w-[200px]"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="w-full sm:w-[200px]"><SelectValue /></SelectTrigger>
             <SelectContent>
               {locs.map(l => <SelectItem key={l.id} value={l.id}>{l.nome}</SelectItem>)}
             </SelectContent>
@@ -329,47 +342,51 @@ export default function Estoque() {
       </div>
 
       <div className="grid gap-6 md:grid-cols-4">
-        <Card>
-          <CardContent className="p-6">
+        <Card className="relative overflow-hidden border-0 shadow-lg bg-gradient-to-br from-card to-blue-50/30 hover:shadow-xl transition-all duration-300">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-primary/5 rounded-full blur-2xl" />
+          <CardContent className="p-6 relative z-10">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Filial Selecionada</p>
                 <h3 className="text-xl font-bold text-foreground">{nomeFilialSel}</h3>
               </div>
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10"><Building2 className="h-6 w-6 text-primary" /></div>
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-accent shadow-lg"><Building2 className="h-6 w-6 text-white" /></div>
             </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="p-6">
+        <Card className="relative overflow-hidden border-0 shadow-lg bg-gradient-to-br from-card to-blue-50/30 hover:shadow-xl transition-all duration-300">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-primary/5 rounded-full blur-2xl" />
+          <CardContent className="p-6 relative z-10">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Total em Alumínio</p>
                 <h3 className="text-2xl font-bold text-foreground">{totalKg.toFixed(2)} kg</h3>
               </div>
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10"><Package className="h-6 w-6 text-primary" /></div>
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-accent shadow-lg"><Package className="h-6 w-6 text-white" /></div>
             </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="p-6">
+        <Card className="relative overflow-hidden border-0 shadow-lg bg-gradient-to-br from-card to-green-50/30 hover:shadow-xl transition-all duration-300">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-success/10 rounded-full blur-2xl" />
+          <CardContent className="p-6 relative z-10">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Valor Produtos + Kits</p>
                 <h3 className="text-2xl font-bold text-foreground">R$ {(valorTotal + valorKits).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h3>
               </div>
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-success/10"><TrendingUp className="h-6 w-6 text-success" /></div>
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-success shadow-lg"><TrendingUp className="h-6 w-6 text-white" /></div>
             </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="p-6">
+        <Card className="relative overflow-hidden border-0 shadow-lg bg-gradient-to-br from-card to-blue-50/30 hover:shadow-xl transition-all duration-300">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-primary/5 rounded-full blur-2xl" />
+          <CardContent className="p-6 relative z-10">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Produtos / Kits</p>
                 <h3 className="text-2xl font-bold text-foreground">{totalItens} / {totalKits}</h3>
               </div>
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10"><Warehouse className="h-6 w-6 text-primary" /></div>
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-accent shadow-lg"><Warehouse className="h-6 w-6 text-white" /></div>
             </div>
           </CardContent>
         </Card>

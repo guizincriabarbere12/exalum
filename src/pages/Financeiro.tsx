@@ -168,6 +168,8 @@ export default function Financeiro() {
   const [filteredTransactions, setFilteredTransactions] = useState<Transaction[]>([]);
   const [transacoesVencidas, setTransacoesVencidas] = useState<TransacaoVencimento[]>([]);
   const [transacoesAVencer, setTransacoesAVencer] = useState<TransacaoVencimento[]>([]);
+  const [transacoesReceberVencidas, setTransacoesReceberVencidas] = useState<TransacaoVencimento[]>([]);
+  const [transacoesReceberAVencer, setTransacoesReceberAVencer] = useState<TransacaoVencimento[]>([]);
   const [saldoTotal, setSaldoTotal] = useState(0);
   const [receitas, setReceitas] = useState(0);
   const [despesas, setDespesas] = useState(0);
@@ -342,14 +344,14 @@ export default function Financeiro() {
       const hoje = new Date();
       hoje.setHours(0, 0, 0, 0);
       
-      const transacoesPendentes = transacoes.filter(t => 
+      const transacoesPendentes = transacoes.filter(t =>
         t.status === 'pendente' && !t.origem_tipo?.includes('credito')
       );
 
-      const vencidas = transacoesPendentes
+      const calcularVencidas = (tipo: 'despesa' | 'receita') => transacoesPendentes
         .filter(t => {
           if (!t.data_vencimento) return false;
-          if (t.tipo !== 'despesa') return false;
+          if (t.tipo !== tipo) return false;
           const dataVencimento = normalizarData(t.data_vencimento);
           dataVencimento.setHours(0, 0, 0, 0);
           return dataVencimento < hoje;
@@ -358,19 +360,17 @@ export default function Financeiro() {
           const dataVencimento = normalizarData(t.data_vencimento!);
           dataVencimento.setHours(0, 0, 0, 0);
           const diasAtraso = Math.floor((hoje.getTime() - dataVencimento.getTime()) / (1000 * 60 * 60 * 24));
-          
+
           return {
             ...t,
             dias_atraso: diasAtraso
           };
         });
 
-      setTransacoesVencidas(vencidas);
-
-      const aVencer = transacoesPendentes
+      const calcularAVencer = (tipo: 'despesa' | 'receita') => transacoesPendentes
         .filter(t => {
           if (!t.data_vencimento) return false;
-          if (t.tipo !== 'despesa') return false;
+          if (t.tipo !== tipo) return false;
           const dataVencimento = normalizarData(t.data_vencimento);
           dataVencimento.setHours(0, 0, 0, 0);
           const diasRestantes = Math.floor((dataVencimento.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
@@ -380,14 +380,17 @@ export default function Financeiro() {
           const dataVencimento = normalizarData(t.data_vencimento!);
           dataVencimento.setHours(0, 0, 0, 0);
           const diasRestantes = Math.floor((dataVencimento.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
-          
+
           return {
             ...t,
             dias_restantes: diasRestantes
           };
         });
 
-      setTransacoesAVencer(aVencer);
+      setTransacoesVencidas(calcularVencidas('despesa'));
+      setTransacoesAVencer(calcularAVencer('despesa'));
+      setTransacoesReceberVencidas(calcularVencidas('receita'));
+      setTransacoesReceberAVencer(calcularAVencer('receita'));
 
     } catch (error: any) {
       console.error("Erro ao carregar alertas:", error);
@@ -838,12 +841,12 @@ export default function Financeiro() {
 
   return (
     <div className="space-y-6 animate-fade-in p-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-bold text-foreground">Financeiro</h2>
+          <h2 className="text-2xl sm:text-3xl font-bold text-foreground">Financeiro</h2>
           <p className="text-muted-foreground">Gerencie todas as transações financeiras</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button
             variant="outline"
             size="sm"
@@ -1150,10 +1153,83 @@ export default function Financeiro() {
         </Alert>
       )}
 
+      {transacoesReceberVencidas.length > 0 && (
+        <Alert variant="destructive">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>Contas a Receber Vencidas - Atenção Urgente!</AlertTitle>
+          <AlertDescription>
+            <div className="mt-2 space-y-2">
+              <p className="font-semibold">Você tem {transacoesReceberVencidas.length} conta(s) a receber vencida(s):</p>
+              {transacoesReceberVencidas.slice(0, 3).map((t) => (
+                <div key={t.id} className="flex items-center justify-between bg-background/50 p-2 rounded">
+                  <div>
+                    <p className="font-medium">{t.descricao}</p>
+                    <p className="text-sm">
+                      Venceu há {t.dias_atraso} dia(s) - {formatarDataParaExibicao(t.data_vencimento)}
+                      {t.origem_tipo && (
+                        <span className="ml-2">
+                          {getOrigemBadge(t as Transaction)}
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold">R$ {Number(t.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                    <Button size="sm" onClick={() => pagarParcela(t.id, t.parcela_numero, t.total_parcelas)}>
+                      Receber
+                    </Button>
+                  </div>
+                </div>
+              ))}
+              {transacoesReceberVencidas.length > 3 && (
+                <p className="text-sm">E mais {transacoesReceberVencidas.length - 3} conta(s)...</p>
+              )}
+            </div>
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {transacoesReceberAVencer.length > 0 && (
+        <Alert>
+          <Clock className="h-4 w-4" />
+          <AlertTitle>Contas a Receber nos Próximos 7 Dias</AlertTitle>
+          <AlertDescription>
+            <div className="mt-2 space-y-2">
+              <p className="font-semibold">Você tem {transacoesReceberAVencer.length} conta(s) a receber próximas do vencimento:</p>
+              {transacoesReceberAVencer.slice(0, 5).map((t) => (
+                <div key={t.id} className="flex items-center justify-between bg-background/50 p-2 rounded">
+                  <div>
+                    <p className="font-medium">{t.descricao}</p>
+                    <p className="text-sm">
+                      Vence em {t.dias_restantes} dia(s) - {formatarDataParaExibicao(t.data_vencimento)}
+                      {t.origem_tipo && (
+                        <span className="ml-2">
+                          {getOrigemBadge(t as Transaction)}
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold">R$ {Number(t.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                    <Button size="sm" variant="outline" onClick={() => pagarParcela(t.id, t.parcela_numero, t.total_parcelas)}>
+                      Receber
+                    </Button>
+                  </div>
+                </div>
+              ))}
+              {transacoesReceberAVencer.length > 5 && (
+                <p className="text-sm">E mais {transacoesReceberAVencer.length - 5} conta(s)...</p>
+              )}
+            </div>
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* RESUMO FINANCEIRO GERAL */}
       <div className="grid gap-6 md:grid-cols-4">
-        <Card>
-          <CardContent className="p-6">
+        <Card className="relative overflow-hidden border-0 shadow-lg bg-gradient-to-br from-card to-blue-50/30 hover:shadow-xl transition-all duration-300">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-3xl" />
+          <CardContent className="p-6 relative z-10">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Saldo Total</p>
@@ -1164,15 +1240,16 @@ export default function Financeiro() {
                   Receitas - Despesas
                 </p>
               </div>
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
-                <DollarSign className="h-6 w-6 text-primary" />
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-accent shadow-lg">
+                <DollarSign className="h-6 w-6 text-white" />
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardContent className="p-6">
+        <Card className="relative overflow-hidden border-0 shadow-lg bg-gradient-to-br from-card to-green-50/30 hover:shadow-xl transition-all duration-300">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-green-500/5 rounded-full blur-3xl" />
+          <CardContent className="p-6 relative z-10">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Receitas</p>
@@ -1183,15 +1260,16 @@ export default function Financeiro() {
                   Total de receitas
                 </p>
               </div>
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-green-100">
-                <TrendingUp className="h-6 w-6 text-green-600" />
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-success shadow-lg">
+                <TrendingUp className="h-6 w-6 text-white" />
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardContent className="p-6">
+        <Card className="relative overflow-hidden border-0 shadow-lg bg-gradient-to-br from-card to-red-50/30 hover:shadow-xl transition-all duration-300">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/5 rounded-full blur-3xl" />
+          <CardContent className="p-6 relative z-10">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Despesas</p>
@@ -1202,15 +1280,16 @@ export default function Financeiro() {
                   Total de despesas
                 </p>
               </div>
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-red-100">
-                <TrendingDown className="h-6 w-6 text-red-600" />
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-red-500 to-rose-600 shadow-lg">
+                <TrendingDown className="h-6 w-6 text-white" />
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardContent className="p-6">
+        <Card className="relative overflow-hidden border-0 shadow-lg bg-gradient-to-br from-card to-purple-50/30 hover:shadow-xl transition-all duration-300">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/5 rounded-full blur-3xl" />
+          <CardContent className="p-6 relative z-10">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Créditos em Orçamentos</p>
@@ -1226,8 +1305,8 @@ export default function Financeiro() {
                   Saldo: R$ {saldoCreditos.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                 </div>
               </div>
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-purple-100">
-                <CreditCard className="h-6 w-6 text-purple-600" />
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-purple-500 to-fuchsia-600 shadow-lg">
+                <CreditCard className="h-6 w-6 text-white" />
               </div>
             </div>
           </CardContent>

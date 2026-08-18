@@ -75,9 +75,9 @@ export default function Produtos() {
 
   return (
     <div className="space-y-8 animate-fade-in">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="space-y-2">
-          <h2 className="text-4xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">Produtos</h2>
+          <h2 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">Produtos</h2>
           <p className="text-muted-foreground text-lg">Gerencie seu catálogo de produtos</p>
         </div>
         {isAdmin && <AddProductDialog onProductAdded={fetchProducts} />}
@@ -85,7 +85,7 @@ export default function Produtos() {
 
       <Card className="border-0 shadow-lg">
         <div className="h-2 w-full bg-gradient-to-r from-primary via-accent to-primary"></div>
-        <CardHeader className="bg-gradient-to-br from-white to-blue-50/30">
+        <CardHeader className="bg-gradient-to-br from-card to-blue-50/30">
           <CardTitle className="flex items-center gap-2 text-xl">
             <div className="p-2 rounded-lg bg-gradient-to-br from-primary/10 to-accent/10">
               <Package className="h-5 w-5 text-primary" />

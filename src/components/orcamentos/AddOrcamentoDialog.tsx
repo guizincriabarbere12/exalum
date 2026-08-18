@@ -41,6 +41,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { gerarPDFOrcamento, downloadPDF } from "@/utils/pdfGenerator";
 import AddClienteInlineDialog from "@/components/clientes/AddClienteInlineDialog";
+import {
+  MATRIZ_SENTINEL,
+  verificarEstoqueSuficiente,
+  baixarEstoqueOrcamento,
+  voltarEstoqueOrcamento,
+} from "@/lib/orcamentoEstoque";
+import { logActivity } from "@/lib/auditLog";
 
 // ========== INTERFACES ==========
 interface Orcamento {
@@ -65,6 +72,7 @@ interface Orcamento {
   forma_pagamento_restante?: string;
   condicao_pagamento_restante?: string;
   parcelas_restante?: number;
+  filial_id?: string | null;
 }
 
 interface Cliente {
@@ -85,6 +93,12 @@ interface Vendedor {
   telefone: string | null;
   ativo: boolean;
   created_at: string;
+}
+
+interface Filial {
+  id: string;
+  nome: string;
+  codigo?: string;
 }
 
 interface Comissao {
@@ -228,518 +242,6 @@ const getDescricaoCondicao = (condicao: string): string => {
     "0/15/30": "1ª parcela à vista, 2ª em 15 dias, 3ª em 30 dias",
   };
   return descricoes[condicao] || condicao;
-};
-
-// ========== FUNÇÕES DE ESTOQUE CORRIGIDAS ==========
-const expandirKitProdutos = async (kitId: string, quantidadeKits: number): Promise<Record<string, number>> => {
-  const resultado: Record<string, number> = {};
-
-  try {
-    console.log(`🔍 Expandindo kit ID: ${kitId}, Quantidade: ${quantidadeKits}`);
-
-    const { data: itensKit, error } = await supabase
-      .from('kit_itens')
-      .select('quantidade, produto_id, sub_kit_id')
-      .eq('kit_id', kitId);
-
-    if (error) {
-      console.error(`❌ Erro ao buscar itens do kit ${kitId}:`, error);
-      return resultado;
-    }
-
-    if (!itensKit || itensKit.length === 0) {
-      console.log(`ℹ️ Kit ${kitId} não possui itens`);
-      return resultado;
-    }
-
-    console.log(`📦 Kit ${kitId} possui ${itensKit.length} itens`);
-
-    for (const item of itensKit) {
-      // Verifica se é um produto
-      if (item.produto_id && typeof item.produto_id === 'string' && item.produto_id.trim() !== '') {
-        const qtd = quantidadeKits * item.quantidade;
-        if (!resultado[item.produto_id]) resultado[item.produto_id] = 0;
-        resultado[item.produto_id] += qtd;
-        console.log(`  📦 Produto ${item.produto_id}: ${qtd} unidades (${item.quantidade} x ${quantidadeKits})`);
-      } 
-      // Verifica se é um sub-kit
-      else if (item.sub_kit_id && typeof item.sub_kit_id === 'string' && item.sub_kit_id.trim() !== '') {
-        const qtdSubKit = quantidadeKits * item.quantidade;
-        console.log(`  📦 Sub-kit ${item.sub_kit_id}: ${qtdSubKit} unidades (${item.quantidade} x ${quantidadeKits})`);
-        const subProdutos = await expandirKitProdutos(item.sub_kit_id, qtdSubKit);
-        for (const [pid, qtd] of Object.entries(subProdutos)) {
-          if (!resultado[pid]) resultado[pid] = 0;
-          resultado[pid] += qtd;
-        }
-      }
-    }
-  } catch (error) {
-    console.error(`❌ Erro ao expandir kit ${kitId}:`, error);
-    throw error;
-  }
-
-  console.log(`📊 Resultado da expansão do kit ${kitId}:`, resultado);
-  return resultado;
-};
-
-const verificarEstoqueSuficiente = async (orcamentoId: string) => {
-  try {
-    console.log('🔍 ===== VERIFICANDO ESTOQUE =====');
-    console.log('📄 Orçamento ID:', orcamentoId);
-    
-    const { data: itensOrcamento, error: itensError } = await supabase
-      .from('orcamento_itens')
-      .select(`
-        id,
-        quantidade,
-        produto_id,
-        kit_id
-      `)
-      .eq('orcamento_id', orcamentoId);
-
-    if (itensError) {
-      console.error('❌ Erro ao buscar itens do orçamento:', itensError);
-      throw itensError;
-    }
-
-    console.log('📦 Itens do orçamento:', itensOrcamento);
-
-    const produtosSemEstoque: any[] = [];
-    let suficiente = true;
-    const estoqueNecessario: Record<string, { nome: string, necessario: number, disponivel: number }> = {};
-
-    for (const item of itensOrcamento || []) {
-      // Verifica se é um produto
-      if (item.produto_id && typeof item.produto_id === 'string' && item.produto_id.trim() !== '') {
-        console.log(`🔍 Verificando produto ID: ${item.produto_id}, quantidade: ${item.quantidade}`);
-        
-        const { data: produto, error: produtoError } = await supabase
-          .from('produtos')
-          .select('id, nome, codigo, estoque')
-          .eq('id', item.produto_id)
-          .single();
-
-        if (produtoError) {
-          console.error('❌ Erro ao buscar produto:', produtoError);
-          throw produtoError;
-        }
-
-        const estoqueAtual = produto?.estoque || 0;
-        
-        console.log(`🔍 Produto: ${produto?.nome} | Estoque: ${estoqueAtual} | Solicitado: ${item.quantidade}`);
-        
-        if (!estoqueNecessario[produto.id]) {
-          estoqueNecessario[produto.id] = {
-            nome: produto.nome,
-            necessario: 0,
-            disponivel: estoqueAtual
-          };
-        }
-        estoqueNecessario[produto.id].necessario += item.quantidade;
-      }
-      
-      // Verifica se é um kit
-      if (item.kit_id && typeof item.kit_id === 'string' && item.kit_id.trim() !== '') {
-        console.log(`🔍 Verificando kit ID: ${item.kit_id}, quantidade: ${item.quantidade}`);
-        
-        try {
-          const produtosDoKit = await expandirKitProdutos(item.kit_id, item.quantidade);
-          
-          for (const [produtoId, quantidadeNecessaria] of Object.entries(produtosDoKit)) {
-            const { data: produto, error: produtoError } = await supabase
-              .from('produtos')
-              .select('id, nome, codigo, estoque')
-              .eq('id', produtoId)
-              .maybeSingle();
-
-            if (produtoError) {
-              console.error('❌ Erro ao buscar produto do kit:', produtoError);
-              throw produtoError;
-            }
-
-            if (produto) {
-              const estoqueAtual = produto.estoque || 0;
-              console.log(`  🔍 Produto do kit: ${produto.nome} | Estoque: ${estoqueAtual} | Necessário: ${quantidadeNecessaria}`);
-              
-              if (!estoqueNecessario[produto.id]) {
-                estoqueNecessario[produto.id] = {
-                  nome: produto.nome,
-                  necessario: 0,
-                  disponivel: estoqueAtual
-                };
-              }
-              estoqueNecessario[produto.id].necessario += quantidadeNecessaria;
-            }
-          }
-        } catch (kitError) {
-          console.error(`❌ Erro ao processar kit ${item.kit_id}:`, kitError);
-          throw kitError;
-        }
-      }
-    }
-
-    console.log('📊 Resumo do estoque necessário:');
-    for (const [produtoId, info] of Object.entries(estoqueNecessario)) {
-      console.log(`  ${info.nome}: Disponível ${info.disponivel}, Necessário ${info.necessario}`);
-      
-      if (info.necessario > info.disponivel) {
-        suficiente = false;
-        produtosSemEstoque.push({
-          nome: info.nome,
-          estoque: info.disponivel,
-          quantidade: info.necessario,
-          faltando: info.necessario - info.disponivel
-        });
-      }
-    }
-
-    console.log('📊 Resultado da verificação:', { 
-      suficiente, 
-      produtosSemEstoque: produtosSemEstoque.length > 0 ? produtosSemEstoque : 'Nenhum' 
-    });
-    
-    if (!suficiente) {
-      console.log('❌ ESTOQUE INSUFICIENTE! Produtos em falta:', produtosSemEstoque);
-    } else {
-      console.log('✅ ESTOQUE SUFICIENTE!');
-    }
-    
-    return { suficiente, produtosSemEstoque };
-    
-  } catch (error) {
-    console.error('❌ Erro ao verificar estoque:', error);
-    return { suficiente: false, produtosSemEstoque: [] };
-  }
-};
-
-const baixarEstoqueOrcamento = async (orcamentoId: string, numeroOrcamento: string) => {
-  try {
-    console.log('📦 ===== BAIXANDO ESTOQUE =====');
-    console.log('📄 Orçamento:', numeroOrcamento);
-    console.log('📄 Orçamento ID:', orcamentoId);
-    
-    const { data: itensOrcamento, error: itensError } = await supabase
-      .from('orcamento_itens')
-      .select(`
-        id,
-        quantidade,
-        produto_id,
-        kit_id
-      `)
-      .eq('orcamento_id', orcamentoId);
-
-    if (itensError) {
-      console.error('❌ Erro ao buscar itens do orçamento:', itensError);
-      throw itensError;
-    }
-
-    if (!itensOrcamento || itensOrcamento.length === 0) {
-      console.log('ℹ️ Nenhum item encontrado no orçamento');
-      return;
-    }
-
-    console.log('📦 Itens do orçamento encontrados:', itensOrcamento.length);
-
-    const atualizacoesEstoque: Record<string, number> = {};
-
-    for (const item of itensOrcamento) {
-      console.log(`🔄 Processando item:`, item);
-      
-      // Verifica se é um produto (produto_id existe e não é null/undefined)
-      if (item.produto_id && typeof item.produto_id === 'string' && item.produto_id.trim() !== '') {
-        if (!atualizacoesEstoque[item.produto_id]) {
-          atualizacoesEstoque[item.produto_id] = 0;
-        }
-        atualizacoesEstoque[item.produto_id] += item.quantidade;
-        console.log(`📦 Produto ID: ${item.produto_id} | Quantidade a debitar: ${item.quantidade}`);
-      }
-      
-      // Verifica se é um kit (kit_id existe e não é null/undefined)
-      if (item.kit_id && typeof item.kit_id === 'string' && item.kit_id.trim() !== '') {
-        console.log(`📦 Processando kit ID: ${item.kit_id}, quantidade: ${item.quantidade}`);
-        
-        try {
-          const produtosDoKit = await expandirKitProdutos(item.kit_id, item.quantidade);
-          
-          if (Object.keys(produtosDoKit).length === 0) {
-            console.log(`⚠️ Kit ${item.kit_id} não possui produtos ou sub-kits`);
-          }
-          
-          for (const [produtoId, quantidadeTotal] of Object.entries(produtosDoKit)) {
-            if (!atualizacoesEstoque[produtoId]) {
-              atualizacoesEstoque[produtoId] = 0;
-            }
-            atualizacoesEstoque[produtoId] += quantidadeTotal;
-            
-            console.log(`  📦 Produto ID: ${produtoId} | Qtd total a debitar: ${quantidadeTotal}`);
-          }
-        } catch (kitError) {
-          console.error(`❌ Erro ao expandir kit ${item.kit_id}:`, kitError);
-          throw kitError;
-        }
-      }
-    }
-
-    console.log('📦 Resumo das atualizações de estoque:', atualizacoesEstoque);
-
-    // Se não houver itens para atualizar, retorna
-    if (Object.keys(atualizacoesEstoque).length === 0) {
-      console.log('ℹ️ Nenhum produto para atualizar estoque');
-      return;
-    }
-
-    // Atualiza o estoque de cada produto
-    for (const [produtoId, quantidadeDebitar] of Object.entries(atualizacoesEstoque)) {
-      console.log(`🔄 Buscando produto ID: ${produtoId}`);
-      
-      const { data: produto, error: selectError } = await supabase
-        .from('produtos')
-        .select('estoque, nome, codigo')
-        .eq('id', produtoId)
-        .single();
-
-      if (selectError) {
-        console.error('❌ Erro ao buscar produto:', selectError);
-        throw selectError;
-      }
-
-      if (!produto) {
-        console.error(`❌ Produto ${produtoId} não encontrado`);
-        continue;
-      }
-
-      const estoqueAtual = produto.estoque || 0;
-      const novoEstoque = Math.max(0, estoqueAtual - quantidadeDebitar);
-      
-      console.log(`📦 Atualizando produto: ${produto.nome} (${produto.codigo})`);
-      console.log(`  Estoque atual: ${estoqueAtual}`);
-      console.log(`  Debitar: ${quantidadeDebitar}`);
-      console.log(`  Novo estoque: ${novoEstoque}`);
-
-      if (estoqueAtual - quantidadeDebitar < 0) {
-        console.warn(`⚠️ Estoque ficará negativo para ${produto.nome}, ajustando para 0`);
-      }
-
-      const { error: updateError } = await supabase
-        .from('produtos')
-        .update({ 
-          estoque: novoEstoque,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', produtoId);
-
-      if (updateError) {
-        console.error('❌ Erro ao atualizar estoque do produto:', updateError);
-        throw updateError;
-      }
-      
-      console.log(`✅ Estoque de ${produto.nome} atualizado para ${novoEstoque}`);
-    }
-    
-    console.log('✅ Estoque baixado com sucesso!');
-    
-    // Registra a movimentação de estoque
-    try {
-      const { data: orcamento } = await supabase
-        .from('orcamentos')
-        .select('numero, cliente_id')
-        .eq('id', orcamentoId)
-        .single();
-      
-      if (orcamento) {
-        for (const [produtoId, quantidade] of Object.entries(atualizacoesEstoque)) {
-          const { data: produto } = await supabase
-            .from('produtos')
-            .select('nome, codigo')
-            .eq('id', produtoId)
-            .single();
-          
-          if (produto) {
-            await supabase
-              .from('movimentacoes_estoque')
-              .insert({
-                produto_id: produtoId,
-                tipo: 'saida',
-                quantidade: quantidade,
-                observacao: `Orçamento ${orcamento.numero} aprovado`,
-                data_movimentacao: new Date().toISOString().split('T')[0],
-                created_at: new Date().toISOString()
-              });
-          }
-        }
-        console.log('📝 Movimentações de estoque registradas');
-      }
-    } catch (logError) {
-      console.warn('⚠️ Erro ao registrar movimentações:', logError);
-    }
-    
-  } catch (error) {
-    console.error('❌ Erro ao baixar estoque:', error);
-    throw error;
-  }
-};
-
-const voltarEstoqueOrcamento = async (orcamentoId: string, numeroOrcamento: string) => {
-  try {
-    console.log('📦 ===== DEVOLVENDO ESTOQUE =====');
-    console.log('📄 Orçamento:', numeroOrcamento);
-    console.log('📄 Orçamento ID:', orcamentoId);
-    
-    const { data: itensOrcamento, error: itensError } = await supabase
-      .from('orcamento_itens')
-      .select(`
-        id,
-        quantidade,
-        produto_id,
-        kit_id
-      `)
-      .eq('orcamento_id', orcamentoId);
-
-    if (itensError) {
-      console.error('❌ Erro ao buscar itens do orçamento:', itensError);
-      throw itensError;
-    }
-
-    if (!itensOrcamento || itensOrcamento.length === 0) {
-      console.log('ℹ️ Nenhum item encontrado no orçamento');
-      return;
-    }
-
-    console.log('📦 Itens do orçamento encontrados:', itensOrcamento.length);
-
-    const atualizacoesEstoque: Record<string, number> = {};
-
-    for (const item of itensOrcamento) {
-      console.log(`🔄 Processando item:`, item);
-      
-      // Verifica se é um produto
-      if (item.produto_id && typeof item.produto_id === 'string' && item.produto_id.trim() !== '') {
-        if (!atualizacoesEstoque[item.produto_id]) {
-          atualizacoesEstoque[item.produto_id] = 0;
-        }
-        atualizacoesEstoque[item.produto_id] += item.quantidade;
-        console.log(`📦 Produto ID: ${item.produto_id} | Quantidade a devolver: ${item.quantidade}`);
-      }
-      
-      // Verifica se é um kit
-      if (item.kit_id && typeof item.kit_id === 'string' && item.kit_id.trim() !== '') {
-        console.log(`📦 Processando kit ID: ${item.kit_id}, quantidade: ${item.quantidade}`);
-        
-        try {
-          const produtosDoKit = await expandirKitProdutos(item.kit_id, item.quantidade);
-          
-          if (Object.keys(produtosDoKit).length === 0) {
-            console.log(`⚠️ Kit ${item.kit_id} não possui produtos ou sub-kits`);
-          }
-          
-          for (const [produtoId, quantidadeTotal] of Object.entries(produtosDoKit)) {
-            if (!atualizacoesEstoque[produtoId]) {
-              atualizacoesEstoque[produtoId] = 0;
-            }
-            atualizacoesEstoque[produtoId] += quantidadeTotal;
-            
-            console.log(`  📦 Produto ID: ${produtoId} | Qtd total a devolver: ${quantidadeTotal}`);
-          }
-        } catch (kitError) {
-          console.error(`❌ Erro ao expandir kit ${item.kit_id}:`, kitError);
-          throw kitError;
-        }
-      }
-    }
-
-    console.log('📦 Resumo das atualizações de estoque (devolução):', atualizacoesEstoque);
-
-    // Se não houver itens para atualizar, retorna
-    if (Object.keys(atualizacoesEstoque).length === 0) {
-      console.log('ℹ️ Nenhum produto para devolver estoque');
-      return;
-    }
-
-    // Atualiza o estoque de cada produto
-    for (const [produtoId, quantidadeDevolver] of Object.entries(atualizacoesEstoque)) {
-      console.log(`🔄 Buscando produto ID: ${produtoId}`);
-      
-      const { data: produto, error: selectError } = await supabase
-        .from('produtos')
-        .select('estoque, nome, codigo')
-        .eq('id', produtoId)
-        .single();
-
-      if (selectError) {
-        console.error('❌ Erro ao buscar produto:', selectError);
-        throw selectError;
-      }
-
-      if (!produto) {
-        console.error(`❌ Produto ${produtoId} não encontrado`);
-        continue;
-      }
-
-      const estoqueAtual = produto.estoque || 0;
-      const novoEstoque = estoqueAtual + quantidadeDevolver;
-      
-      console.log(`📦 Atualizando produto: ${produto.nome} (${produto.codigo})`);
-      console.log(`  Estoque atual: ${estoqueAtual}`);
-      console.log(`  Devolver: ${quantidadeDevolver}`);
-      console.log(`  Novo estoque: ${novoEstoque}`);
-
-      const { error: updateError } = await supabase
-        .from('produtos')
-        .update({ 
-          estoque: novoEstoque,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', produtoId);
-
-      if (updateError) {
-        console.error('❌ Erro ao atualizar estoque do produto:', updateError);
-        throw updateError;
-      }
-      
-      console.log(`✅ Estoque de ${produto.nome} atualizado para ${novoEstoque}`);
-    }
-    
-    console.log('✅ Estoque devolvido com sucesso!');
-    
-    // Registra a movimentação de estoque
-    try {
-      const { data: orcamento } = await supabase
-        .from('orcamentos')
-        .select('numero, cliente_id')
-        .eq('id', orcamentoId)
-        .single();
-      
-      if (orcamento) {
-        for (const [produtoId, quantidade] of Object.entries(atualizacoesEstoque)) {
-          const { data: produto } = await supabase
-            .from('produtos')
-            .select('nome, codigo')
-            .eq('id', produtoId)
-            .single();
-          
-          if (produto) {
-            await supabase
-              .from('movimentacoes_estoque')
-              .insert({
-                produto_id: produtoId,
-                tipo: 'entrada',
-                quantidade: quantidade,
-                observacao: `Orçamento ${orcamento.numero} cancelado/rejeitado - devolução`,
-                data_movimentacao: new Date().toISOString().split('T')[0],
-                created_at: new Date().toISOString()
-              });
-          }
-        }
-        console.log('📝 Movimentações de estoque registradas (devolução)');
-      }
-    } catch (logError) {
-      console.warn('⚠️ Erro ao registrar movimentações:', logError);
-    }
-    
-  } catch (error) {
-    console.error('❌ Erro ao devolver estoque:', error);
-    throw error;
-  }
 };
 
 // ========== FUNÇÃO PARA CRIAR TRANSAÇÕES FINANCEIRAS ==========
@@ -1649,7 +1151,7 @@ export default function OrcamentosPage() {
         pagamento
       );
 
-      await baixarEstoqueOrcamento(orcamentoParaAprovar.id, orcamentoParaAprovar.numero);
+      await baixarEstoqueOrcamento(orcamentoParaAprovar.id, orcamentoParaAprovar.orcamento.filial_id ?? null);
 
       toast({
         title: "✅ Orçamento aprovado!",
@@ -1680,23 +1182,25 @@ export default function OrcamentosPage() {
       
       const { data: orcamento, error: orcamentoError } = await supabase
         .from('orcamentos')
-        .select('*, clientes(*)')
+        .select('*, filial_id, clientes(*)')
         .eq('id', orcamentoId)
         .single();
 
       if (orcamentoError) throw orcamentoError;
-      
+
+      const filialId: string | null = orcamento.filial_id ?? null;
+
       if (novoStatus === 'aprovado' && statusAtual !== 'aprovado') {
-        const verificacao = await verificarEstoqueSuficiente(orcamentoId);
-        
+        const verificacao = await verificarEstoqueSuficiente(orcamentoId, filialId);
+
         if (!verificacao.suficiente) {
           const mensagemErro = verificacao.produtosSemEstoque
             .map(p => `${p.nome} (estoque: ${p.estoque}, necessário: ${p.quantidade}, faltando: ${p.faltando})`)
             .join(', ');
-          
+
           toast({
             title: "❌ Estoque insuficiente",
-            description: `Itens sem estoque: ${mensagemErro}`,
+            description: `Itens sem estoque na unidade ${verificacao.unidadeNome}: ${mensagemErro}`,
             variant: "destructive",
           });
           return;
@@ -1751,12 +1255,12 @@ export default function OrcamentosPage() {
         }
         
         console.log('⬇️ Baixando estoque...');
-        await baixarEstoqueOrcamento(orcamentoId, numero);
+        await baixarEstoqueOrcamento(orcamentoId, filialId);
       }
 
       if (statusAtual === 'aprovado' && novoStatus !== 'aprovado') {
         console.log('🔙 Devolvendo estoque...');
-        await voltarEstoqueOrcamento(orcamentoId, numero);
+        await voltarEstoqueOrcamento(orcamentoId, filialId);
         
         console.log('💰 Cancelando transações pendentes...');
         
@@ -1806,6 +1310,13 @@ export default function OrcamentosPage() {
 
         if (error) throw error;
 
+        await logActivity({
+          acao: novoStatus === 'aprovado' ? 'aprovar' : novoStatus === 'rejeitado' || novoStatus === 'recusado' ? 'rejeitar' : 'atualizar',
+          entidade: 'orcamento',
+          entidadeId: orcamentoId,
+          descricao: `Orçamento ${numero}: status alterado de ${getStatusLabel(statusAtual)} para ${getStatusLabel(novoStatus)}`,
+        });
+
         toast({
           title: "✅ Status atualizado!",
           description: `Orçamento ${numero} agora está ${getStatusLabel(novoStatus)}`,
@@ -1813,7 +1324,7 @@ export default function OrcamentosPage() {
 
         await fetchOrcamentos();
       }
-      
+
     } catch (error: any) {
       console.error('❌ Erro:', error);
       toast({
@@ -1980,9 +1491,10 @@ export default function OrcamentosPage() {
           *,
           clientes(*),
           vendedor:vendedores(*),
+          filial:filiais(nome),
           orcamento_itens(
             *,
-            produto:produtos(id, codigo, nome, localizacao, peso, peso_kg_m, comprimento_barra, imagem_url),
+            produto:produtos(id, codigo, nome, localizacao, unidade, peso, peso_kg_m, comprimento_barra, imagem_url),
             kit:kits(*)
           )
         `)
@@ -2021,6 +1533,7 @@ export default function OrcamentosPage() {
           codigo: item.produto?.codigo || item.kit?.codigo || '-',
           nome: item.produto?.nome || item.kit?.nome || '-',
           localizacao: item.produto?.localizacao || '-',
+          unidade: item.produto?.unidade || 'Un',
           quantidade: item.quantidade,
           preco_unitario: item.preco_unitario,
           desconto: item.desconto || 0,
@@ -2039,6 +1552,7 @@ export default function OrcamentosPage() {
         validade: formatDate(dataValidade.toISOString()),
         cliente: orcamentoCompleto?.clientes,
         vendedor: orcamentoCompleto?.vendedor,
+        loja: orcamentoCompleto?.filial?.nome || 'Matriz',
         itens: itensComKg,
         valor_total: orcamento.valor_total,
         observacoes: orcamento.observacoes,
@@ -2607,6 +2121,8 @@ const AddOrcamentoContent = ({ onClose }: { onClose: () => void }) => {
   const [kits, setKits] = useState<any[]>([]);
   const [clienteId, setClienteId] = useState("");
   const [vendedorId, setVendedorId] = useState<string>("");
+  const [filiais, setFiliais] = useState<Filial[]>([]);
+  const [filialId, setFilialId] = useState<string>(MATRIZ_SENTINEL);
   const [observacoes, setObservacoes] = useState("");
   const [itens, setItens] = useState<ItemOrcamento[]>([]);
   const [tipoItem, setTipoItem] = useState<'produto' | 'kit'>('produto');
@@ -2809,6 +2325,7 @@ const AddOrcamentoContent = ({ onClose }: { onClose: () => void }) => {
   useEffect(() => {
     fetchClientes();
     fetchVendedores();
+    fetchFiliais();
     fetchProdutos();
     fetchKits();
   }, []);
@@ -2854,6 +2371,15 @@ const AddOrcamentoContent = ({ onClose }: { onClose: () => void }) => {
       .eq('ativo', true)
       .order('nome');
     if (data) setVendedores(data as Vendedor[]);
+  };
+
+  const fetchFiliais = async () => {
+    const { data } = await supabase
+      .from('filiais')
+      .select('id, nome, codigo')
+      .eq('ativo', true)
+      .order('nome');
+    if (data) setFiliais(data as Filial[]);
   };
 
   const fetchProdutos = async () => {
@@ -3318,6 +2844,7 @@ const AddOrcamentoContent = ({ onClose }: { onClose: () => void }) => {
           numero: numeroOrcamento,
           cliente_id: clienteId,
           vendedor_id: vendedorId || null,
+          filial_id: filialId === MATRIZ_SENTINEL ? null : filialId,
           valor_total: Number(valorTotal.toFixed(2)),
           observacoes: observacoesCompletas.substring(0, 500),
           status: 'pendente',
@@ -3378,6 +2905,13 @@ const AddOrcamentoContent = ({ onClose }: { onClose: () => void }) => {
             });
         }
       }
+
+      await logActivity({
+        acao: "criar",
+        entidade: "orcamento",
+        entidadeId: orcamento.id,
+        descricao: `Criou o orçamento ${numeroOrcamento} - R$ ${valorTotal.toFixed(2)}`,
+      });
 
       toast({
         title: "✅ Orçamento criado!",
@@ -3507,6 +3041,24 @@ const AddOrcamentoContent = ({ onClose }: { onClose: () => void }) => {
             Comissão de {vendedores.find(v => v.id === vendedorId)?.comissao_percentual}% será calculada automaticamente
           </p>
         )}
+      </div>
+
+      <div className="space-y-2">
+        <label className="text-sm font-medium">Unidade</label>
+        <Select value={filialId} onValueChange={setFilialId}>
+          <SelectTrigger>
+            <SelectValue placeholder="Selecione a unidade" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={MATRIZ_SENTINEL}>Matriz</SelectItem>
+            {filiais.map(filial => (
+              <SelectItem key={filial.id} value={filial.id}>{filial.nome}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-muted-foreground mt-1">
+          Ao aprovar, o estoque será baixado a partir desta unidade.
+        </p>
       </div>
 
       <div className="border rounded-lg p-4 space-y-4">
@@ -4254,6 +3806,8 @@ const EditOrcamentoContent = ({ orcamento, onClose }: { orcamento: OrcamentoComI
   
   const [clienteId, setClienteId] = useState(orcamento.cliente_id);
   const [vendedorId, setVendedorId] = useState<string>(orcamento.vendedor_id || "");
+  const [filiais, setFiliais] = useState<Filial[]>([]);
+  const [filialId, setFilialId] = useState<string>(orcamento.filial_id || MATRIZ_SENTINEL);
   const [observacoes, setObservacoes] = useState(orcamento.observacoes || "");
   const [itens, setItens] = useState<ItemOrcamento[]>([]);
   
@@ -4457,6 +4011,7 @@ const EditOrcamentoContent = ({ orcamento, onClose }: { orcamento: OrcamentoComI
   useEffect(() => {
     fetchClientes();
     fetchVendedores();
+    fetchFiliais();
     fetchProdutos();
     fetchKits();
   }, []);
@@ -4578,6 +4133,15 @@ const EditOrcamentoContent = ({ orcamento, onClose }: { orcamento: OrcamentoComI
       .eq('ativo', true)
       .order('nome');
     if (data) setVendedores(data as Vendedor[]);
+  };
+
+  const fetchFiliais = async () => {
+    const { data } = await supabase
+      .from('filiais')
+      .select('id, nome, codigo')
+      .eq('ativo', true)
+      .order('nome');
+    if (data) setFiliais(data as Filial[]);
   };
 
   const fetchProdutos = async () => {
@@ -5038,6 +4602,7 @@ const EditOrcamentoContent = ({ orcamento, onClose }: { orcamento: OrcamentoComI
         .update({
           cliente_id: clienteId,
           vendedor_id: vendedorId || null,
+          filial_id: filialId === MATRIZ_SENTINEL ? null : filialId,
           valor_total: Number(valorTotal.toFixed(2)),
           observacoes: observacoesCompletas.substring(0, 500),
           forma_pagamento: formaPagamento,
@@ -5238,6 +4803,24 @@ const EditOrcamentoContent = ({ orcamento, onClose }: { orcamento: OrcamentoComI
             Comissão de {vendedores.find(v => v.id === vendedorId)?.comissao_percentual}% será calculada automaticamente
           </p>
         )}
+      </div>
+
+      <div className="space-y-2">
+        <label className="text-sm font-medium">Unidade</label>
+        <Select value={filialId} onValueChange={setFilialId}>
+          <SelectTrigger>
+            <SelectValue placeholder="Selecione a unidade" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={MATRIZ_SENTINEL}>Matriz</SelectItem>
+            {filiais.map(filial => (
+              <SelectItem key={filial.id} value={filial.id}>{filial.nome}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-muted-foreground mt-1">
+          Ao aprovar, o estoque será baixado a partir desta unidade.
+        </p>
       </div>
 
       <div className="border rounded-lg p-4 space-y-4">

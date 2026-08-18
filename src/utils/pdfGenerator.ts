@@ -22,6 +22,7 @@ interface OrcamentoItem {
   codigo: string;
   nome: string;
   localizacao: string;
+  unidade?: string | null;
   quantidade: number;
   preco_unitario: number;
   desconto?: number;
@@ -41,6 +42,7 @@ interface DadosOrcamento {
   validade: string;
   cliente: Cliente;
   vendedor?: any;
+  loja?: string;
   itens: OrcamentoItem[];
   valor_total: number;
   observacoes?: string;
@@ -48,6 +50,10 @@ interface DadosOrcamento {
 }
 
 const THUMB_SIZE = 56;
+const MARGIN = 15;
+const GRAY_LINE: [number, number, number] = [130, 130, 130];
+const GRAY_HEAD: [number, number, number] = [235, 235, 235];
+const GRAY_LABEL: [number, number, number] = [95, 95, 95];
 
 function redimensionarBase64(dataURL: string): Promise<string> {
   return new Promise((resolve) => {
@@ -90,6 +96,114 @@ async function carregarImagemDaURL(url: string): Promise<string> {
   });
 }
 
+interface LogoInfo {
+  dataURL: string;
+  aspect: number;
+}
+
+async function carregarLogo(url: string): Promise<LogoInfo | null> {
+  try {
+    return await new Promise((resolve, reject) => {
+      const img = new Image();
+      if (!url.startsWith('data:')) img.crossOrigin = 'Anonymous';
+
+      img.onload = () => {
+        const maxW = 320;
+        const maxH = 160;
+        const scale = Math.min(maxW / img.width, maxH / img.height, 1);
+        const w = Math.max(1, Math.round(img.width * scale));
+        const h = Math.max(1, Math.round(img.height * scale));
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, w, h);
+        resolve({ dataURL: canvas.toDataURL('image/png'), aspect: img.width / img.height });
+      };
+      img.onerror = reject;
+      img.src = url;
+    });
+  } catch (error) {
+    console.error('Erro ao carregar logo:', error);
+    return null;
+  }
+}
+
+interface ParcelaCalculada {
+  dias: number;
+  data: string;
+  forma: string;
+  valor: number;
+}
+
+function calcularParcelasPDF(pagamento: any, valorTotal: number): ParcelaCalculada[] {
+  if (!pagamento) return [];
+
+  const hoje = new Date();
+  hoje.setHours(0, 0, 0, 0);
+  const formaLabel = pagamento.forma || 'A combinar';
+
+  if (pagamento.pagamento_misto) {
+    return [
+      {
+        dias: 0,
+        data: hoje.toLocaleDateString('pt-BR'),
+        forma: 'Pagamento Misto (crédito + ' + (pagamento.forma_pagamento_restante || 'restante') + ')',
+        valor: valorTotal,
+      },
+    ];
+  }
+
+  if (!pagamento.parcelas || pagamento.parcelas <= 1) {
+    return [{ dias: 0, data: hoje.toLocaleDateString('pt-BR'), forma: formaLabel, valor: valorTotal }];
+  }
+
+  const diasParaVencimento: Record<string, number[]> = {
+    '28': [28],
+    '28/56': [28, 56],
+    '0/28/56': [0, 28, 56],
+    '15': [15],
+    '15/30': [15, 30],
+    '0/15/30': [0, 15, 30],
+  };
+
+  const diasVencimentos: number[] =
+    pagamento.condicao && diasParaVencimento[pagamento.condicao]
+      ? diasParaVencimento[pagamento.condicao]
+      : Array.from({ length: pagamento.parcelas }, (_, i) => (i + 1) * 30);
+
+  const resultado: ParcelaCalculada[] = [];
+
+  if (pagamento.entrada && pagamento.entrada > 0) {
+    resultado.push({ dias: 0, data: hoje.toLocaleDateString('pt-BR'), forma: formaLabel, valor: pagamento.entrada });
+
+    const temZero = diasVencimentos[0] === 0;
+    const diasParcelas = temZero ? diasVencimentos.slice(1) : diasVencimentos;
+    const valorRestante = valorTotal - pagamento.entrada;
+    const base = Number((valorRestante / (diasParcelas.length || 1)).toFixed(2));
+
+    diasParcelas.forEach((d, i) => {
+      const venc = new Date(hoje);
+      venc.setDate(venc.getDate() + d);
+      const valor = i === diasParcelas.length - 1 ? Number((valorRestante - base * i).toFixed(2)) : base;
+      resultado.push({ dias: d, data: venc.toLocaleDateString('pt-BR'), forma: formaLabel, valor });
+    });
+
+    return resultado;
+  }
+
+  const base = pagamento.valor_parcela || Number((valorTotal / (diasVencimentos.length || 1)).toFixed(2));
+
+  diasVencimentos.forEach((d, i) => {
+    const venc = new Date(hoje);
+    venc.setDate(venc.getDate() + d);
+    const valor = i === diasVencimentos.length - 1 ? Number((valorTotal - base * i).toFixed(2)) : base;
+    resultado.push({ dias: d, data: venc.toLocaleDateString('pt-BR'), forma: formaLabel, valor });
+  });
+
+  return resultado;
+}
+
 export async function gerarPDFOrcamento(
   dados: DadosOrcamento,
   config: ConfiguracaoEmpresa,
@@ -99,280 +213,247 @@ export async function gerarPDFOrcamento(
 
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
+  const contentWidth = pageWidth - MARGIN * 2;
 
-  const primaryColor: [number, number, number] = [41, 128, 185];
-  const lightGray: [number, number, number] = [245, 245, 245];
-  const redColor: [number, number, number] = [231, 76, 60];
-
-  let logoDataURL: string | null = null;
-
+  let logo: LogoInfo | null = null;
   if (config.logo_url) {
-    try {
-      logoDataURL = await carregarImagemDaURL(config.logo_url);
-    } catch (error) {
-      console.error('Erro ao carregar logo:', error);
-    }
+    logo = await carregarLogo(config.logo_url);
   }
 
-  await Promise.all(dados.itens.map(async (item) => {
-    if (item.imagem_url) {
-      try {
-        item.imagemDataURL = await carregarImagemDaURL(item.imagem_url);
-      } catch (error) {
-        console.error(`Erro ao carregar imagem do item ${item.codigo}:`, error);
-        item.imagemDataURL = null;
-      }
-    }
-  }));
-
-  const drawHeaderWithoutLogo = (isFirstPage: boolean = true) => {
-    doc.setFontSize(20);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(255, 255, 255);
-    doc.text((config.nome_empresa || 'EMPRESA').toUpperCase(), pageWidth / 2, 15, {
-      align: 'center',
-    });
-
-    doc.setFontSize(8);
-    doc.setFont('helvetica', 'normal');
-
-    let headerY = 23;
-    const infoEmpresa: string[] = [];
-
-    if (config.cnpj) infoEmpresa.push(`CNPJ: ${config.cnpj}`);
-    if (config.telefone) infoEmpresa.push(`Tel: ${config.telefone}`);
-    if (config.email) infoEmpresa.push(`Email: ${config.email}`);
-
-    doc.text(infoEmpresa.join(' | '), pageWidth / 2, headerY, {
-      align: 'center',
-    });
-
-    headerY += 4;
-
-    if (config.endereco) {
-      doc.text(config.endereco, pageWidth / 2, headerY, {
-        align: 'center',
-      });
-    }
-  };
-
-  const drawHeader = (isFirstPage: boolean = true) => {
-    doc.setFillColor(...primaryColor);
-    doc.rect(0, 0, pageWidth, 40, 'F');
-
-    if (logoDataURL) {
-      try {
-        const logoFormat = logoDataURL.startsWith('data:image/png') ? 'PNG' : 'JPEG';
-        doc.addImage(logoDataURL, logoFormat, 10, 5, 30, 30);
-
-        doc.setFontSize(20);
-        doc.setFont('helvetica', 'bold');
-        doc.setTextColor(255, 255, 255);
-        doc.text((config.nome_empresa || 'EMPRESA').toUpperCase(), pageWidth / 2, 15, {
-          align: 'center',
-        });
-
-        doc.setFontSize(8);
-        doc.setFont('helvetica', 'normal');
-
-        let headerY = 23;
-        const infoEmpresa: string[] = [];
-
-        if (config.cnpj) infoEmpresa.push(`CNPJ: ${config.cnpj}`);
-        if (config.telefone) infoEmpresa.push(`Tel: ${config.telefone}`);
-        if (config.email) infoEmpresa.push(`Email: ${config.email}`);
-
-        doc.text(infoEmpresa.join(' | '), pageWidth / 2, headerY, {
-          align: 'center',
-        });
-
-        headerY += 4;
-
-        if (config.endereco) {
-          doc.text(config.endereco, pageWidth / 2, headerY, {
-            align: 'center',
-          });
+  await Promise.all(
+    dados.itens.map(async item => {
+      if (item.imagem_url) {
+        try {
+          item.imagemDataURL = await carregarImagemDaURL(item.imagem_url);
+        } catch (error) {
+          console.error(`Erro ao carregar imagem do item ${item.codigo}:`, error);
+          item.imagemDataURL = null;
         }
-      } catch (error) {
-        console.error('Erro ao adicionar logo:', error);
-        drawHeaderWithoutLogo(isFirstPage);
       }
-    } else {
-      drawHeaderWithoutLogo(isFirstPage);
-    }
-
-    if (isFirstPage) {
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'bold');
-      doc.text(`Orçamento ${dados.numero}`, pageWidth / 2, 38, {
-        align: 'center',
-      });
-    }
-
-    doc.setTextColor(0, 0, 0);
-  };
-
-  const drawFooter = (pageNum: number, totalPages: number) => {
-    doc.setFillColor(...primaryColor);
-    doc.rect(0, pageHeight - 20, pageWidth, 20, 'F');
-
-    doc.setFontSize(8);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(255, 255, 255);
-
-    doc.text(
-      `Válido até ${dados.validade} | Agradecemos sua preferência!`,
-      pageWidth / 2,
-      pageHeight - 11,
-      { align: 'center' }
-    );
-
-    doc.setFontSize(7);
-    doc.text(`Página ${pageNum} de ${totalPages}`, pageWidth - 25, pageHeight - 6);
-  };
-
-  drawHeader(true);
-
-  let yPos = 50;
-
-  doc.setFillColor(...lightGray);
-  doc.roundedRect(15, yPos, (pageWidth - 30) / 2 - 5, 22, 2, 2, 'F');
-  doc.roundedRect(pageWidth / 2 + 5, yPos, (pageWidth - 30) / 2 - 5, 22, 2, 2, 'F');
-
-  doc.setFontSize(8);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(...primaryColor);
-
-  doc.text('NÚMERO:', 20, yPos + 6);
-  doc.text('DATA:', 20, yPos + 12);
-  doc.text('VALIDADE:', 20, yPos + 18);
-  doc.text('CLIENTE:', pageWidth / 2 + 10, yPos + 6);
-
-  doc.setFont('helvetica', 'normal');
-  doc.setTextColor(0, 0, 0);
-
-  doc.text(dados.numero, 42, yPos + 6);
-  doc.text(dados.data, 42, yPos + 12);
-  doc.text(dados.validade, 42, yPos + 18);
-  doc.text(dados.cliente.nome, pageWidth / 2 + 10, yPos + 12);
-
-  yPos += 30;
-
-  doc.setDrawColor(...primaryColor);
-  doc.setLineWidth(0.5);
-  doc.roundedRect(15, yPos, pageWidth - 30, 25, 2, 2);
-
-  doc.setFontSize(10);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(...primaryColor);
-  doc.text('DADOS DO CLIENTE', 20, yPos + 6);
-
-  doc.setFontSize(8);
-  doc.setFont('helvetica', 'normal');
-  doc.setTextColor(0, 0, 0);
-
-  let clienteY = yPos + 12;
-
-  doc.text(`Nome: ${dados.cliente.nome}`, 20, clienteY);
-
-  clienteY += 5;
-
-  doc.text(`CPF/CNPJ: ${dados.cliente.cpf_cnpj}`, 20, clienteY);
-
-  if (dados.cliente.telefone) {
-    doc.text(`Tel: ${dados.cliente.telefone}`, pageWidth / 2 + 10, yPos + 12);
-  }
-
-  if (dados.cliente.email) {
-    doc.text(`Email: ${dados.cliente.email}`, pageWidth / 2 + 10, yPos + 17);
-  }
-
-  yPos += 35;
-
-  if (dados.vendedor && dados.vendedor.nome) {
-    doc.setFontSize(8);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(0, 0, 0);
-
-    doc.text(`Vendedor: ${dados.vendedor.nome}`, 20, yPos);
-
-    if (dados.vendedor.comissao_percentual) {
-      doc.text(`Comissão: ${dados.vendedor.comissao_percentual}%`, pageWidth / 2 + 10, yPos);
-    }
-
-    yPos += 8;
-  }
-
-  doc.setFontSize(10);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(...primaryColor);
-  doc.text('ITENS DO ORÇAMENTO', 20, yPos);
-
-  yPos += 4;
-
-  const temInfoKg = dados.itens.some(
-    item => item.peso_total_kg || item.preco_por_kg || item.peso_kg_m
+    })
   );
 
+  const drawFooter = (pageNum: number, totalPages: number) => {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(...GRAY_LABEL);
+    doc.text(`Válido até ${dados.validade}`, MARGIN, pageHeight - 8);
+    doc.text(`Página ${pageNum} de ${totalPages}`, pageWidth - MARGIN, pageHeight - 8, { align: 'right' });
+    doc.setTextColor(0, 0, 0);
+  };
+
+  /** Cabeçalho compacto usado apenas nas páginas de continuação (2+). */
+  const drawContinuationHeader = () => {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.setTextColor(0, 0, 0);
+    doc.text(`Orçamento ${dados.numero} (continuação)`, MARGIN, 15);
+    doc.setDrawColor(...GRAY_LINE);
+    doc.setLineWidth(0.2);
+    doc.line(MARGIN, 18, pageWidth - MARGIN, 18);
+  };
+
+  const ensureSpace = (needed: number, y: number): number => {
+    if (y + needed > pageHeight - 22) {
+      doc.addPage();
+      drawContinuationHeader();
+      return 26;
+    }
+    return y;
+  };
+
+  // ========== CABEÇALHO (logo + dados da empresa) ==========
+  let logoBottom = MARGIN;
+  if (logo) {
+    const boxW = 42;
+    const boxH = 22;
+    let imgW = boxW;
+    let imgH = imgW / logo.aspect;
+    if (imgH > boxH) {
+      imgH = boxH;
+      imgW = imgH * logo.aspect;
+    }
+    try {
+      doc.addImage(logo.dataURL, 'PNG', MARGIN, 12, imgW, imgH);
+      logoBottom = 12 + imgH;
+    } catch (error) {
+      console.error('Erro ao desenhar logo:', error);
+    }
+  }
+
+  let companyY = 15;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.setTextColor(20, 20, 20);
+  doc.text(config.nome_empresa || 'Empresa', pageWidth - MARGIN, companyY, { align: 'right' });
+  companyY += 5;
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.setTextColor(60, 60, 60);
+
+  if (config.telefone) {
+    doc.text(`Tel: ${config.telefone}`, pageWidth - MARGIN, companyY, { align: 'right' });
+    companyY += 4;
+  }
+  if (config.endereco) {
+    const linhas = doc.splitTextToSize(config.endereco, 95);
+    linhas.forEach((linha: string) => {
+      doc.text(linha, pageWidth - MARGIN, companyY, { align: 'right' });
+      companyY += 4;
+    });
+  }
+  if (config.cnpj) {
+    doc.text(`CNPJ: ${config.cnpj}`, pageWidth - MARGIN, companyY, { align: 'right' });
+    companyY += 4;
+  }
+  if (config.email) {
+    doc.text(config.email, pageWidth - MARGIN, companyY, { align: 'right' });
+    companyY += 4;
+  }
+
+  let y = Math.max(logoBottom, companyY) + 6;
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(15);
+  doc.setTextColor(0, 0, 0);
+  doc.text(`Orçamento ${dados.numero}`, pageWidth / 2, y, { align: 'center' });
+  y += 9;
+
+  // ========== CLIENTE + NÚMERO/DATA/VALIDADE ==========
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.text('Cliente', MARGIN, y);
+  y += 3;
+
+  const leftBoxW = contentWidth * 0.62;
+  const rightBoxW = contentWidth - leftBoxW - 4;
+  const clienteBoxH = 26;
+  const clienteBoxTop = y;
+
+  doc.setDrawColor(...GRAY_LINE);
+  doc.setLineWidth(0.2);
+  doc.rect(MARGIN, clienteBoxTop, leftBoxW, clienteBoxH);
+  doc.rect(MARGIN + leftBoxW + 4, clienteBoxTop, rightBoxW, clienteBoxH);
+
+  let cy = clienteBoxTop + 5;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8.5);
+  doc.setTextColor(0, 0, 0);
+  doc.text(dados.cliente.nome, MARGIN + 3, cy);
+  cy += 4.5;
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
+  doc.setTextColor(40, 40, 40);
+  if (dados.cliente.cpf_cnpj) {
+    doc.text(`CNPJ/CPF: ${dados.cliente.cpf_cnpj}`, MARGIN + 3, cy);
+    cy += 4;
+  }
+  if (dados.cliente.endereco) {
+    const linhasEnd = doc.splitTextToSize(dados.cliente.endereco, leftBoxW - 6);
+    linhasEnd.slice(0, 2).forEach((linha: string) => {
+      doc.text(linha, MARGIN + 3, cy);
+      cy += 4;
+    });
+  }
+  const contatos = [dados.cliente.telefone ? `Fone: ${dados.cliente.telefone}` : null, dados.cliente.email]
+    .filter(Boolean)
+    .join('   ');
+  if (contatos) doc.text(contatos, MARGIN + 3, cy);
+
+  const rx = MARGIN + leftBoxW + 4;
+  const rowH = clienteBoxH / 3;
+  const metaRows: [string, string][] = [
+    ['Número do orçamento', dados.numero],
+    ['Data', dados.data],
+    ['Validade', dados.validade],
+  ];
+  metaRows.forEach((row, i) => {
+    const ry = clienteBoxTop + rowH * i;
+    if (i > 0) doc.line(rx, ry, rx + rightBoxW, ry);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(6.5);
+    doc.setTextColor(...GRAY_LABEL);
+    doc.text(row[0].toUpperCase(), rx + 2, ry + 3.5);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.5);
+    doc.setTextColor(0, 0, 0);
+    doc.text(row[1], rx + 2, ry + rowH - 2.5);
+  });
+
+  y = clienteBoxTop + clienteBoxH + 6;
+
+  // ========== VENDEDOR / LOJA ==========
+  const halfW = (contentWidth - 4) / 2;
+  const vBoxH = 14;
+
+  doc.setDrawColor(...GRAY_LINE);
+  doc.rect(MARGIN, y, halfW, vBoxH);
+  doc.rect(MARGIN + halfW + 4, y, halfW, vBoxH);
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7);
+  doc.setTextColor(...GRAY_LABEL);
+  doc.text('VENDEDOR', MARGIN + 3, y + 4.5);
+  doc.text('LOJA', MARGIN + halfW + 4 + 3, y + 4.5);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8.5);
+  doc.setTextColor(0, 0, 0);
+  doc.text(dados.vendedor?.nome || '-', MARGIN + 3, y + 10.5);
+  doc.text(dados.loja || 'Matriz', MARGIN + halfW + 4 + 3, y + 10.5);
+
+  y += vBoxH + 8;
+
+  // ========== ITENS DO ORÇAMENTO ==========
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.setTextColor(0, 0, 0);
+  doc.text('Itens do Orçamento', MARGIN, y);
+  y += 3;
+
+  const temInfoKg = dados.itens.some(item => item.peso_total_kg || item.preco_por_kg || item.peso_kg_m);
   const deveMostrarKg = mostrarKg && temInfoKg;
 
   let headers: string[];
   let columnStyles: any;
 
   if (deveMostrarKg) {
-    headers = [
-      'Foto',
-      'Código',
-      'Descrição',
-      'Localização',
-      'Qtd',
-      'Peso/Kg',
-      'Preço Unit.',
-      'Desc. %',
-      'Subtotal',
-    ];
-
+    headers = ['Foto', 'Código', 'Descrição', 'Localização', 'Un.', 'Qtd', 'Peso/Kg', 'Preço Unit.', 'Desc. %', 'Subtotal'];
     columnStyles = {
-      0: { cellWidth: 18, halign: 'center', valign: 'middle' },
-      1: { cellWidth: 18 },
-      2: { cellWidth: 42 },
-      3: { cellWidth: 22 },
+      0: { cellWidth: 16, halign: 'center', valign: 'middle' },
+      1: { cellWidth: 16 },
+      2: { cellWidth: 40 },
+      3: { cellWidth: 18 },
       4: { halign: 'center', cellWidth: 10 },
-      5: { halign: 'center', cellWidth: 18 },
-      6: { halign: 'right', cellWidth: 22 },
-      7: { halign: 'center', cellWidth: 14 },
-      8: { halign: 'right', cellWidth: 22 },
+      5: { halign: 'center', cellWidth: 10 },
+      6: { halign: 'center', cellWidth: 16 },
+      7: { halign: 'right', cellWidth: 20 },
+      8: { halign: 'center', cellWidth: 12 },
+      9: { halign: 'right', cellWidth: 22 },
     };
   } else {
-    headers = [
-      'Foto',
-      'Código',
-      'Descrição',
-      'Localização',
-      'Qtd',
-      'Preço Unit.',
-      'Desc. %',
-      'Subtotal',
-    ];
-
+    headers = ['Foto', 'Código', 'Descrição', 'Localização', 'Un.', 'Qtd', 'Preço Unit.', 'Desc. %', 'Subtotal'];
     columnStyles = {
-      0: { cellWidth: 18, halign: 'center', valign: 'middle' },
-      1: { cellWidth: 20 },
+      0: { cellWidth: 16, halign: 'center', valign: 'middle' },
+      1: { cellWidth: 18 },
       2: { cellWidth: 48 },
-      3: { cellWidth: 24 },
+      3: { cellWidth: 20 },
       4: { halign: 'center', cellWidth: 10 },
-      5: { halign: 'right', cellWidth: 24 },
-      6: { halign: 'center', cellWidth: 14 },
-      7: { halign: 'right', cellWidth: 24 },
+      5: { halign: 'center', cellWidth: 10 },
+      6: { halign: 'right', cellWidth: 22 },
+      7: { halign: 'center', cellWidth: 12 },
+      8: { halign: 'right', cellWidth: 22 },
     };
   }
 
   const tableData = dados.itens.map(item => {
     const descontoFormatado = item.desconto ? `${item.desconto}%` : '0%';
+    const unidade = item.unidade || 'Un';
 
     if (deveMostrarKg) {
       let pesoInfo = '-';
-
       if (item.peso_total_kg) {
         pesoInfo = `${item.peso_total_kg.toFixed(3)} kg`;
       } else if (item.preco_por_kg) {
@@ -388,6 +469,7 @@ export async function gerarPDFOrcamento(
         item.codigo,
         item.nome,
         item.localizacao || '-',
+        unidade,
         item.quantidade.toString(),
         pesoInfo,
         `R$ ${item.preco_unitario.toFixed(2)}`,
@@ -401,6 +483,7 @@ export async function gerarPDFOrcamento(
       item.codigo,
       item.nome,
       item.localizacao || '-',
+      unidade,
       item.quantidade.toString(),
       `R$ ${item.preco_unitario.toFixed(2)}`,
       descontoFormatado,
@@ -409,36 +492,37 @@ export async function gerarPDFOrcamento(
   });
 
   autoTable(doc, {
-    startY: yPos,
+    startY: y,
     head: [headers],
     body: tableData,
     theme: 'grid',
 
     headStyles: {
-      fillColor: primaryColor,
-      textColor: [255, 255, 255],
+      fillColor: GRAY_HEAD,
+      textColor: [0, 0, 0],
       fontStyle: 'bold',
       fontSize: 7,
       halign: 'center',
+      lineColor: GRAY_LINE,
+      lineWidth: 0.2,
     },
 
     bodyStyles: {
       fontSize: 7,
       cellPadding: 2,
       valign: 'middle',
-    },
-
-    alternateRowStyles: {
-      fillColor: lightGray,
+      textColor: [0, 0, 0],
+      lineColor: GRAY_LINE,
+      lineWidth: 0.2,
     },
 
     columnStyles,
 
     margin: {
-      top: 55,
-      left: 15,
-      right: 15,
-      bottom: 25,
+      top: 26,
+      left: MARGIN,
+      right: MARGIN,
+      bottom: 22,
     },
 
     didParseCell: data => {
@@ -454,14 +538,7 @@ export async function gerarPDFOrcamento(
         if (item?.imagemDataURL) {
           try {
             const format = item.imagemDataURL.startsWith('data:image/png') ? 'PNG' : 'JPEG';
-            doc.addImage(
-              item.imagemDataURL,
-              format,
-              data.cell.x + 2,
-              data.cell.y + 2,
-              14,
-              14
-            );
+            doc.addImage(item.imagemDataURL, format, data.cell.x + 2, data.cell.y + 2, 14, 14);
           } catch (error) {
             console.error('Erro ao desenhar imagem do item:', error);
           }
@@ -475,17 +552,17 @@ export async function gerarPDFOrcamento(
     },
 
     didDrawPage: data => {
-      const totalPages = (doc as any).internal.getNumberOfPages();
-      drawHeader(data.pageNumber === 1);
-      drawFooter(data.pageNumber, totalPages);
+      if (data.pageNumber > 1) {
+        drawContinuationHeader();
+      }
     },
   });
 
-  yPos = (doc as any).lastAutoTable.finalY + 10;
+  y = (doc as any).lastAutoTable.finalY + 8;
 
+  // ========== RESUMO / TOTAIS ==========
   const pesoTotal = dados.itens.reduce((sum, item) => {
     let itemPeso = 0;
-
     if (item.peso_total_kg) {
       itemPeso = item.peso_total_kg;
     } else if (item.peso_kg_m && item.comprimento_barra) {
@@ -493,148 +570,126 @@ export async function gerarPDFOrcamento(
     } else if (item.peso) {
       itemPeso = item.peso * item.quantidade;
     }
-
     return sum + itemPeso;
   }, 0);
-
   const mostrarPeso = deveMostrarKg && pesoTotal > 0;
-  const boxHeight = mostrarPeso ? 28 : 20;
 
-  if (yPos + boxHeight > pageHeight - 30) {
-    doc.addPage();
-    drawHeader(false);
-    yPos = 50;
+  const nItens = dados.itens.length;
+  const somaQtdes = dados.itens.reduce((sum, item) => sum + item.quantidade, 0);
+
+  y = ensureSpace(mostrarPeso ? 30 : 26, y);
+
+  const totalsX = pageWidth - MARGIN;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.setTextColor(40, 40, 40);
+
+  doc.text(`N° de itens: ${nItens}`, totalsX, y, { align: 'right' });
+  y += 4.5;
+  doc.text(`Soma das Qtdes: ${somaQtdes.toLocaleString('pt-BR')}`, totalsX, y, { align: 'right' });
+  y += 4.5;
+  if (mostrarPeso) {
+    doc.text(`Peso Total: ${pesoTotal.toFixed(3)} kg`, totalsX, y, { align: 'right' });
+    y += 4.5;
+  }
+  doc.text(
+    `Total de produtos: R$ ${dados.valor_total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+    totalsX,
+    y,
+    { align: 'right' }
+  );
+  y += 6;
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10.5);
+  doc.setTextColor(0, 0, 0);
+  doc.text(
+    `Total do Orçamento: R$ ${dados.valor_total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+    totalsX,
+    y,
+    { align: 'right' }
+  );
+  y += 10;
+
+  // ========== PARCELAS ==========
+  if (dados.pagamento) {
+    const parcelas = calcularParcelasPDF(dados.pagamento, dados.valor_total);
+
+    if (parcelas.length > 0) {
+      y = ensureSpace(20, y);
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
+      doc.setTextColor(0, 0, 0);
+      doc.text('Parcelas', MARGIN, y);
+      y += 3;
+
+      autoTable(doc, {
+        startY: y,
+        head: [['Dias', 'Data vencimento', 'Forma de pagamento', 'Valor', 'Observação']],
+        body: parcelas.map(p => [
+          p.dias.toString(),
+          p.data,
+          p.forma,
+          `R$ ${p.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+          '',
+        ]),
+        theme: 'grid',
+        headStyles: {
+          fillColor: GRAY_HEAD,
+          textColor: [0, 0, 0],
+          fontStyle: 'bold',
+          fontSize: 7.5,
+          halign: 'left',
+          lineColor: GRAY_LINE,
+          lineWidth: 0.2,
+        },
+        bodyStyles: {
+          fontSize: 7.5,
+          textColor: [0, 0, 0],
+          lineColor: GRAY_LINE,
+          lineWidth: 0.2,
+        },
+        columnStyles: {
+          0: { cellWidth: 15 },
+          1: { cellWidth: 32 },
+          3: { halign: 'right', cellWidth: 28 },
+          4: { cellWidth: 30 },
+        },
+        margin: { left: MARGIN, right: MARGIN, bottom: 22 },
+        didDrawPage: data => {
+          if (data.pageNumber > 1) drawContinuationHeader();
+        },
+      });
+
+      y = (doc as any).lastAutoTable.finalY + 8;
+    }
   }
 
-  doc.setFillColor(...primaryColor);
-  doc.roundedRect(pageWidth - 85, yPos, 70, boxHeight, 2, 2, 'F');
+  // ========== OBSERVAÇÕES ==========
+  const obsTexto = (dados.observacoes || '').trim();
+  const obsLinhas = obsTexto ? doc.splitTextToSize(obsTexto, contentWidth - 6) : [];
+  const obsBoxH = Math.max(18, obsLinhas.length * 4 + 8);
+
+  y = ensureSpace(obsBoxH + 8, y);
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9);
-  doc.setTextColor(255, 255, 255);
+  doc.setTextColor(0, 0, 0);
+  doc.text('Observações', MARGIN, y);
+  y += 3;
 
-  let totalY = yPos + 6;
+  doc.setDrawColor(...GRAY_LINE);
+  doc.rect(MARGIN, y, contentWidth, obsBoxH);
 
-  if (mostrarPeso) {
-    doc.text(`Peso Total: ${pesoTotal.toFixed(3)} kg`, pageWidth - 80, totalY);
-    totalY += 7;
-  }
-
-  doc.setFontSize(10);
-  doc.text('VALOR TOTAL:', pageWidth - 80, totalY);
-
-  doc.setFontSize(12);
-  doc.text(
-    `R$ ${dados.valor_total.toLocaleString('pt-BR', {
-      minimumFractionDigits: 2,
-    })}`,
-    pageWidth - 80,
-    totalY + 7
-  );
-
-  yPos += boxHeight + 10;
-
-  if (dados.pagamento) {
-    if (yPos + 35 > pageHeight - 30) {
-      doc.addPage();
-      drawHeader(false);
-      yPos = 50;
-    }
-
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(...primaryColor);
-    doc.text('CONDIÇÕES DE PAGAMENTO', 20, yPos);
-
-    yPos += 6;
-
-    doc.setFontSize(8);
+  if (obsLinhas.length > 0) {
     doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
     doc.setTextColor(0, 0, 0);
-
-    let pagamentoY = yPos;
-
-    if (dados.pagamento.pagamento_misto) {
-      doc.text('Forma de Pagamento: PAGAMENTO MISTO', 20, pagamentoY);
-      pagamentoY += 4;
-
-      doc.text(
-        `Crédito utilizado: R$ ${dados.pagamento.valor_credito_utilizado?.toFixed(2) || '0,00'}`,
-        20,
-        pagamentoY
-      );
-
-      pagamentoY += 4;
-      doc.text(`Restante: ${dados.pagamento.forma_pagamento_restante}`, 20, pagamentoY);
-    } else if (dados.pagamento.forma === 'Crédito do Cliente') {
-      doc.text('Forma de Pagamento: CRÉDITO DO CLIENTE', 20, pagamentoY);
-      pagamentoY += 4;
-      doc.text(`Valor total: R$ ${dados.valor_total.toFixed(2)}`, 20, pagamentoY);
-    } else if (!dados.pagamento.parcelas || dados.pagamento.parcelas <= 1) {
-      doc.text(`Forma de Pagamento: ${dados.pagamento.forma}`, 20, pagamentoY);
-      pagamentoY += 4;
-      doc.text(`Valor: R$ ${dados.valor_total.toFixed(2)}`, 20, pagamentoY);
-    } else {
-      doc.text(`Forma de Pagamento: ${dados.pagamento.forma}`, 20, pagamentoY);
-      pagamentoY += 4;
-
-      if (dados.pagamento.entrada && dados.pagamento.entrada > 0) {
-        doc.text(`Entrada: R$ ${dados.pagamento.entrada.toFixed(2)} hoje`, 20, pagamentoY);
-        pagamentoY += 4;
-      }
-
-      const parcelasInfo = dados.pagamento.condicao?.startsWith('0/')
-        ? `${dados.pagamento.parcelas - 1}x de R$ ${
-            dados.pagamento.valor_parcela?.toFixed(2) || '0,00'
-          }`
-        : `${dados.pagamento.parcelas}x de R$ ${
-            dados.pagamento.valor_parcela?.toFixed(2) || '0,00'
-          }`;
-
-      doc.text(`Parcelas: ${parcelasInfo}`, 20, pagamentoY);
-      pagamentoY += 4;
-
-      if (dados.pagamento.descricao_condicao) {
-        doc.text(`Condição: ${dados.pagamento.descricao_condicao}`, 20, pagamentoY);
-      }
-    }
-
-    yPos = pagamentoY + 8;
-  }
-
-  if (dados.observacoes && dados.observacoes.trim()) {
-    const remainingSpace = pageHeight - yPos - 30;
-    const estimatedObsHeight = (dados.observacoes.length / 80) * 20;
-
-    if (remainingSpace < estimatedObsHeight) {
-      doc.addPage();
-      drawHeader(false);
-      yPos = 50;
-    }
-
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(...redColor);
-    doc.text('OBSERVAÇÕES IMPORTANTES', 20, yPos);
-
-    yPos += 7;
-
-    doc.setFontSize(8);
-    doc.setFont('helvetica', 'normal');
-
-    doc.setFillColor(255, 248, 248);
-
-    const splitObs = doc.splitTextToSize(dados.observacoes, pageWidth - 40);
-    const obsHeight = splitObs.length * 4;
-
-    doc.roundedRect(15, yPos, pageWidth - 30, obsHeight + 8, 2, 2, 'F');
-
-    doc.setTextColor(...redColor);
-    doc.text(splitObs, 20, yPos + 5);
+    doc.text(obsLinhas, MARGIN + 3, y + 5.5);
   }
 
   const totalPages = (doc as any).internal.getNumberOfPages();
-
   for (let i = 1; i <= totalPages; i++) {
     doc.setPage(i);
     drawFooter(i, totalPages);

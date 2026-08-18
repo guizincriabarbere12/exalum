@@ -38,7 +38,7 @@ const StatsCard = ({ title, value, icon: Icon, description, valueColor, isCurren
     : value;
 
   return (
-    <Card className="relative overflow-hidden border-0 shadow-lg bg-gradient-to-br from-white to-blue-50/30 hover:shadow-xl transition-all duration-300">
+    <Card className="relative overflow-hidden border-0 shadow-lg bg-gradient-to-br from-card to-blue-50/30 hover:shadow-xl transition-all duration-300">
       <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-3xl"></div>
       <CardContent className="p-6 relative z-10">
         <div className="flex items-start justify-between">
@@ -602,15 +602,15 @@ export default function Dashboard() {
   return (
     <div className="space-y-6 p-6">
       {/* Cabeçalho */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h2 className="text-4xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+          <h2 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
             Dashboard
           </h2>
           <p className="text-muted-foreground">Visão geral do sistema</p>
         </div>
-        
-        <Button variant="outline" onClick={handleRefresh} disabled={refreshing}>
+
+        <Button variant="outline" onClick={handleRefresh} disabled={refreshing} className="w-full sm:w-auto">
           <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
           {refreshing ? "Atualizando..." : "Atualizar"}
         </Button>

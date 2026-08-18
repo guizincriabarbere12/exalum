@@ -111,59 +111,63 @@ export default function Vendas() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-bold text-foreground">Vendas</h2>
+          <h2 className="text-2xl sm:text-3xl font-bold text-foreground">Vendas</h2>
           <p className="text-muted-foreground">Gerencie suas vendas e pedidos por filial</p>
         </div>
-        <Button variant="outline" onClick={fetchVendas} disabled={loading}>
+        <Button variant="outline" onClick={fetchVendas} disabled={loading} className="w-full sm:w-auto">
           <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
           Atualizar
         </Button>
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
-        <Card>
-          <CardContent className="p-6">
+        <Card className="relative overflow-hidden border-0 shadow-lg bg-gradient-to-br from-card to-blue-50/30 hover:shadow-xl transition-all duration-300">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-primary/5 rounded-full blur-2xl" />
+          <CardContent className="p-6 relative z-10">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Total de Vendas</p>
                 <h3 className="text-2xl font-bold">{totalVendas}</h3>
               </div>
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10"><ShoppingCart className="h-6 w-6 text-primary" /></div>
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-accent shadow-lg"><ShoppingCart className="h-6 w-6 text-white" /></div>
             </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="p-6">
+        <Card className="relative overflow-hidden border-0 shadow-lg bg-gradient-to-br from-card to-green-50/30 hover:shadow-xl transition-all duration-300">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-green-500/5 rounded-full blur-2xl" />
+          <CardContent className="p-6 relative z-10">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Valor Total</p>
                 <h3 className="text-2xl font-bold">R$ {valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h3>
               </div>
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-green-100"><DollarSign className="h-6 w-6 text-green-600" /></div>
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-success shadow-lg"><DollarSign className="h-6 w-6 text-white" /></div>
             </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="p-6">
+        <Card className="relative overflow-hidden border-0 shadow-lg bg-gradient-to-br from-card to-yellow-50/30 hover:shadow-xl transition-all duration-300">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-yellow-500/5 rounded-full blur-2xl" />
+          <CardContent className="p-6 relative z-10">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Pendente</p>
                 <h3 className="text-2xl font-bold text-yellow-600">R$ {valorPendente.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h3>
               </div>
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-yellow-100"><Package className="h-6 w-6 text-yellow-600" /></div>
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-yellow-400 to-amber-500 shadow-lg"><Package className="h-6 w-6 text-white" /></div>
             </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="p-6">
+        <Card className="relative overflow-hidden border-0 shadow-lg bg-gradient-to-br from-card to-green-50/30 hover:shadow-xl transition-all duration-300">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-green-500/5 rounded-full blur-2xl" />
+          <CardContent className="p-6 relative z-10">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Recebido</p>
                 <h3 className="text-2xl font-bold text-green-600">R$ {valorPago.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h3>
               </div>
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-green-100"><DollarSign className="h-6 w-6 text-green-600" /></div>
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-success shadow-lg"><DollarSign className="h-6 w-6 text-white" /></div>
             </div>
           </CardContent>
         </Card>

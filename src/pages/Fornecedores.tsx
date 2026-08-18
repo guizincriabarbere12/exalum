@@ -54,9 +54,9 @@ export default function Fornecedores() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-bold text-foreground">Fornecedores</h2>
+          <h2 className="text-2xl sm:text-3xl font-bold text-foreground">Fornecedores</h2>
           <p className="text-muted-foreground">Gerencie seus fornecedores</p>
         </div>
         {isAdmin && <AddFornecedorDialog onFornecedorAdded={fetchFornecedores} />}

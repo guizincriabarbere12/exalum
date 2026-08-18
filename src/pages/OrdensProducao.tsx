@@ -310,38 +310,47 @@ export default function OrdensProducao() {
   const temFiltrosAtivos = searchTerm !== "" || filtroStatus !== "todos" || filtroProduto !== "todos" || buscaProduto !== "";
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="container mx-auto p-4 sm:p-6 space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-foreground flex items-center gap-3">
-            <PaintBucket className="h-8 w-8 text-primary" /> Ordens de Produção
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground flex items-center gap-3">
+            <PaintBucket className="h-7 w-7 sm:h-8 sm:w-8 text-primary shrink-0" /> Ordens de Produção
           </h1>
           <p className="text-muted-foreground mt-1">Controle de produtos enviados para pintura, transformação de cor e retorno ao estoque</p>
         </div>
-        <Button onClick={() => setDialogNovaOpAberto(true)} className="bg-primary hover:bg-primary/90">
+        <Button onClick={() => setDialogNovaOpAberto(true)} className="bg-primary hover:bg-primary/90 w-full sm:w-auto">
           <Plus className="mr-2 h-4 w-4" /> Nova OP
         </Button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card><CardContent className="pt-6">
-          <div className="flex items-center justify-between">
-            <div><p className="text-sm font-medium text-muted-foreground">Em Pintura</p><p className="text-2xl font-bold text-amber-600">{totalEmPintura}</p></div>
-            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-amber-100"><Clock className="h-6 w-6 text-amber-600" /></div>
-          </div>
-        </CardContent></Card>
-        <Card><CardContent className="pt-6">
-          <div className="flex items-center justify-between">
-            <div><p className="text-sm font-medium text-muted-foreground">Retornados</p><p className="text-2xl font-bold text-green-600">{totalRetornados}</p></div>
-            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-green-100"><CheckCircle className="h-6 w-6 text-green-600" /></div>
-          </div>
-        </CardContent></Card>
-        <Card><CardContent className="pt-6">
-          <div className="flex items-center justify-between">
-            <div><p className="text-sm font-medium text-muted-foreground">Custo Total Pintura</p><p className="text-2xl font-bold text-primary">{formatCurrency(custoTotalPintura)}</p></div>
-            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10"><DollarSign className="h-6 w-6 text-primary" /></div>
-          </div>
-        </CardContent></Card>
+        <Card className="relative overflow-hidden border-0 shadow-lg bg-gradient-to-br from-card to-amber-50/30 hover:shadow-xl transition-all duration-300">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/5 rounded-full blur-2xl" />
+          <CardContent className="pt-6 relative z-10">
+            <div className="flex items-center justify-between">
+              <div><p className="text-sm font-medium text-muted-foreground">Em Pintura</p><p className="text-2xl font-bold text-amber-600">{totalEmPintura}</p></div>
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 shadow-lg"><Clock className="h-6 w-6 text-white" /></div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="relative overflow-hidden border-0 shadow-lg bg-gradient-to-br from-card to-green-50/30 hover:shadow-xl transition-all duration-300">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-green-500/5 rounded-full blur-2xl" />
+          <CardContent className="pt-6 relative z-10">
+            <div className="flex items-center justify-between">
+              <div><p className="text-sm font-medium text-muted-foreground">Retornados</p><p className="text-2xl font-bold text-green-600">{totalRetornados}</p></div>
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-success shadow-lg"><CheckCircle className="h-6 w-6 text-white" /></div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="relative overflow-hidden border-0 shadow-lg bg-gradient-to-br from-card to-blue-50/30 hover:shadow-xl transition-all duration-300">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-primary/5 rounded-full blur-2xl" />
+          <CardContent className="pt-6 relative z-10">
+            <div className="flex items-center justify-between">
+              <div><p className="text-sm font-medium text-muted-foreground">Custo Total Pintura</p><p className="text-2xl font-bold text-primary">{formatCurrency(custoTotalPintura)}</p></div>
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-accent shadow-lg"><DollarSign className="h-6 w-6 text-white" /></div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       <Card><CardContent className="pt-6">

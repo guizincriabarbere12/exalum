@@ -363,19 +363,28 @@ export default function TransferenciasEstoque() {
   const locs = [{ id: MATRIZ_ID, nome: "Matriz" }, ...filiais.map(f => ({ id: f.id, nome: f.nome }))];
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="container mx-auto p-4 sm:p-6 space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-foreground flex items-center gap-3"><ArrowLeftRight className="h-8 w-8 text-primary" /> Transferências de Estoque</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground flex items-center gap-3"><ArrowLeftRight className="h-7 w-7 sm:h-8 sm:w-8 text-primary shrink-0" /> Transferências de Estoque</h1>
           <p className="text-muted-foreground mt-1">Transfira produtos e kits entre a Matriz e as filiais com rastreabilidade completa</p>
         </div>
-        <Button onClick={() => setDialogNovaAberto(true)} className="bg-primary hover:bg-primary/90"><Plus className="mr-2 h-4 w-4" /> Nova Transferência</Button>
+        <Button onClick={() => setDialogNovaAberto(true)} className="bg-primary hover:bg-primary/90 w-full sm:w-auto"><Plus className="mr-2 h-4 w-4" /> Nova Transferência</Button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card><CardContent className="pt-6"><div className="flex items-center justify-between"><div><p className="text-sm font-medium text-muted-foreground">Pendentes</p><p className="text-2xl font-bold text-yellow-600">{totalPendentes}</p></div><div className="flex h-12 w-12 items-center justify-center rounded-lg bg-yellow-100"><Clock className="h-6 w-6 text-yellow-600" /></div></div></CardContent></Card>
-        <Card><CardContent className="pt-6"><div className="flex items-center justify-between"><div><p className="text-sm font-medium text-muted-foreground">Em Trânsito</p><p className="text-2xl font-bold text-blue-600">{totalEmTransito}</p></div><div className="flex h-12 w-12 items-center justify-center rounded-lg bg-blue-100"><Truck className="h-6 w-6 text-blue-600" /></div></div></CardContent></Card>
-        <Card><CardContent className="pt-6"><div className="flex items-center justify-between"><div><p className="text-sm font-medium text-muted-foreground">Concluídas</p><p className="text-2xl font-bold text-green-600">{totalConcluidas}</p></div><div className="flex h-12 w-12 items-center justify-center rounded-lg bg-green-100"><CheckCircle className="h-6 w-6 text-green-600" /></div></div></CardContent></Card>
+        <Card className="relative overflow-hidden border-0 shadow-lg bg-gradient-to-br from-card to-yellow-50/30 hover:shadow-xl transition-all duration-300">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-yellow-500/5 rounded-full blur-2xl" />
+          <CardContent className="pt-6 relative z-10"><div className="flex items-center justify-between"><div><p className="text-sm font-medium text-muted-foreground">Pendentes</p><p className="text-2xl font-bold text-yellow-600">{totalPendentes}</p></div><div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-yellow-400 to-amber-500 shadow-lg"><Clock className="h-6 w-6 text-white" /></div></div></CardContent>
+        </Card>
+        <Card className="relative overflow-hidden border-0 shadow-lg bg-gradient-to-br from-card to-blue-50/30 hover:shadow-xl transition-all duration-300">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/5 rounded-full blur-2xl" />
+          <CardContent className="pt-6 relative z-10"><div className="flex items-center justify-between"><div><p className="text-sm font-medium text-muted-foreground">Em Trânsito</p><p className="text-2xl font-bold text-blue-600">{totalEmTransito}</p></div><div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-cyan-600 shadow-lg"><Truck className="h-6 w-6 text-white" /></div></div></CardContent>
+        </Card>
+        <Card className="relative overflow-hidden border-0 shadow-lg bg-gradient-to-br from-card to-green-50/30 hover:shadow-xl transition-all duration-300">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-green-500/5 rounded-full blur-2xl" />
+          <CardContent className="pt-6 relative z-10"><div className="flex items-center justify-between"><div><p className="text-sm font-medium text-muted-foreground">Concluídas</p><p className="text-2xl font-bold text-green-600">{totalConcluidas}</p></div><div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-success shadow-lg"><CheckCircle className="h-6 w-6 text-white" /></div></div></CardContent>
+        </Card>
       </div>
 
       <Card><CardContent className="pt-6">

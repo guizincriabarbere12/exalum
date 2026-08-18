@@ -1,5 +1,6 @@
 // @ts-nocheck - Temporary fix until Supabase types are regenerated
 import { useState, useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,6 +10,7 @@ import { Settings, Save, ExternalLink, Copy, Users, Shield, Upload, Image, UserP
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { logActivity } from "@/lib/auditLog";
 import {
   Table,
   TableBody,
@@ -25,6 +27,13 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface Configuracao {
   id: string;
@@ -45,6 +54,7 @@ interface Usuario {
 
 export default function Configuracoes() {
   const { isAdmin } = useAuth();
+  const queryClient = useQueryClient();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
@@ -65,6 +75,7 @@ export default function Configuracoes() {
     endereco: '',
     logo_url: '',
   });
+  const [uploadingLogo, setUploadingLogo] = useState(false);
 
   const catalogoUrl = `${window.location.origin}/catalogo-publico`;
 
@@ -164,6 +175,12 @@ export default function Configuracoes() {
         throw new Error(result.error || 'Erro ao criar usuário');
       }
 
+      await logActivity({
+        acao: "criar",
+        entidade: "usuario",
+        descricao: `Criou o usuário ${novoUsuario.email}${novoUsuario.isAdmin ? " (administrador)" : ""}`,
+      });
+
       toast({
         title: "Usuário criado!",
         description: `Conta criada para ${novoUsuario.email}`,
@@ -183,10 +200,14 @@ export default function Configuracoes() {
     }
   };
 
-  const handleToggleAdmin = async (userId: string, currentRole: string) => {
-    if (!isAdmin) return;
+  const roleLabels: Record<string, string> = {
+    admin: 'administrador',
+    user: 'usuário comum',
+    serralheiro: 'serralheiro',
+  };
 
-    const newRole = currentRole === 'admin' ? 'user' : 'admin';
+  const handleAlterarRole = async (userId: string, newRole: string) => {
+    if (!isAdmin) return;
 
     try {
       const { error } = await supabase
@@ -196,9 +217,16 @@ export default function Configuracoes() {
 
       if (error) throw error;
 
+      await logActivity({
+        acao: "atualizar",
+        entidade: "usuario",
+        entidadeId: userId,
+        descricao: `Alterou permissão do usuário para ${roleLabels[newRole] || newRole}`,
+      });
+
       toast({
         title: "Permissão atualizada",
-        description: `Usuário agora é ${newRole === 'admin' ? 'administrador' : 'usuário comum'}`,
+        description: `Usuário agora é ${roleLabels[newRole] || newRole}`,
       });
 
       fetchUsers();
@@ -237,6 +265,10 @@ export default function Configuracoes() {
 
       if (error) throw error;
 
+      queryClient.invalidateQueries({ queryKey: ["company-config"] });
+
+      await logActivity({ acao: "atualizar", entidade: "configuracoes", entidadeId: config.id, descricao: "Atualizou os dados da empresa" });
+
       toast({
         title: "Configurações salvas",
         description: "As configurações foram atualizadas com sucesso",
@@ -249,6 +281,38 @@ export default function Configuracoes() {
       });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleUploadLogo = async (file: File) => {
+    setUploadingLogo(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `logos/${Math.random().toString(36).substring(2)}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('product-images')
+        .upload(fileName, file, { cacheControl: '3600', upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('product-images')
+        .getPublicUrl(fileName);
+
+      setConfig((prev) => ({ ...prev, logo_url: publicUrl }));
+      toast({
+        title: "Logo enviada",
+        description: "Clique em \"Salvar Configurações\" para aplicar.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Erro no upload da logo",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setUploadingLogo(false);
     }
   };
 
@@ -358,27 +422,33 @@ export default function Configuracoes() {
                       <TableCell className="font-medium">{usuario.email}</TableCell>
                       <TableCell>
                         <Badge variant={usuario.role === 'admin' ? 'default' : 'secondary'}>
-                          {usuario.role === 'admin' ? (
+                          {usuario.role === 'admin' && (
                             <>
                               <Shield className="h-3 w-3 mr-1" />
                               Administrador
                             </>
-                          ) : (
-                            'Usuário'
                           )}
+                          {usuario.role === 'serralheiro' && 'Serralheiro'}
+                          {usuario.role === 'user' && 'Usuário'}
                         </Badge>
                       </TableCell>
                       <TableCell>
                         {new Date(usuario.created_at).toLocaleDateString('pt-BR')}
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleToggleAdmin(usuario.id, usuario.role)}
+                        <Select
+                          value={usuario.role}
+                          onValueChange={(value) => handleAlterarRole(usuario.id, value)}
                         >
-                          {usuario.role === 'admin' ? 'Remover Admin' : 'Tornar Admin'}
-                        </Button>
+                          <SelectTrigger className="w-[160px] ml-auto">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="user">Usuário</SelectItem>
+                            <SelectItem value="admin">Administrador</SelectItem>
+                            <SelectItem value="serralheiro">Serralheiro</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -486,18 +556,46 @@ export default function Configuracoes() {
             </div>
 
             <div className="space-y-2 md:col-span-2">
-              <Label htmlFor="logo_url">URL da Logo</Label>
-              <Input
-                id="logo_url"
-                type="url"
-                value={config.logo_url || ''}
-                onChange={(e) => setConfig({ ...config, logo_url: e.target.value })}
-                disabled={!isAdmin}
-                placeholder="https://exemplo.com/logo.png"
-              />
+              <Label htmlFor="logo_url">Logo da Empresa</Label>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <Input
+                  id="logo_url"
+                  type="url"
+                  value={config.logo_url || ''}
+                  onChange={(e) => setConfig({ ...config, logo_url: e.target.value })}
+                  disabled={!isAdmin}
+                  placeholder="https://exemplo.com/logo.png"
+                  className="flex-1"
+                />
+                {isAdmin && (
+                  <>
+                    <input
+                      id="logo-file-input"
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleUploadLogo(file);
+                        e.target.value = '';
+                      }}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={uploadingLogo}
+                      onClick={() => document.getElementById('logo-file-input')?.click()}
+                      className="w-full sm:w-auto"
+                    >
+                      <Upload className="h-4 w-4 mr-2" />
+                      {uploadingLogo ? 'Enviando...' : 'Enviar arquivo'}
+                    </Button>
+                  </>
+                )}
+              </div>
               <p className="text-xs text-muted-foreground flex items-center gap-1">
                 <Image className="h-3 w-3" />
-                Cole a URL de uma imagem hospedada (ex: Imgur, Google Drive público, etc)
+                Envie um arquivo de imagem ou cole a URL de uma logo já hospedada. Ela aparecerá no menu lateral, no topo do sistema e na tela de login.
               </p>
               {config.logo_url && (
                 <div className="mt-2 p-4 border rounded-lg bg-muted/50">

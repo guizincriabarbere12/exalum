@@ -793,14 +793,14 @@ export default function KitsMontados() {
   return (
     <div className="space-y-6 p-6">
       {/* Cabeçalho */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold">Kits Montados</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold">Kits Montados</h1>
           <p className="text-muted-foreground">
             Gerencie kits de produtos com controle automático de estoque
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button
             variant="outline"
             size="default"

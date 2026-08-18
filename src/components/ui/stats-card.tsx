@@ -38,7 +38,7 @@ export function StatsCard({
 
   return (
     <Card className={cn(
-      "relative overflow-hidden border-0 shadow-lg bg-gradient-to-br from-white to-blue-50/30 hover:shadow-xl transition-all duration-300",
+      "relative overflow-hidden border-0 shadow-lg bg-gradient-to-br from-card to-blue-50/30 hover:shadow-xl transition-all duration-300",
       className
     )}>
       <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-3xl"></div>

@@ -6,8 +6,11 @@ import {
   Boxes, ShoppingBag, Wallet, UserCheck, PaintBucket, Building2, ArrowLeftRight,
   ChevronDown, ChevronRight, Landmark, CreditCard, ArrowDownCircle, ArrowUpCircle,
   Send, FileSpreadsheet, Percent, Receipt, ClipboardCheck, BarChart3 as BarChartIcon,
+  Hammer,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { useCompanyConfig } from "@/hooks/useCompanyConfig";
+import { cn } from "@/lib/utils";
 import {
   Sidebar,
   SidebarContent,
@@ -38,6 +41,7 @@ const menuItems = [
   { title: "Orçamentos", url: "/orcamentos", icon: FileText },
   { title: "Vendas", url: "/vendas", icon: ShoppingCart },
   { title: "Pedidos", url: "/pedidos", icon: ClipboardList },
+  { title: "Requisições", url: "/requisicoes-material", icon: Hammer },
   { title: "Compras", url: "/compras", icon: ShoppingBag },
   { title: "Fornecedores", url: "/fornecedores", icon: Truck },
   { title: "Vendedores", url: "/vendedores", icon: UserCheck },
@@ -60,26 +64,37 @@ export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const [financeiroOpen, setFinanceiroOpen] = useState(true);
+  const { nomeEmpresa, logoUrl } = useCompanyConfig();
+  const { isAdmin } = useAuth();
+
+  const LogoBadge = () => (
+    <div
+      className={cn(
+        "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl shadow-lg",
+        !logoUrl && "bg-gradient-to-br from-primary to-accent",
+      )}
+    >
+      {logoUrl ? (
+        <img src={logoUrl} alt={nomeEmpresa} className="h-full w-full object-contain rounded-xl" />
+      ) : (
+        <Package className="h-6 w-6 text-white" />
+      )}
+    </div>
+  );
 
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader className="border-b border-sidebar-border/50 p-4">
         {!collapsed && (
           <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-accent shadow-lg">
-              <Package className="h-6 w-6 text-white" />
-            </div>
-            <div>
-              <h2 className="text-lg font-bold text-sidebar-foreground tracking-tight">Exalum</h2>
+            <LogoBadge />
+            <div className="min-w-0">
+              <h2 className="text-lg font-bold text-sidebar-foreground tracking-tight truncate">{nomeEmpresa}</h2>
               <p className="text-xs text-sidebar-foreground/60 font-medium">Manager Pro</p>
             </div>
           </div>
         )}
-        {collapsed && (
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-accent shadow-lg">
-            <Package className="h-6 w-6 text-white" />
-          </div>
-        )}
+        {collapsed && <LogoBadge />}
       </SidebarHeader>
 
       <SidebarContent>
@@ -173,6 +188,23 @@ export function AppSidebar() {
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
+              {isAdmin && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild>
+                    <NavLink
+                      to="/auditoria"
+                      className={({ isActive }) =>
+                        isActive
+                          ? "bg-gradient-to-r from-primary/20 to-accent/20 text-sidebar-foreground font-semibold border-l-4 border-primary shadow-sm"
+                          : "hover:bg-sidebar-accent/70 hover:translate-x-1 transition-all duration-200"
+                      }
+                    >
+                      <History className="h-4 w-4" />
+                      {!collapsed && <span>Auditoria</span>}
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
               <SidebarMenuItem>
                 <SidebarMenuButton asChild>
                   <NavLink

@@ -11,8 +11,8 @@ export default function Orcamentos() {
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-6 animate-fade-in">
-      <div className="bg-primary/10 rounded-full p-6">
-        <FileText className="h-16 w-16 text-primary" />
+      <div className="bg-gradient-to-br from-primary to-accent rounded-full p-6 shadow-xl">
+        <FileText className="h-16 w-16 text-white" />
       </div>
       
       <div className="text-center space-y-4">

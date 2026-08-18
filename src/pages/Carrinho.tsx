@@ -235,7 +235,7 @@ export default function Carrinho() {
                   {cart.map((item) => (
                     <div
                       key={item.produto_id}
-                      className="flex items-center gap-4 p-5 border-0 rounded-xl bg-gradient-to-br from-white to-slate-50/50 shadow-sm hover:shadow-md transition-shadow"
+                      className="flex items-center gap-4 p-5 border-0 rounded-xl bg-gradient-to-br from-card to-slate-50/50 shadow-sm hover:shadow-md transition-shadow"
                     >
                       <div className="flex-1">
                         <h3 className="font-bold text-foreground text-lg">{item.descricao}</h3>
@@ -372,7 +372,7 @@ export default function Carrinho() {
             </CardContent>
           </Card>
 
-            <Card className="border-0 shadow-lg bg-gradient-to-br from-white to-slate-50/50">
+            <Card className="border-0 shadow-lg bg-gradient-to-br from-card to-slate-50/50">
               <CardHeader>
                 <CardTitle className="text-xl">Resumo do Pedido</CardTitle>
               </CardHeader>

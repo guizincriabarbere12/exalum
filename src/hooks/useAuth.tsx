@@ -8,6 +8,7 @@ export function useAuth() {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [role, setRole] = useState<string>("user");
 
   useEffect(() => {
     // Set up auth state listener FIRST
@@ -15,7 +16,7 @@ export function useAuth() {
       (event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
-        
+
         // Defer role check
         if (session?.user) {
           setTimeout(() => {
@@ -23,6 +24,7 @@ export function useAuth() {
           }, 0);
         } else {
           setIsAdmin(false);
+          setRole("user");
         }
       }
     );
@@ -31,7 +33,7 @@ export function useAuth() {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
-      
+
       if (session?.user) {
         checkUserRole(session.user.id);
       }
@@ -47,15 +49,27 @@ export function useAuth() {
       .from("user_roles")
       .select("role")
       .eq("user_id", userId)
-      .eq("role", "admin")
       .maybeSingle();
-    
-    setIsAdmin(!!data);
+
+    const currentRole = data?.role ?? "user";
+    setRole(currentRole);
+    setIsAdmin(currentRole === "admin");
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    try {
+      const { error } = await supabase.auth.signOut({ scope: "local" });
+      if (error) throw error;
+    } catch (error) {
+      console.error("Erro ao encerrar sessão:", error);
+    } finally {
+      // Garante que o estado local limpe mesmo se a chamada ao servidor falhar
+      setUser(null);
+      setSession(null);
+      setIsAdmin(false);
+      setRole("user");
+    }
   };
 
-  return { user, session, loading, isAdmin, signOut };
+  return { user, session, loading, isAdmin, role, isSerralheiro: role === "serralheiro", signOut };
 }
