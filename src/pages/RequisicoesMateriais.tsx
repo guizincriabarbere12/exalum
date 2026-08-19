@@ -4,13 +4,22 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  DialogDescription,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { ClipboardList, Check, X, ChevronDown, ChevronRight, Hammer } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
@@ -49,15 +58,26 @@ const statusLabel = {
 export default function RequisicoesMateriais() {
   const [requisicoes, setRequisicoes] = useState<Requisicao[]>([]);
   const [solicitantes, setSolicitantes] = useState<Record<string, string>>({});
+  const [clientes, setClientes] = useState<{ id: string; nome: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandido, setExpandido] = useState<string | null>(null);
   const [processando, setProcessando] = useState<string | null>(null);
   const [rejeicaoAlvo, setRejeicaoAlvo] = useState<Requisicao | null>(null);
   const [motivoRejeicao, setMotivoRejeicao] = useState("");
 
+  const [aprovacaoAlvo, setAprovacaoAlvo] = useState<Requisicao | null>(null);
+  const [cobrar, setCobrar] = useState(false);
+  const [clienteSelecionado, setClienteSelecionado] = useState("");
+
   useEffect(() => {
     fetchRequisicoes();
+    fetchClientes();
   }, []);
+
+  const fetchClientes = async () => {
+    const { data } = await supabase.from("clientes").select("id, nome").order("nome");
+    setClientes(data || []);
+  };
 
   const fetchRequisicoes = async () => {
     try {
@@ -85,30 +105,70 @@ export default function RequisicoesMateriais() {
     }
   };
 
-  const aprovar = async (req: Requisicao) => {
-    setProcessando(req.id);
-    try {
-      const { data, error } = await supabase.rpc("aprovar_requisicao_material", {
-        requisicao_id_param: req.id,
-      });
-      if (error) throw error;
+  const abrirAprovacao = (req: Requisicao) => {
+    setAprovacaoAlvo(req);
+    setCobrar(false);
+    setClienteSelecionado("");
+  };
 
-      if (!data.success) {
-        toast({ title: "Não foi possível aprovar", description: data.message, variant: "destructive" });
-        return;
+  const confirmarAprovacao = async () => {
+    if (!aprovacaoAlvo) return;
+
+    if (cobrar && !clienteSelecionado) {
+      toast({ title: "Escolha um cliente", variant: "destructive" });
+      return;
+    }
+
+    setProcessando(aprovacaoAlvo.id);
+    try {
+      if (cobrar) {
+        const { data, error } = await supabase.rpc("converter_requisicao_em_orcamento", {
+          requisicao_id_param: aprovacaoAlvo.id,
+          cliente_id_param: clienteSelecionado,
+        });
+        if (error) throw error;
+
+        if (!data.success) {
+          toast({ title: "Não foi possível converter", description: data.message, variant: "destructive" });
+          return;
+        }
+
+        await logActivity({
+          acao: "aprovar",
+          entidade: "requisicao_material",
+          entidadeId: aprovacaoAlvo.id,
+          descricao: `Converteu a requisição ${aprovacaoAlvo.numero} no orçamento ${data.orcamento_numero} para cobrança`,
+        });
+
+        toast({
+          title: "Orçamento criado!",
+          description: `Requisição virou o orçamento ${data.orcamento_numero}, agora segue o fluxo normal de aprovação`,
+        });
+      } else {
+        const { data, error } = await supabase.rpc("aprovar_requisicao_material", {
+          requisicao_id_param: aprovacaoAlvo.id,
+        });
+        if (error) throw error;
+
+        if (!data.success) {
+          toast({ title: "Não foi possível aprovar", description: data.message, variant: "destructive" });
+          return;
+        }
+
+        await logActivity({
+          acao: "aprovar",
+          entidade: "requisicao_material",
+          entidadeId: aprovacaoAlvo.id,
+          descricao: `Aprovou a requisição de material ${aprovacaoAlvo.numero} (uso interno)`,
+        });
+
+        toast({ title: "Requisição aprovada", description: "Estoque atualizado com sucesso" });
       }
 
-      await logActivity({
-        acao: "aprovar",
-        entidade: "requisicao_material",
-        entidadeId: req.id,
-        descricao: `Aprovou a requisição de material ${req.numero}`,
-      });
-
-      toast({ title: "Requisição aprovada", description: "Estoque atualizado com sucesso" });
+      setAprovacaoAlvo(null);
       fetchRequisicoes();
     } catch (error: any) {
-      toast({ title: "Erro ao aprovar", description: error.message, variant: "destructive" });
+      toast({ title: "Erro ao processar", description: error.message, variant: "destructive" });
     } finally {
       setProcessando(null);
     }
@@ -217,7 +277,7 @@ export default function RequisicoesMateriais() {
                           <div className="flex gap-2 pt-2">
                             <Button
                               size="sm"
-                              onClick={() => aprovar(req)}
+                              onClick={() => abrirAprovacao(req)}
                               disabled={processando === req.id}
                             >
                               <Check className="h-4 w-4 mr-1" />
@@ -243,6 +303,62 @@ export default function RequisicoesMateriais() {
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={!!aprovacaoAlvo} onOpenChange={(open) => !open && setAprovacaoAlvo(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Aprovar requisição {aprovacaoAlvo?.numero}</DialogTitle>
+            <DialogDescription>Escolha se esse material é uso interno ou deve ser cobrado de um cliente</DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant={!cobrar ? "default" : "outline"}
+                className="flex-1"
+                onClick={() => setCobrar(false)}
+              >
+                Uso interno
+              </Button>
+              <Button
+                type="button"
+                variant={cobrar ? "default" : "outline"}
+                className="flex-1"
+                onClick={() => setCobrar(true)}
+              >
+                Cobrar do cliente
+              </Button>
+            </div>
+
+            {cobrar && (
+              <div className="space-y-2">
+                <Label>Cliente</Label>
+                <Select value={clienteSelecionado} onValueChange={setClienteSelecionado}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o cliente" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {clientes.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Vai gerar um orçamento com os itens da requisição, para você aprovar normalmente. O estoque só sai quando esse orçamento for aprovado.
+                </p>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAprovacaoAlvo(null)}>Cancelar</Button>
+            <Button onClick={confirmarAprovacao} disabled={processando === aprovacaoAlvo?.id}>
+              {cobrar ? "Criar Orçamento" : "Aprovar (uso interno)"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!rejeicaoAlvo} onOpenChange={(open) => !open && setRejeicaoAlvo(null)}>
         <DialogContent>
