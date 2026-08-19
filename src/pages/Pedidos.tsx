@@ -552,7 +552,7 @@ export default function PedidosPage() {
         kit_id: item.kit_id,
         quantidade: item.quantidade,
         preco_unitario: item.preco_unitario,
-        subtotal: item.subtotal,
+        // subtotal é calculado automaticamente pelo banco (coluna gerada)
         peso: item.peso || 0
       }));
 

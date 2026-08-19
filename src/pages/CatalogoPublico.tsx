@@ -357,7 +357,7 @@ export default function CatalogoPublico() {
         kit_id: item.produto.item_tipo === 'kit' ? item.produto.id : null,
         quantidade: item.quantidade,
         preco_unitario: item.produto.preco_venda,
-        subtotal: item.quantidade * item.produto.preco_venda,
+        // subtotal é calculado automaticamente pelo banco (coluna gerada)
       }));
 
       const { error: itensError } = await supabase

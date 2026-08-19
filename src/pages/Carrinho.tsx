@@ -158,7 +158,7 @@ export default function Carrinho() {
         produto_id: item.produto_id,
         quantidade: item.quantidade,
         preco_unitario: item.preco_unitario,
-        subtotal: item.quantidade * item.preco_unitario,
+        // subtotal é calculado automaticamente pelo banco (coluna gerada)
       }));
 
       const { error: itensError } = await supabase
