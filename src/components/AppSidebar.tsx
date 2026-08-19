@@ -6,7 +6,7 @@ import {
   Boxes, ShoppingBag, Wallet, UserCheck, PaintBucket, Building2, ArrowLeftRight,
   ChevronDown, ChevronRight, Landmark, CreditCard, ArrowDownCircle, ArrowUpCircle,
   Send, FileSpreadsheet, Percent, Receipt, ClipboardCheck, BarChart3 as BarChartIcon,
-  Hammer, ShieldCheck, PackageCheck,
+  Hammer, ShieldCheck, PackageCheck, FileCheck,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useCompanyConfig } from "@/hooks/useCompanyConfig";
@@ -227,6 +227,23 @@ export function AppSidebar() {
                     >
                       <ShieldCheck className="h-4 w-4" />
                       {!collapsed && <span>Permissões</span>}
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
+              {isAdmin && canAccess("configuracao-fiscal") && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild>
+                    <NavLink
+                      to="/configuracao-fiscal"
+                      className={({ isActive }) =>
+                        isActive
+                          ? "bg-gradient-to-r from-primary/20 to-accent/20 text-sidebar-foreground font-semibold border-l-4 border-primary shadow-sm"
+                          : "hover:bg-sidebar-accent/70 hover:translate-x-1 transition-all duration-200"
+                      }
+                    >
+                      <FileCheck className="h-4 w-4" />
+                      {!collapsed && <span>Configuração Fiscal</span>}
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>

@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Search, Package, Pencil } from "lucide-react";
+import { Search, Package, Pencil, FileCheck } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -17,6 +17,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import AddProductDialog from "@/components/produtos/AddProductDialog";
 import EditProductDialog from "@/components/produtos/EditProductDialog";
+import DadosFiscaisProdutoDialog from "@/components/produtos/DadosFiscaisProdutoDialog";
 import { useAuth } from "@/hooks/useAuth";
 
 interface Product {
@@ -41,6 +42,7 @@ export default function Produtos() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [fiscalProduct, setFiscalProduct] = useState<Product | null>(null);
   const { isAdmin } = useAuth();
 
   const fetchProducts = async () => {
@@ -170,6 +172,14 @@ export default function Produtos() {
                           >
                             <Pencil className="h-4 w-4" />
                           </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            title="Dados fiscais (NF-e)"
+                            onClick={() => setFiscalProduct(product)}
+                          >
+                            <FileCheck className="h-4 w-4" />
+                          </Button>
                         </TableCell>
                       )}
                     </TableRow>
@@ -187,6 +197,16 @@ export default function Produtos() {
           open={!!editingProduct}
           onOpenChange={(open) => !open && setEditingProduct(null)}
           onProductUpdated={fetchProducts}
+        />
+      )}
+
+      {fiscalProduct && (
+        <DadosFiscaisProdutoDialog
+          produtoId={fiscalProduct.id}
+          produtoNome={fiscalProduct.nome || fiscalProduct.codigo}
+          open={!!fiscalProduct}
+          onOpenChange={(open) => !open && setFiscalProduct(null)}
+          onSaved={fetchProducts}
         />
       )}
     </div>

@@ -37,6 +37,7 @@ import Perfil from "./pages/Perfil";
 import Auditoria from "./pages/Auditoria";
 import Permissoes from "./pages/Permissoes";
 import ConferenciaMateriais from "./pages/ConferenciaMateriais";
+import ConfiguracaoFiscal from "./pages/ConfiguracaoFiscal";
 import PedidoSerralheiro from "./pages/PedidoSerralheiro";
 import MeusPedidosSerralheiro from "./pages/MeusPedidosSerralheiro";
 import RequisicoesMateriais from "./pages/RequisicoesMateriais";
@@ -380,6 +381,16 @@ const App = () => (
               <ProtectedRoute>
                 <AppLayout>
                   <ConferenciaMateriais />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/configuracao-fiscal"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <ConfiguracaoFiscal />
                 </AppLayout>
               </ProtectedRoute>
             }
