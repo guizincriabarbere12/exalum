@@ -1151,7 +1151,7 @@ export default function OrcamentosPage() {
         pagamento
       );
 
-      await baixarEstoqueOrcamento(orcamentoParaAprovar.id, orcamentoParaAprovar.orcamento.filial_id ?? null);
+      // Estoque não é mais baixado aqui: agora sai na Conferência de Materiais.
 
       toast({
         title: "✅ Orçamento aprovado!",
@@ -1254,14 +1254,22 @@ export default function OrcamentosPage() {
           await criarTransacoesFinanceiras(orcamento, orcamento.clientes?.nome);
         }
         
-        console.log('⬇️ Baixando estoque...');
-        await baixarEstoqueOrcamento(orcamentoId, filialId);
+        // Estoque não é mais baixado na aprovação: sai na Conferência de Materiais.
       }
 
       if (statusAtual === 'aprovado' && novoStatus !== 'aprovado') {
-        console.log('🔙 Devolvendo estoque...');
-        await voltarEstoqueOrcamento(orcamentoId, filialId);
-        
+        console.log('🔙 Revertendo conferência (se houver) e devolvendo estoque...');
+        const { data: conferenciaFinalizada } = await supabase
+          .from('conferencia_materiais')
+          .select('id')
+          .eq('orcamento_id', orcamentoId)
+          .eq('status', 'finalizada')
+          .maybeSingle();
+
+        if (conferenciaFinalizada) {
+          await supabase.rpc('reverter_conferencia', { conferencia_id_param: conferenciaFinalizada.id });
+        }
+
         console.log('💰 Cancelando transações pendentes...');
         
         const { data: transacoesExistentes, error: checkError } = await supabase

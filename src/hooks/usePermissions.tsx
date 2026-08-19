@@ -22,6 +22,7 @@ export const MODULOS = [
   { key: "vendas", label: "Vendas" },
   { key: "pedidos", label: "Pedidos" },
   { key: "requisicoes-material", label: "Requisições" },
+  { key: "conferencia-materiais", label: "Conferência de Materiais" },
   { key: "compras", label: "Compras" },
   { key: "fornecedores", label: "Fornecedores" },
   { key: "vendedores", label: "Vendedores" },
