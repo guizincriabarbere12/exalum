@@ -1,8 +1,9 @@
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { Bell, User, LogOut, ShieldAlert } from "lucide-react";
+import { User, LogOut, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { NotificationBell } from "@/components/NotificationBell";
 import { useAuth } from "@/hooks/useAuth";
 import { useCompanyConfig } from "@/hooks/useCompanyConfig";
 import { usePermissions, moduloDaRota } from "@/hooks/usePermissions";
@@ -62,10 +63,7 @@ export function AppLayout({ children }: AppLayoutProps) {
                 </span>
               )}
               <ThemeToggle />
-              <Button variant="ghost" size="icon" className="relative hover:bg-primary/5 transition-colors">
-                <Bell className="h-5 w-5" />
-                <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-destructive animate-pulse" />
-              </Button>
+              <NotificationBell />
               <Button
                 variant="ghost"
                 size="icon"
