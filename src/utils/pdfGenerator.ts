@@ -158,18 +158,17 @@ function calcularParcelasPDF(pagamento: any, valorTotal: number): ParcelaCalcula
     return [{ dias: 0, data: hoje.toLocaleDateString('pt-BR'), forma: formaLabel, valor: valorTotal }];
   }
 
-  const diasParaVencimento: Record<string, number[]> = {
-    '28': [28],
-    '28/56': [28, 56],
-    '0/28/56': [0, 28, 56],
-    '15': [15],
-    '15/30': [15, 30],
-    '0/15/30': [0, 15, 30],
-  };
+  // Dias de vencimento extraidos da condicao digitada livremente
+  // ("28/56", "0/28/56", "20/40/60"...). Sem condicao: cai em 30/60/90...
+  const diasDaCondicao = String(pagamento.condicao || '')
+    .split(/[^\d]+/)
+    .filter((p: string) => p !== '')
+    .map((n: string) => parseInt(n, 10))
+    .filter((n: number) => Number.isFinite(n) && n >= 0);
 
   const diasVencimentos: number[] =
-    pagamento.condicao && diasParaVencimento[pagamento.condicao]
-      ? diasParaVencimento[pagamento.condicao]
+    diasDaCondicao.length > 0
+      ? diasDaCondicao
       : Array.from({ length: pagamento.parcelas }, (_, i) => (i + 1) * 30);
 
   const resultado: ParcelaCalculada[] = [];
@@ -688,6 +687,283 @@ export async function gerarPDFOrcamento(
     doc.setTextColor(0, 0, 0);
     doc.text(obsLinhas, MARGIN + 3, y + 5.5);
   }
+
+  const totalPages = (doc as any).internal.getNumberOfPages();
+  for (let i = 1; i <= totalPages; i++) {
+    doc.setPage(i);
+    drawFooter(i, totalPages);
+  }
+
+  return doc.output('blob');
+}
+
+// ========== ROMANEIO DE ENTREGA ==========
+interface RomaneioItem {
+  codigo: string;
+  nome: string;
+  unidade?: string | null;
+  quantidade_pedida: number;
+  quantidade_entregue_antes: number;
+  quantidade_entregue_agora: number;
+}
+
+interface DadosRomaneio {
+  numero: string;
+  data: string;
+  pedidoNumero: string;
+  cliente: Cliente;
+  itens: RomaneioItem[];
+  observacoes?: string;
+}
+
+export async function gerarPDFRomaneio(dados: DadosRomaneio, config: ConfiguracaoEmpresa): Promise<Blob> {
+  const doc = new jsPDF();
+
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const contentWidth = pageWidth - MARGIN * 2;
+
+  let logo: LogoInfo | null = null;
+  if (config.logo_url) {
+    logo = await carregarLogo(config.logo_url);
+  }
+
+  const drawFooter = (pageNum: number, totalPages: number) => {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(...GRAY_LABEL);
+    doc.text(`Romaneio ${dados.numero}`, MARGIN, pageHeight - 8);
+    doc.text(`Página ${pageNum} de ${totalPages}`, pageWidth - MARGIN, pageHeight - 8, { align: 'right' });
+    doc.setTextColor(0, 0, 0);
+  };
+
+  const drawContinuationHeader = () => {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.setTextColor(0, 0, 0);
+    doc.text(`Romaneio ${dados.numero} (continuação)`, MARGIN, 15);
+    doc.setDrawColor(...GRAY_LINE);
+    doc.setLineWidth(0.2);
+    doc.line(MARGIN, 18, pageWidth - MARGIN, 18);
+  };
+
+  const ensureSpace = (needed: number, y: number): number => {
+    if (y + needed > pageHeight - 22) {
+      doc.addPage();
+      drawContinuationHeader();
+      return 26;
+    }
+    return y;
+  };
+
+  // ========== CABEÇALHO (logo + dados da empresa) ==========
+  let logoBottom = MARGIN;
+  if (logo) {
+    const boxW = 42;
+    const boxH = 22;
+    let imgW = boxW;
+    let imgH = imgW / logo.aspect;
+    if (imgH > boxH) {
+      imgH = boxH;
+      imgW = imgH * logo.aspect;
+    }
+    try {
+      doc.addImage(logo.dataURL, 'PNG', MARGIN, 12, imgW, imgH);
+      logoBottom = 12 + imgH;
+    } catch (error) {
+      console.error('Erro ao desenhar logo:', error);
+    }
+  }
+
+  let companyY = 15;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.setTextColor(20, 20, 20);
+  doc.text(config.nome_empresa || 'Empresa', pageWidth - MARGIN, companyY, { align: 'right' });
+  companyY += 5;
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.setTextColor(60, 60, 60);
+
+  if (config.telefone) {
+    doc.text(`Tel: ${config.telefone}`, pageWidth - MARGIN, companyY, { align: 'right' });
+    companyY += 4;
+  }
+  if (config.endereco) {
+    const linhas = doc.splitTextToSize(config.endereco, 95);
+    linhas.forEach((linha: string) => {
+      doc.text(linha, pageWidth - MARGIN, companyY, { align: 'right' });
+      companyY += 4;
+    });
+  }
+  if (config.cnpj) {
+    doc.text(`CNPJ: ${config.cnpj}`, pageWidth - MARGIN, companyY, { align: 'right' });
+    companyY += 4;
+  }
+
+  let y = Math.max(logoBottom, companyY) + 6;
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(15);
+  doc.setTextColor(0, 0, 0);
+  doc.text(`Romaneio de Entrega ${dados.numero}`, pageWidth / 2, y, { align: 'center' });
+  y += 9;
+
+  // ========== CLIENTE + PEDIDO/DATA ==========
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.text('Cliente', MARGIN, y);
+  y += 3;
+
+  const leftBoxW = contentWidth * 0.62;
+  const rightBoxW = contentWidth - leftBoxW - 4;
+  const clienteBoxH = 22;
+  const clienteBoxTop = y;
+
+  doc.setDrawColor(...GRAY_LINE);
+  doc.setLineWidth(0.2);
+  doc.rect(MARGIN, clienteBoxTop, leftBoxW, clienteBoxH);
+  doc.rect(MARGIN + leftBoxW + 4, clienteBoxTop, rightBoxW, clienteBoxH);
+
+  let cy = clienteBoxTop + 5;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8.5);
+  doc.setTextColor(0, 0, 0);
+  doc.text(dados.cliente.nome, MARGIN + 3, cy);
+  cy += 4.5;
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
+  doc.setTextColor(40, 40, 40);
+  if (dados.cliente.endereco) {
+    const linhasEnd = doc.splitTextToSize(dados.cliente.endereco, leftBoxW - 6);
+    linhasEnd.slice(0, 2).forEach((linha: string) => {
+      doc.text(linha, MARGIN + 3, cy);
+      cy += 4;
+    });
+  }
+  const contatos = [dados.cliente.telefone ? `Fone: ${dados.cliente.telefone}` : null].filter(Boolean).join('   ');
+  if (contatos) doc.text(contatos, MARGIN + 3, cy);
+
+  const rx = MARGIN + leftBoxW + 4;
+  const rowH = clienteBoxH / 2;
+  const metaRows: [string, string][] = [
+    ['Pedido', dados.pedidoNumero],
+    ['Data da entrega', dados.data],
+  ];
+  metaRows.forEach((row, i) => {
+    const ry = clienteBoxTop + rowH * i;
+    if (i > 0) doc.line(rx, ry, rx + rightBoxW, ry);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(6.5);
+    doc.setTextColor(...GRAY_LABEL);
+    doc.text(row[0].toUpperCase(), rx + 2, ry + 3.5);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.5);
+    doc.setTextColor(0, 0, 0);
+    doc.text(row[1], rx + 2, ry + rowH - 2.5);
+  });
+
+  y = clienteBoxTop + clienteBoxH + 8;
+
+  // ========== ITENS DO ROMANEIO ==========
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.setTextColor(0, 0, 0);
+  doc.text('Itens desta entrega', MARGIN, y);
+  y += 3;
+
+  const headers = ['Código', 'Descrição', 'Un.', 'Qtd. pedida', 'Entregue antes', 'Entregue agora', 'Pendente'];
+  const columnStyles = {
+    0: { cellWidth: 22 },
+    1: { cellWidth: 60 },
+    2: { halign: 'center' as const, cellWidth: 14 },
+    3: { halign: 'center' as const, cellWidth: 22 },
+    4: { halign: 'center' as const, cellWidth: 24 },
+    5: { halign: 'center' as const, cellWidth: 24 },
+    6: { halign: 'center' as const, cellWidth: 20 },
+  };
+
+  const tableData = dados.itens.map(item => {
+    const pendente = item.quantidade_pedida - item.quantidade_entregue_antes - item.quantidade_entregue_agora;
+    return [
+      item.codigo,
+      item.nome,
+      item.unidade || 'Un',
+      item.quantidade_pedida.toString(),
+      item.quantidade_entregue_antes.toString(),
+      item.quantidade_entregue_agora.toString(),
+      Math.max(0, pendente).toString(),
+    ];
+  });
+
+  autoTable(doc, {
+    startY: y,
+    head: [headers],
+    body: tableData,
+    theme: 'grid',
+    headStyles: {
+      fillColor: GRAY_HEAD,
+      textColor: [0, 0, 0],
+      fontStyle: 'bold',
+      fontSize: 7,
+      halign: 'center',
+      lineColor: GRAY_LINE,
+      lineWidth: 0.2,
+    },
+    bodyStyles: {
+      fontSize: 7.5,
+      cellPadding: 2.5,
+      valign: 'middle',
+      textColor: [0, 0, 0],
+      lineColor: GRAY_LINE,
+      lineWidth: 0.2,
+    },
+    columnStyles,
+    margin: { top: 26, left: MARGIN, right: MARGIN, bottom: 30 },
+    didDrawPage: data => {
+      if (data.pageNumber > 1) drawContinuationHeader();
+    },
+  });
+
+  y = (doc as any).lastAutoTable.finalY + 10;
+
+  // ========== OBSERVAÇÕES ==========
+  const obsTexto = (dados.observacoes || '').trim();
+  const obsLinhas = obsTexto ? doc.splitTextToSize(obsTexto, contentWidth - 6) : [];
+  const obsBoxH = Math.max(14, obsLinhas.length * 4 + 8);
+
+  y = ensureSpace(obsBoxH + 44, y);
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.setTextColor(0, 0, 0);
+  doc.text('Observações', MARGIN, y);
+  y += 3;
+
+  doc.setDrawColor(...GRAY_LINE);
+  doc.rect(MARGIN, y, contentWidth, obsBoxH);
+
+  if (obsLinhas.length > 0) {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(0, 0, 0);
+    doc.text(obsLinhas, MARGIN + 3, y + 5.5);
+  }
+  y += obsBoxH + 16;
+
+  // ========== ASSINATURA DE RECEBIMENTO ==========
+  y = ensureSpace(24, y);
+  const assinaturaW = (contentWidth - 10) / 2;
+  doc.setDrawColor(...GRAY_LINE);
+  doc.line(MARGIN, y, MARGIN + assinaturaW, y);
+  doc.line(MARGIN + assinaturaW + 10, y, MARGIN + assinaturaW + 10 + assinaturaW, y);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
+  doc.setTextColor(...GRAY_LABEL);
+  doc.text('Assinatura de quem recebeu', MARGIN, y + 4);
+  doc.text('Nome legível / documento', MARGIN + assinaturaW + 10, y + 4);
 
   const totalPages = (doc as any).internal.getNumberOfPages();
   for (let i = 1; i <= totalPages; i++) {

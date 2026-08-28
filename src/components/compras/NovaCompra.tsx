@@ -13,6 +13,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/hooks/useAuth';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { CondicaoPagamentoInput } from '@/components/CondicaoPagamentoInput';
+import { diasCondicao, normalizarCondicao, descricaoCondicao } from '@/utils/condicaoPagamento';
 
 interface Fornecedor {
   id: string;
@@ -46,44 +48,6 @@ interface NovaCompraProps {
   onSuccess: () => void;
 }
 
-const CONDICOES_PAGAMENTO = {
-  'TEC': {
-    nome: 'TEC',
-    descricao: '15/30/45/60 dias após faturamento',
-    parcelas: [15, 30, 45, 60],
-    tipo: 'parcelado',
-    numeroParcelas: 4
-  },
-  'NA': {
-    nome: 'NA',
-    descricao: '15/30 dias após faturamento',
-    parcelas: [15, 30],
-    tipo: 'parcelado',
-    numeroParcelas: 2
-  },
-  'GMF': {
-    nome: 'GMF',
-    descricao: '14/28/42/56 dias após faturamento',
-    parcelas: [14, 28, 42, 56],
-    tipo: 'parcelado',
-    numeroParcelas: 4
-  },
-  '30/60': {
-    nome: '30/60',
-    descricao: '30/60 dias após faturamento',
-    parcelas: [30, 60],
-    tipo: 'parcelado',
-    numeroParcelas: 2
-  },
-  'AVISTA': {
-    nome: 'AVISTA',
-    descricao: 'À vista - 30 dias após faturamento',
-    parcelas: [30],
-    tipo: 'avista',
-    numeroParcelas: 1
-  }
-};
-
 export default function NovaCompra({ fornecedores, onSuccess }: NovaCompraProps) {
   const { user } = useAuth();
   const [fornecedorId, setFornecedorId] = useState('');
@@ -108,7 +72,9 @@ export default function NovaCompra({ fornecedores, onSuccess }: NovaCompraProps)
   const [loading, setLoading] = useState(false);
   const [loadingProdutos, setLoadingProdutos] = useState(false);
   
-  const [condicaoPagamento, setCondicaoPagamento] = useState('AVISTA');
+  // Dias apos o faturamento, digitados livremente ("14 28 42 56"). Vazio = a
+  // vista (uma parcela em 30 dias).
+  const [condicaoPagamento, setCondicaoPagamento] = useState('');
   const [parcelado, setParcelado] = useState(false);
   const [numeroParcelas, setNumeroParcelas] = useState(1);
   const [parcelasGeradas, setParcelasGeradas] = useState<Array<{
@@ -134,20 +100,13 @@ export default function NovaCompra({ fornecedores, onSuccess }: NovaCompraProps)
   }, []);
 
   useEffect(() => {
-    const condicao = CONDICOES_PAGAMENTO[condicaoPagamento as keyof typeof CONDICOES_PAGAMENTO];
-    if (condicao) {
-      if (condicaoPagamento === 'AVISTA') {
-        setParcelado(false);
-        setNumeroParcelas(1);
-      } else {
-        setParcelado(true);
-        setNumeroParcelas(condicao.numeroParcelas);
-      }
-    }
+    const dias = diasCondicao(condicaoPagamento);
+    setParcelado(dias.length > 1);
+    setNumeroParcelas(dias.length || 1);
   }, [condicaoPagamento]);
 
   useEffect(() => {
-    if (dataFaturamento && condicaoPagamento !== 'AVISTA' && parcelado) {
+    if (dataFaturamento) {
       gerarParcelas();
     }
   }, [dataFaturamento, condicaoPagamento, parcelado, itens]);
@@ -175,25 +134,23 @@ export default function NovaCompra({ fornecedores, onSuccess }: NovaCompraProps)
   };
 
   const gerarParcelas = () => {
-    const condicao = CONDICOES_PAGAMENTO[condicaoPagamento as keyof typeof CONDICOES_PAGAMENTO];
-    if (!condicao || condicao.parcelas.length === 0) return;
+    const dias = diasCondicao(condicaoPagamento);
+    const listaDias = dias.length > 0 ? dias : [30];
 
     const valorTotal = calcularTotal();
-    const valorParcela = valorTotal / condicao.parcelas.length;
+    const valorParcela = valorTotal / listaDias.length;
     const dataBase = new Date(dataFaturamento);
-    const parcelas = [];
 
-    for (let i = 0; i < condicao.parcelas.length; i++) {
+    const parcelas = listaDias.map((d, i) => {
       const dataVencimento = new Date(dataBase);
-      dataVencimento.setDate(dataVencimento.getDate() + condicao.parcelas[i]);
-      
-      parcelas.push({
+      dataVencimento.setDate(dataVencimento.getDate() + d);
+      return {
         numero: i + 1,
         dataVencimento: dataVencimento.toISOString().split('T')[0],
         valor: valorParcela,
         status: 'pendente'
-      });
-    }
+      };
+    });
 
     setParcelasGeradas(parcelas);
   };
@@ -284,14 +241,15 @@ export default function NovaCompra({ fornecedores, onSuccess }: NovaCompraProps)
   const criarParcelasFinanceiras = async (fornecedorId: string, valorTotal: number, numeroCompra: string, compraId: string) => {
     const fornecedor = fornecedores.find(f => f.id === fornecedorId);
     const nomeFornecedor = fornecedor?.nome || 'Fornecedor';
-    const parcelasParaCriar = condicaoPagamento === 'AVISTA' 
-      ? [{
+    const diasFallback = diasCondicao(condicaoPagamento)[0] ?? 30;
+    const parcelasParaCriar = parcelasGeradas.length > 0
+      ? parcelasGeradas
+      : [{
           numero: 1,
-          dataVencimento: new Date(new Date(dataFaturamento).setDate(new Date(dataFaturamento).getDate() + 30)).toISOString().split('T')[0],
+          dataVencimento: new Date(new Date(dataFaturamento).setDate(new Date(dataFaturamento).getDate() + diasFallback)).toISOString().split('T')[0],
           valor: valorTotal,
           status: 'pendente'
-        }]
-      : parcelasGeradas;
+        }];
 
     const transacoesCriadas = [];
 
@@ -388,9 +346,9 @@ export default function NovaCompra({ fornecedores, onSuccess }: NovaCompraProps)
         valor_total: valorTotal,
         status: 'pendente',
         observacoes: observacoes || null,
-        parcelado: condicaoPagamento !== 'AVISTA',
-        condicao_pagamento: condicaoPagamento,
-        numero_parcelas: condicaoPagamento === 'AVISTA' ? 1 : numeroParcelas,
+        parcelado: diasCondicao(condicaoPagamento).length > 1,
+        condicao_pagamento: normalizarCondicao(condicaoPagamento) || null,
+        numero_parcelas: Math.max(diasCondicao(condicaoPagamento).length, 1),
         forma_pagamento: formaPagamento,
         compra_faturada: false,
         mercadoria_recebida: false
@@ -539,7 +497,7 @@ export default function NovaCompra({ fornecedores, onSuccess }: NovaCompraProps)
     setFornecedorId('');
     setDataEntregaPrevista('');
     setObservacoes('');
-    setCondicaoPagamento('AVISTA');
+    setCondicaoPagamento('');
     setCompraId(null);
     setCompraNumero(null);
     setCompraSalva(false);
@@ -733,19 +691,13 @@ export default function NovaCompra({ fornecedores, onSuccess }: NovaCompraProps)
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="condicaoPagamento">Condição <span className="text-red-500">*</span></Label>
-              <Select value={condicaoPagamento} onValueChange={setCondicaoPagamento}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione condição" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="AVISTA">À Vista - 30 dias após faturamento</SelectItem>
-                  <SelectItem value="TEC">TEC - 15/30/45/60 dias</SelectItem>
-                  <SelectItem value="NA">NA - 15/30 dias</SelectItem>
-                  <SelectItem value="GMF">GMF - 14/28/42/56 dias</SelectItem>
-                  <SelectItem value="30/60">30/60 - 30/60 dias</SelectItem>
-                </SelectContent>
-              </Select>
+              <Label htmlFor="condicaoPagamento">Condição (dias após faturamento)</Label>
+              <CondicaoPagamentoInput
+                id="condicaoPagamento"
+                value={condicaoPagamento}
+                onChange={setCondicaoPagamento}
+                placeholder="Ex: 28 56  (vazio = à vista, 30 dias)"
+              />
             </div>
 
             <div className="space-y-2">
@@ -871,7 +823,7 @@ export default function NovaCompra({ fornecedores, onSuccess }: NovaCompraProps)
             <div className="flex items-center gap-2">
               <p className="text-sm text-gray-500">Total da Compra:</p>
               <Badge variant="outline" className="bg-blue-50">
-                {CONDICOES_PAGAMENTO[condicaoPagamento as keyof typeof CONDICOES_PAGAMENTO]?.nome}
+                {condicaoPagamento ? `${condicaoPagamento} dias` : 'À vista'}
               </Badge>
             </div>
             <div className="text-3xl font-bold text-blue-700">
@@ -959,12 +911,12 @@ export default function NovaCompra({ fornecedores, onSuccess }: NovaCompraProps)
                 </div>
                 <div className="flex justify-between">
                   <span>Condição:</span>
-                  <span className="font-medium">{CONDICOES_PAGAMENTO[condicaoPagamento as keyof typeof CONDICOES_PAGAMENTO]?.nome}</span>
+                  <span className="font-medium">{condicaoPagamento ? descricaoCondicao(condicaoPagamento) : 'À vista (30 dias)'}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Parcelas:</span>
                   <span className="font-medium">
-                    {condicaoPagamento === 'AVISTA' ? '1' : numeroParcelas}
+                    {numeroParcelas}
                   </span>
                 </div>
               </div>

@@ -26,6 +26,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { CondicaoPagamentoInput } from "@/components/CondicaoPagamentoInput";
+import { diasCondicao } from "@/utils/condicaoPagamento";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -305,25 +307,13 @@ const criarTransacoesFinanceiras = async (
             observacoes: `Valor restante do pagamento misto - Orçamento ${orcamento.numero} (Total: R$ ${orcamento.valor_total.toFixed(2)} - Crédito: R$ ${pagamentoMisto.valorCredito.toFixed(2)})`
           });
         } else {
-          const diasParaVencimento: Record<string, number[]> = {
-            '28': [28],
-            '28/56': [28, 56],
-            '0/28/56': [0, 28, 56],
-            '15': [15],
-            '15/30': [15, 30],
-            '0/15/30': [0, 15, 30],
-          };
-
-          let diasVencimentos: number[] = [];
-          
-          if (pagamentoMisto.condicaoPagamentoRestante && diasParaVencimento[pagamentoMisto.condicaoPagamentoRestante]) {
-            diasVencimentos = diasParaVencimento[pagamentoMisto.condicaoPagamentoRestante];
-          } else {
-            diasVencimentos = Array.from(
-              { length: pagamentoMisto.parcelasRestante || 1 }, 
-              (_, i) => (i + 1) * 30
-            );
-          }
+          const diasDigitados = diasCondicao(pagamentoMisto.condicaoPagamentoRestante);
+          const diasVencimentos: number[] = diasDigitados.length > 0
+            ? diasDigitados
+            : Array.from(
+                { length: pagamentoMisto.parcelasRestante || 1 },
+                (_, i) => (i + 1) * 30
+              );
 
           const valorPorParcela = Number((valorRestante / (diasVencimentos.length || 1)).toFixed(2));
           
@@ -383,24 +373,13 @@ const criarTransacoesFinanceiras = async (
       });
       
     } else {
-      let diasVencimentos: number[] = [];
-      const diasParaVencimento: Record<string, number[]> = {
-        '28': [28],
-        '28/56': [28, 56],
-        '0/28/56': [0, 28, 56],
-        '15': [15],
-        '15/30': [15, 30],
-        '0/15/30': [0, 15, 30],
-      };
-      
-      if (orcamento.condicao_pagamento && diasParaVencimento[orcamento.condicao_pagamento]) {
-        diasVencimentos = diasParaVencimento[orcamento.condicao_pagamento];
-      } else {
-        diasVencimentos = Array.from(
-          { length: orcamento.parcelas || 1 }, 
-          (_, i) => (i + 1) * 30
-        );
-      }
+      const diasDigitados = diasCondicao(orcamento.condicao_pagamento);
+      const diasVencimentos: number[] = diasDigitados.length > 0
+        ? diasDigitados
+        : Array.from(
+            { length: orcamento.parcelas || 1 },
+            (_, i) => (i + 1) * 30
+          );
       
       if (orcamento.entrada_valor && orcamento.entrada_valor > 0) {
         const temVencimentoZero = diasVencimentos[0] === 0;
@@ -813,19 +792,14 @@ const PagamentoMistoDialog = ({
                     <>
                       <div className="space-y-2">
                         <label className="text-sm font-medium">Condição de Pagamento</label>
-                        <Select value={condicaoPagamentoRestante} onValueChange={setCondicaoPagamentoRestante}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecione" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="28">28 dias</SelectItem>
-                            <SelectItem value="28/56">28/56 dias</SelectItem>
-                            <SelectItem value="0/28/56">0/28/56 dias</SelectItem>
-                            <SelectItem value="15">15 dias</SelectItem>
-                            <SelectItem value="15/30">15/30 dias</SelectItem>
-                            <SelectItem value="0/15/30">0/15/30 dias</SelectItem>
-                          </SelectContent>
-                        </Select>
+                        <CondicaoPagamentoInput
+                          value={condicaoPagamentoRestante}
+                          onChange={(v) => {
+                            setCondicaoPagamentoRestante(v);
+                            const n = diasCondicao(v).length;
+                            if (n > 0) setParcelasRestante(n);
+                          }}
+                        />
                       </div>
 
                       <div className="space-y-2">
@@ -3134,33 +3108,19 @@ const AddOrcamentoContent = ({ onClose }: { onClose: () => void }) => {
                     Condição de Pagamento 
                     {formaPagamento !== "credito" && formaPagamento !== "debito" && " *"}
                   </label>
-                  <Select 
-                    value={condicaoPagamento || "sem_condicao"} 
-                    onValueChange={(value) => {
-                      setCondicaoPagamento(value === "sem_condicao" ? "" : value);
+                  <CondicaoPagamentoInput
+                    value={condicaoPagamento}
+                    onChange={(v) => {
+                      setCondicaoPagamento(v);
+                      const n = diasCondicao(v).length;
+                      if (n > 0) setParcelas(n);
                     }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder={
-                        formaPagamento === "credito" || formaPagamento === "debito"
-                          ? "Opcional - pode selecionar se desejar" 
-                          : "Selecione"
-                      } />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="sem_condicao">
-                        {formaPagamento === "credito" || formaPagamento === "debito" 
-                          ? "Sem condição especial" 
-                          : "Selecione uma condição"}
-                      </SelectItem>
-                      <SelectItem value="28">28 dias</SelectItem>
-                      <SelectItem value="28/56">28/56 dias</SelectItem>
-                      <SelectItem value="0/28/56">0/28/56 dias</SelectItem>
-                      <SelectItem value="15">15 dias</SelectItem>
-                      <SelectItem value="15/30">15/30 dias</SelectItem>
-                      <SelectItem value="0/15/30">0/15/30 dias</SelectItem>
-                    </SelectContent>
-                  </Select>
+                    placeholder={
+                      formaPagamento === "credito" || formaPagamento === "debito"
+                        ? "Opcional - ex: 28 56"
+                        : "Ex: 28 56  (use 0 no inicio p/ entrada hoje)"
+                    }
+                  />
                   {(formaPagamento === "credito" || formaPagamento === "debito") && (
                     <p className="text-xs text-muted-foreground mt-1">
                       A condição de pagamento é opcional para cartão de crédito e débito
@@ -4896,33 +4856,19 @@ const EditOrcamentoContent = ({ orcamento, onClose }: { orcamento: OrcamentoComI
                     Condição de Pagamento 
                     {formaPagamento !== "credito" && formaPagamento !== "debito" && " *"}
                   </label>
-                  <Select 
-                    value={condicaoPagamento || "sem_condicao"} 
-                    onValueChange={(value) => {
-                      setCondicaoPagamento(value === "sem_condicao" ? "" : value);
+                  <CondicaoPagamentoInput
+                    value={condicaoPagamento}
+                    onChange={(v) => {
+                      setCondicaoPagamento(v);
+                      const n = diasCondicao(v).length;
+                      if (n > 0) setParcelas(n);
                     }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder={
-                        formaPagamento === "credito" || formaPagamento === "debito"
-                          ? "Opcional - pode selecionar se desejar" 
-                          : "Selecione"
-                      } />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="sem_condicao">
-                        {formaPagamento === "credito" || formaPagamento === "debito" 
-                          ? "Sem condição especial" 
-                          : "Selecione uma condição"}
-                      </SelectItem>
-                      <SelectItem value="28">28 dias</SelectItem>
-                      <SelectItem value="28/56">28/56 dias</SelectItem>
-                      <SelectItem value="0/28/56">0/28/56 dias</SelectItem>
-                      <SelectItem value="15">15 dias</SelectItem>
-                      <SelectItem value="15/30">15/30 dias</SelectItem>
-                      <SelectItem value="0/15/30">0/15/30 dias</SelectItem>
-                    </SelectContent>
-                  </Select>
+                    placeholder={
+                      formaPagamento === "credito" || formaPagamento === "debito"
+                        ? "Opcional - ex: 28 56"
+                        : "Ex: 28 56  (use 0 no inicio p/ entrada hoje)"
+                    }
+                  />
                   {(formaPagamento === "credito" || formaPagamento === "debito") && (
                     <p className="text-xs text-muted-foreground mt-1">
                       A condição de pagamento é opcional para cartão de crédito e débito

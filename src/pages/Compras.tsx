@@ -187,22 +187,24 @@ export default function Compras() {
 
       if (updateError) throw updateError;
 
-      // Buscar condição de pagamento
-      const condicaoPagamento = compraParaFaturar.condicao_pagamento || 'AVISTA';
-      const numeroParcelas = compraParaFaturar.numero_parcelas || 1;
+      // Condição de pagamento: dias digitados livremente ("14/28/42/56") ou
+      // códigos legados ainda gravados no banco.
+      const condicaoPagamento = compraParaFaturar.condicao_pagamento || '';
+      const LEGADO_CONDICAO: Record<string, number[]> = {
+        TEC: [15, 30, 45, 60], NA: [15, 30], GMF: [14, 28, 42, 56], '30/60': [30, 60], AVISTA: [30],
+      };
+      const diasCondicaoArr: number[] = LEGADO_CONDICAO[condicaoPagamento]
+        || (condicaoPagamento.match(/\d+/g) || []).map((n: string) => parseInt(n, 10)).filter((n: number) => n >= 0);
+      const numeroParcelas = compraParaFaturar.numero_parcelas || diasCondicaoArr.length || 1;
       const valorParcela = compraParaFaturar.valor_total / numeroParcelas;
-      
+
       // Criar parcelas no financeiro
       const parcelas = [];
       const dataBase = new Date(dataFaturamento);
-      
+
       for (let i = 0; i < numeroParcelas; i++) {
-        let dias = 30;
-        if (condicaoPagamento === 'TEC') dias = [15, 30, 45, 60][i] || 30;
-        else if (condicaoPagamento === 'NA') dias = [15, 30][i] || 30;
-        else if (condicaoPagamento === 'GMF') dias = [14, 28, 42, 56][i] || 30;
-        else if (condicaoPagamento === '30/60') dias = [30, 60][i] || 30;
-        
+        const dias = diasCondicaoArr[i] ?? diasCondicaoArr[diasCondicaoArr.length - 1] ?? 30;
+
         const dataVencimento = new Date(dataBase);
         dataVencimento.setDate(dataVencimento.getDate() + dias);
         
