@@ -38,7 +38,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { Search, Plus, Download, Eye, FileText, ChevronDown, CircleAlert as AlertCircle, Trash2, Loader as Loader2, DollarSign, Calculator, X, Zap, UserCheck, TrendingUp, CreditCard as Edit, CreditCard, History } from "lucide-react";
+import { Search, Plus, Download, Eye, FileText, ChevronDown, CircleAlert as AlertCircle, Trash2, Loader as Loader2, DollarSign, Calculator, X, Zap, UserCheck, TrendingUp, CreditCard as Edit, CreditCard, History, PenLine } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { gerarPDFOrcamento, downloadPDF } from "@/utils/pdfGenerator";
@@ -572,20 +572,24 @@ const DialogEscolhaPDF = ({
   gerando: boolean;
 }) => {
   const [tipoSelecionado, setTipoSelecionado] = useState<'comKg' | 'semKg'>('comKg');
+  const ehPedido = orcamento?.status === 'aprovado';
+  const rotulo = ehPedido ? 'Pedido' : 'Orçamento';
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Gerar Orçamento</DialogTitle>
+          <DialogTitle>Gerar {rotulo}</DialogTitle>
           <DialogDescription>
-            Escolha o formato do orçamento para o documento {orcamento?.numero}
+            {ehPedido
+              ? `Este orçamento está aprovado — o PDF sai como Pedido (${orcamento?.numero}), com espaço para assinatura do cliente.`
+              : `Escolha o formato do orçamento para o documento ${orcamento?.numero}`}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
           <div className="space-y-2">
-            <label className="text-sm font-medium">Formato do Orçamento</label>
+            <label className="text-sm font-medium">Formato do {rotulo}</label>
             <Select value={tipoSelecionado} onValueChange={(value: any) => setTipoSelecionado(value)}>
               <SelectTrigger>
                 <SelectValue placeholder="Selecione o formato" />
@@ -1491,6 +1495,8 @@ export default function OrcamentosPage() {
         .limit(1)
         .single();
 
+      const ehPedido = orcamento.status === 'aprovado';
+
       const dataValidade = new Date(orcamento.created_at);
       dataValidade.setDate(dataValidade.getDate() + 7);
 
@@ -1531,7 +1537,9 @@ export default function OrcamentosPage() {
       const dadosOrcamento = {
         numero: orcamento.numero,
         data: formatDate(orcamento.created_at),
-        validade: formatDate(dataValidade.toISOString()),
+        validade: ehPedido
+          ? formatDate(orcamento.data_aprovacao || new Date().toISOString())
+          : formatDate(dataValidade.toISOString()),
         cliente: orcamentoCompleto?.clientes,
         vendedor: orcamentoCompleto?.vendedor,
         loja: orcamentoCompleto?.filial?.nome || 'Matriz',
@@ -1548,17 +1556,30 @@ export default function OrcamentosPage() {
           pagamento_misto: orcamento.pagamento_misto,
           valor_credito_utilizado: orcamento.valor_credito_utilizado,
           forma_pagamento_restante: orcamento.forma_pagamento_restante
-        }
+        },
+        assinatura: ehPedido && (orcamento as any).assinatura_data ? {
+          nome: (orcamento as any).assinatura_nome || 'Cliente',
+          cargo: (orcamento as any).assinatura_cargo || null,
+          tipo: (orcamento as any).assinatura_tipo || 'manuscrita',
+          data: formatDate((orcamento as any).assinatura_data),
+          imagem: (orcamento as any).assinatura_base64 || null,
+        } : null,
       };
 
       const mostrarKg = tipo === 'comKg';
-      const pdfBlob = await gerarPDFOrcamento(dadosOrcamento, config, mostrarKg);
-      const nomeArquivo = `orcamento_${orcamento.numero}${mostrarKg ? '_com_kg' : '_sem_kg'}.pdf`;
+      const pdfBlob = await gerarPDFOrcamento(
+        dadosOrcamento,
+        config,
+        mostrarKg,
+        ehPedido ? 'pedido' : 'orcamento'
+      );
+      const prefixo = ehPedido ? 'pedido' : 'orcamento';
+      const nomeArquivo = `${prefixo}_${orcamento.numero}${mostrarKg ? '_com_kg' : '_sem_kg'}.pdf`;
       downloadPDF(pdfBlob, nomeArquivo);
 
       toast({
         title: "✅ PDF gerado!",
-        description: `Orçamento gerado ${mostrarKg ? 'com' : 'sem'} informações de kg.`,
+        description: `${ehPedido ? 'Pedido' : 'Orçamento'} gerado ${mostrarKg ? 'com' : 'sem'} informações de kg.`,
       });
     } catch (error: any) {
       console.error('Erro ao gerar PDF:', error);
@@ -1569,6 +1590,38 @@ export default function OrcamentosPage() {
       });
     } finally {
       setGerandoPDF(false);
+    }
+  };
+
+  const copiarLinkAssinatura = async (orcamento: OrcamentoWithRelations) => {
+    try {
+      let token = (orcamento as any).assinatura_token;
+
+      if (!token) {
+        const { data, error } = await supabase
+          .from('orcamentos')
+          .select('assinatura_token')
+          .eq('id', orcamento.id)
+          .single();
+        if (error) throw error;
+        token = (data as any)?.assinatura_token;
+      }
+
+      if (!token) throw new Error('Não foi possível obter o link de assinatura.');
+
+      const link = `${window.location.origin}/assinar-pedido?token=${token}`;
+      await navigator.clipboard.writeText(link);
+
+      toast({
+        title: "🔗 Link copiado!",
+        description: "Envie para o cliente assinar o pedido pelo celular ou computador.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "❌ Erro ao copiar link",
+        description: error.message,
+        variant: "destructive",
+      });
     }
   };
 
@@ -2007,6 +2060,18 @@ export default function OrcamentosPage() {
                               </Button>
                             )}
                             
+                            {orcamento.status === 'aprovado' && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => copiarLinkAssinatura(orcamento)}
+                                title="Copiar link de assinatura do pedido"
+                                className="text-amber-600"
+                              >
+                                <PenLine className="h-4 w-4" />
+                              </Button>
+                            )}
+
                             <Button
                               variant="outline"
                               size="sm"
@@ -2014,11 +2079,11 @@ export default function OrcamentosPage() {
                                 setOrcamentoSelecionado(orcamento);
                                 setPdfDialogOpen(true);
                               }}
-                              title="Gerar PDF"
+                              title={orcamento.status === 'aprovado' ? 'Gerar PDF do pedido' : 'Gerar PDF do orçamento'}
                             >
                               <FileText className="h-4 w-4" />
                             </Button>
-                            
+
                             <Button
                               variant="outline"
                               size="sm"

@@ -39,6 +39,7 @@ import Permissoes from "./pages/Permissoes";
 import ConferenciaMateriais from "./pages/ConferenciaMateriais";
 import ConfiguracaoFiscal from "./pages/ConfiguracaoFiscal";
 import AcompanharPedido from "./pages/AcompanharPedido";
+import AssinarPedido from "./pages/AssinarPedido";
 import PedidoSerralheiro from "./pages/PedidoSerralheiro";
 import MeusPedidosSerralheiro from "./pages/MeusPedidosSerralheiro";
 import RequisicoesMateriais from "./pages/RequisicoesMateriais";
@@ -93,7 +94,8 @@ const App = () => (
           <Route path="/" element={<RootRedirect />} />
           <Route path="/catalogo-publico" element={<CatalogoPublico />} />
           <Route path="/acompanhar-pedido" element={<AcompanharPedido />} />
-          
+          <Route path="/assinar-pedido" element={<AssinarPedido />} />
+
           {/* Rotas Protegidas */}
           <Route
             path="/dashboard"

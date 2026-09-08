@@ -47,6 +47,13 @@ interface DadosOrcamento {
   valor_total: number;
   observacoes?: string;
   pagamento?: any;
+  assinatura?: {
+    nome: string;
+    cargo?: string | null;
+    tipo?: string | null;
+    data: string;
+    imagem?: string | null;
+  } | null;
 }
 
 const THUMB_SIZE = 56;
@@ -203,12 +210,18 @@ function calcularParcelasPDF(pagamento: any, valorTotal: number): ParcelaCalcula
   return resultado;
 }
 
+export type TipoDocumento = 'orcamento' | 'pedido';
+
 export async function gerarPDFOrcamento(
   dados: DadosOrcamento,
   config: ConfiguracaoEmpresa,
-  mostrarKg: boolean = true
+  mostrarKg: boolean = true,
+  tipo: TipoDocumento = 'orcamento'
 ): Promise<Blob> {
   const doc = new jsPDF();
+
+  const ehPedido = tipo === 'pedido';
+  const docLabel = ehPedido ? 'Pedido' : 'Orçamento';
 
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -236,7 +249,7 @@ export async function gerarPDFOrcamento(
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(7.5);
     doc.setTextColor(...GRAY_LABEL);
-    doc.text(`Válido até ${dados.validade}`, MARGIN, pageHeight - 8);
+    doc.text(ehPedido ? `Pedido ${dados.numero}` : `Válido até ${dados.validade}`, MARGIN, pageHeight - 8);
     doc.text(`Página ${pageNum} de ${totalPages}`, pageWidth - MARGIN, pageHeight - 8, { align: 'right' });
     doc.setTextColor(0, 0, 0);
   };
@@ -246,7 +259,7 @@ export async function gerarPDFOrcamento(
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(10);
     doc.setTextColor(0, 0, 0);
-    doc.text(`Orçamento ${dados.numero} (continuação)`, MARGIN, 15);
+    doc.text(`${docLabel} ${dados.numero} (continuação)`, MARGIN, 15);
     doc.setDrawColor(...GRAY_LINE);
     doc.setLineWidth(0.2);
     doc.line(MARGIN, 18, pageWidth - MARGIN, 18);
@@ -316,7 +329,7 @@ export async function gerarPDFOrcamento(
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(15);
   doc.setTextColor(0, 0, 0);
-  doc.text(`Orçamento ${dados.numero}`, pageWidth / 2, y, { align: 'center' });
+  doc.text(`${docLabel} ${dados.numero}`, pageWidth / 2, y, { align: 'center' });
   y += 9;
 
   // ========== CLIENTE + NÚMERO/DATA/VALIDADE ==========
@@ -364,9 +377,9 @@ export async function gerarPDFOrcamento(
   const rx = MARGIN + leftBoxW + 4;
   const rowH = clienteBoxH / 3;
   const metaRows: [string, string][] = [
-    ['Número do orçamento', dados.numero],
+    [ehPedido ? 'Número do pedido' : 'Número do orçamento', dados.numero],
     ['Data', dados.data],
-    ['Validade', dados.validade],
+    [ehPedido ? 'Aprovado em' : 'Validade', dados.validade],
   ];
   metaRows.forEach((row, i) => {
     const ry = clienteBoxTop + rowH * i;
@@ -409,7 +422,7 @@ export async function gerarPDFOrcamento(
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9);
   doc.setTextColor(0, 0, 0);
-  doc.text('Itens do Orçamento', MARGIN, y);
+  doc.text(`Itens do ${docLabel}`, MARGIN, y);
   y += 3;
 
   const temInfoKg = dados.itens.some(item => item.peso_total_kg || item.preco_por_kg || item.peso_kg_m);
@@ -603,7 +616,7 @@ export async function gerarPDFOrcamento(
   doc.setFontSize(10.5);
   doc.setTextColor(0, 0, 0);
   doc.text(
-    `Total do Orçamento: R$ ${dados.valor_total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+    `Total do ${docLabel}: R$ ${dados.valor_total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
     totalsX,
     y,
     { align: 'right' }
@@ -686,6 +699,66 @@ export async function gerarPDFOrcamento(
     doc.setFontSize(8);
     doc.setTextColor(0, 0, 0);
     doc.text(obsLinhas, MARGIN + 3, y + 5.5);
+  }
+
+  y += obsBoxH + 10;
+
+  // ========== ASSINATURA DO CLIENTE (somente Pedido) ==========
+  if (ehPedido) {
+    const assinaturaBoxH = 34;
+    y = ensureSpace(assinaturaBoxH + 6, y);
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(0, 0, 0);
+    doc.text('Assinatura do cliente', MARGIN, y);
+    y += 3;
+
+    const boxTop = y;
+    doc.setDrawColor(...GRAY_LINE);
+    doc.setLineWidth(0.2);
+    doc.rect(MARGIN, boxTop, contentWidth, assinaturaBoxH);
+
+    const assinatura = dados.assinatura;
+
+    if (assinatura && assinatura.imagem) {
+      try {
+        const fmt = assinatura.imagem.startsWith('data:image/png') ? 'PNG' : 'JPEG';
+        doc.addImage(assinatura.imagem, fmt, MARGIN + 4, boxTop + 3, 70, 24);
+      } catch (error) {
+        console.error('Erro ao desenhar assinatura:', error);
+      }
+    } else if (assinatura) {
+      doc.setFont('helvetica', 'italic');
+      doc.setFontSize(14);
+      doc.setTextColor(30, 30, 30);
+      doc.text(assinatura.nome, MARGIN + 6, boxTop + 16);
+    }
+
+    // Linha de assinatura + identificação
+    const lineY = boxTop + assinaturaBoxH - 9;
+    doc.setDrawColor(...GRAY_LINE);
+    doc.line(MARGIN + 4, lineY, MARGIN + contentWidth * 0.6, lineY);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(...GRAY_LABEL);
+
+    if (assinatura) {
+      const ident = [
+        assinatura.nome,
+        assinatura.cargo ? `(${assinatura.cargo})` : null,
+      ]
+        .filter(Boolean)
+        .join(' ');
+      doc.text(ident, MARGIN + 4, lineY + 4);
+      const tipoLabel = assinatura.tipo === 'digital' ? 'Assinado digitalmente' : 'Assinatura manuscrita';
+      doc.text(`${tipoLabel} em ${assinatura.data}`, MARGIN + 4, lineY + 8);
+    } else {
+      doc.text('Assinatura', MARGIN + 4, lineY + 4);
+      doc.text('Nome legível / documento', MARGIN + contentWidth * 0.62, lineY + 4);
+      doc.line(MARGIN + contentWidth * 0.62, lineY, MARGIN + contentWidth - 4, lineY);
+    }
   }
 
   const totalPages = (doc as any).internal.getNumberOfPages();
