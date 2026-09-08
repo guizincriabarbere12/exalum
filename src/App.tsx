@@ -43,6 +43,9 @@ import AssinarPedido from "./pages/AssinarPedido";
 import PedidoSerralheiro from "./pages/PedidoSerralheiro";
 import MeusPedidosSerralheiro from "./pages/MeusPedidosSerralheiro";
 import RequisicoesMateriais from "./pages/RequisicoesMateriais";
+import CrmConversas from "./pages/CrmConversas";
+import WhatsappVendedor from "./pages/WhatsappVendedor";
+import ConexoesWhatsapp from "./pages/ConexoesWhatsapp";
 
 const queryClient = new QueryClient();
 
@@ -95,7 +98,7 @@ const App = () => (
           <Route path="/catalogo-publico" element={<CatalogoPublico />} />
           <Route path="/acompanhar-pedido" element={<AcompanharPedido />} />
           <Route path="/assinar-pedido" element={<AssinarPedido />} />
-
+          
           {/* Rotas Protegidas */}
           <Route
             path="/dashboard"
@@ -405,6 +408,36 @@ const App = () => (
               <ProtectedRoute>
                 <AppLayout>
                   <Permissoes />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/crm-conversas"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <CrmConversas />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/meu-whatsapp"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <WhatsappVendedor />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/conexoes-whatsapp"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <ConexoesWhatsapp />
                 </AppLayout>
               </ProtectedRoute>
             }

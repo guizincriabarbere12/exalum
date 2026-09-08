@@ -6,7 +6,7 @@ import {
   Boxes, ShoppingBag, Wallet, UserCheck, PaintBucket, Building2, ArrowLeftRight,
   ChevronDown, ChevronRight, Landmark, CreditCard, ArrowDownCircle, ArrowUpCircle,
   Send, FileSpreadsheet, Percent, Receipt, ClipboardCheck, BarChart3 as BarChartIcon,
-  Hammer, ShieldCheck, PackageCheck, FileCheck,
+  Hammer, ShieldCheck, PackageCheck, FileCheck, MessageCircle, Smartphone,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useCompanyConfig } from "@/hooks/useCompanyConfig";
@@ -47,6 +47,8 @@ const menuItems = [
   { title: "Compras", url: "/compras", icon: ShoppingBag, modulo: "compras" },
   { title: "Fornecedores", url: "/fornecedores", icon: Truck, modulo: "fornecedores" },
   { title: "Vendedores", url: "/vendedores", icon: UserCheck, modulo: "vendedores" },
+  { title: "Conversas WhatsApp", url: "/crm-conversas", icon: MessageCircle, modulo: "crm-conversas" },
+  { title: "Meu WhatsApp", url: "/meu-whatsapp", icon: Smartphone, modulo: "meu-whatsapp" },
 ];
 
 const financeiroSubItems = [

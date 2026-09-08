@@ -1,1 +1,4 @@
-project_id = "odxmkiuuxtnrjcldymhr"
+project_id = "pncgvzxmmmqgghpdzuks"
+
+[functions.crm-whatsapp-webhook]
+verify_jwt = false
