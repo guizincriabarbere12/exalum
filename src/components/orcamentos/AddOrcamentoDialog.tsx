@@ -574,6 +574,9 @@ const DialogEscolhaPDF = ({
   const [tipoSelecionado, setTipoSelecionado] = useState<'comKg' | 'semKg'>('comKg');
   const ehPedido = orcamento?.status === 'aprovado';
   const rotulo = ehPedido ? 'Pedido' : 'Orçamento';
+  const numeroDoc = ehPedido
+    ? (orcamento?.numero || '').replace(/^ORC-?/i, '')
+    : orcamento?.numero;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -582,7 +585,7 @@ const DialogEscolhaPDF = ({
           <DialogTitle>Gerar {rotulo}</DialogTitle>
           <DialogDescription>
             {ehPedido
-              ? `Este orçamento está aprovado — o PDF sai como Pedido (${orcamento?.numero}), com espaço para assinatura do cliente.`
+              ? `Este orçamento está aprovado — o PDF sai como Pedido ${numeroDoc}, com espaço para assinatura do cliente.`
               : `Escolha o formato do orçamento para o documento ${orcamento?.numero}`}
           </DialogDescription>
         </DialogHeader>
@@ -1574,7 +1577,8 @@ export default function OrcamentosPage() {
         ehPedido ? 'pedido' : 'orcamento'
       );
       const prefixo = ehPedido ? 'pedido' : 'orcamento';
-      const nomeArquivo = `${prefixo}_${orcamento.numero}${mostrarKg ? '_com_kg' : '_sem_kg'}.pdf`;
+      const numeroArquivo = ehPedido ? orcamento.numero.replace(/^ORC-?/i, '') : orcamento.numero;
+      const nomeArquivo = `${prefixo}_${numeroArquivo}${mostrarKg ? '_com_kg' : '_sem_kg'}.pdf`;
       downloadPDF(pdfBlob, nomeArquivo);
 
       toast({

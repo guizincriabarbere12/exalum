@@ -33,6 +33,8 @@ interface Pedido {
 const formatCurrency = (v: number) =>
   `R$ ${Number(v || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`;
 
+const numeroPedido = (numero: string) => (numero || "").replace(/^ORC-?/i, "");
+
 export default function AssinarPedido() {
   const [searchParams] = useSearchParams();
   const token = searchParams.get("token") || "";
@@ -150,7 +152,7 @@ export default function AssinarPedido() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
-                <span>{pedido.numero}</span>
+                <span>Pedido {numeroPedido(pedido.numero)}</span>
                 <span className="text-base font-semibold">{formatCurrency(pedido.valor_total)}</span>
               </CardTitle>
               <p className="text-sm text-muted-foreground">Cliente: {pedido.cliente_nome}</p>
@@ -225,7 +227,7 @@ export default function AssinarPedido() {
                         className="mt-0.5"
                       />
                       <span>
-                        Declaro que li e concordo com o pedido <strong>{pedido.numero}</strong> no valor de{" "}
+                        Declaro que li e concordo com o pedido <strong>{numeroPedido(pedido.numero)}</strong> no valor de{" "}
                         <strong>{formatCurrency(pedido.valor_total)}</strong>, e assino digitalmente com meu nome.
                       </span>
                     </label>

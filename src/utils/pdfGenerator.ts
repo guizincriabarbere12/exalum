@@ -222,6 +222,9 @@ export async function gerarPDFOrcamento(
 
   const ehPedido = tipo === 'pedido';
   const docLabel = ehPedido ? 'Pedido' : 'Orçamento';
+  // No Pedido o número não leva o prefixo "ORC-" (é o mesmo registro do
+  // orçamento aprovado, mas o documento é um Pedido).
+  const numeroDoc = ehPedido ? dados.numero.replace(/^ORC-?/i, '') : dados.numero;
 
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -249,7 +252,7 @@ export async function gerarPDFOrcamento(
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(7.5);
     doc.setTextColor(...GRAY_LABEL);
-    doc.text(ehPedido ? `Pedido ${dados.numero}` : `Válido até ${dados.validade}`, MARGIN, pageHeight - 8);
+    doc.text(ehPedido ? `Pedido ${numeroDoc}` : `Válido até ${dados.validade}`, MARGIN, pageHeight - 8);
     doc.text(`Página ${pageNum} de ${totalPages}`, pageWidth - MARGIN, pageHeight - 8, { align: 'right' });
     doc.setTextColor(0, 0, 0);
   };
@@ -259,7 +262,7 @@ export async function gerarPDFOrcamento(
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(10);
     doc.setTextColor(0, 0, 0);
-    doc.text(`${docLabel} ${dados.numero} (continuação)`, MARGIN, 15);
+    doc.text(`${docLabel} ${numeroDoc} (continuação)`, MARGIN, 15);
     doc.setDrawColor(...GRAY_LINE);
     doc.setLineWidth(0.2);
     doc.line(MARGIN, 18, pageWidth - MARGIN, 18);
@@ -329,7 +332,7 @@ export async function gerarPDFOrcamento(
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(15);
   doc.setTextColor(0, 0, 0);
-  doc.text(`${docLabel} ${dados.numero}`, pageWidth / 2, y, { align: 'center' });
+  doc.text(`${docLabel} ${numeroDoc}`, pageWidth / 2, y, { align: 'center' });
   y += 9;
 
   // ========== CLIENTE + NÚMERO/DATA/VALIDADE ==========
@@ -377,7 +380,7 @@ export async function gerarPDFOrcamento(
   const rx = MARGIN + leftBoxW + 4;
   const rowH = clienteBoxH / 3;
   const metaRows: [string, string][] = [
-    [ehPedido ? 'Número do pedido' : 'Número do orçamento', dados.numero],
+    [ehPedido ? 'Número do pedido' : 'Número do orçamento', numeroDoc],
     ['Data', dados.data],
     [ehPedido ? 'Aprovado em' : 'Validade', dados.validade],
   ];
