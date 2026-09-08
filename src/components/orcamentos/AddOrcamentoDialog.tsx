@@ -1773,9 +1773,8 @@ export default function OrcamentosPage() {
     return (
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogTrigger asChild>
-          <Button variant="outline" size="sm">
-            <Eye className="h-4 w-4 mr-2" />
-            Detalhes
+          <Button variant="outline" size="sm" title="Detalhes / alterar status">
+            <Eye className="h-4 w-4" />
           </Button>
         </DialogTrigger>
         <DialogContent className="sm:max-w-md">
@@ -2026,7 +2025,7 @@ export default function OrcamentosPage() {
                           <StatusDropdown orcamento={orcamento} />
                         </TableCell>
                         <TableCell className="text-right">
-                          <div className="flex justify-end gap-1">
+                          <div className="flex flex-wrap justify-end gap-1 w-[180px] ml-auto">
                             {orcamento.status === 'aprovado' && orcamento.forma_pagamento !== 'credito_cliente' && (
                               <>
                                 <Button
