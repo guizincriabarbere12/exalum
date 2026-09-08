@@ -50,6 +50,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
+import { RomaneioDialog } from "@/components/pedidos/RomaneioDialog";
 
 // ========== DEFINIÇÃO DE TIPOS ==========
 interface ProdutoInfo {
@@ -1142,6 +1143,17 @@ export default function PedidosPage() {
                                   </AlertDialogContent>
                                 </AlertDialog>
                               </>
+                            )}
+
+                            {/* Romaneio de entrega */}
+                            {["confirmado", "em_separacao", "enviado"].includes(pedido.status) && (
+                              <RomaneioDialog
+                                pedidoId={pedido.id}
+                                pedidoNumero={pedido.numero}
+                                clienteNome={pedido.clientes?.nome || "Cliente"}
+                                clienteTelefone={pedido.clientes?.telefone || null}
+                                onSalvo={fetchPedidos}
+                              />
                             )}
 
                             {/* Botão para ver itens */}
