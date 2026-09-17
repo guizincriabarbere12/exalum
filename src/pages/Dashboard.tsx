@@ -126,8 +126,12 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Status que consideramos como "faturados/aprovados"
-  const statusFaturados = ['aprovado', 'confirmado', 'finalizado', 'faturado', 'pago', 'entregue'];
+  // Status que consideramos como "faturados": aprovado (venda fechada) e
+  // conferido (aprovado cuja conferência de materiais já foi finalizada —
+  // ver finalizar_conferencia, que muda o status do orçamento para
+  // "conferido"). Os demais valores de status (pendente/cancelado/rejeitado)
+  // nunca contam como faturamento.
+  const statusFaturados = ['aprovado', 'conferido'];
 
   // ============================================
   // FUNÇÃO PARA CARREGAR DADOS DO DASHBOARD
@@ -218,13 +222,13 @@ export default function Dashboard() {
       const mesAtual = agora.getMonth();
       const anoAtual = agora.getFullYear();
 
-      // Filtrar orçamentos faturados
-      const orcamentosFaturados = orcamentos?.filter(o => 
+      // Faturamento conta orçamentos aprovados e conferidos (ver statusFaturados).
+      const orcamentosFaturados = orcamentos?.filter(o =>
         statusFaturados.includes(o.status?.toLowerCase())
       ) || [];
 
       // Faturamento total
-      const faturamento_total = orcamentosFaturados.reduce((acc, o) => 
+      const faturamento_total = orcamentosFaturados.reduce((acc, o) =>
         acc + (Number(o.valor_total) || 0), 0
       );
 
