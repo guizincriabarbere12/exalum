@@ -115,7 +115,7 @@ export default function ConferenciaMateriais() {
         .single();
       setConferenciaFinalizada(data);
       setConferenciaId(statusAtual.id);
-      await carregarItens(orcamento.id, statusAtual.id);
+      await carregarItens(orcamento.id);
       return;
     }
 
@@ -128,17 +128,17 @@ export default function ConferenciaMateriais() {
         return;
       }
       setConferenciaId(data.conferencia_id);
-      await carregarItens(orcamento.id, data.conferencia_id);
+      await carregarItens(orcamento.id);
     } catch (error: any) {
       toast({ title: "Erro ao iniciar conferência", description: error.message, variant: "destructive" });
       setOrcamentoAberto(null);
     }
   };
 
-  const carregarItens = async (orcamentoId: string, confId: string) => {
+  const carregarItens = async (orcamentoId: string) => {
     const { data: itensData, error } = await supabase
       .from("orcamento_itens")
-      .select("id, produto_id, kit_id, quantidade, produtos ( nome ), kits ( nome )")
+      .select("id, produto_id, kit_id, quantidade, quantidade_conferida, produtos ( nome ), kits ( nome )")
       .eq("orcamento_id", orcamentoId);
 
     if (error) {
@@ -155,20 +155,16 @@ export default function ConferenciaMateriais() {
     }));
     setItens(lista);
 
-    const { data: historico } = await supabase
-      .from("conferencia_historico")
-      .select("produto_id, kit_id, quantidade")
-      .eq("conferencia_id", confId);
-
+    // Progresso por linha do orçamento vem de orcamento_itens.quantidade_conferida
+    // (mesma coluna usada por finalizar_conferencia para decidir se pode
+    // finalizar). Somar conferencia_historico por produto_id/kit_id é errado
+    // quando o mesmo produto/kit aparece em mais de uma linha do orçamento,
+    // pois o histórico não guarda a qual linha cada registro pertence — o
+    // progresso de uma linha "vazava" para a outra e a tela mostrava linhas
+    // como completas que o backend ainda considerava pendentes.
     const somaPorItem: Record<string, number> = {};
-    lista.forEach((item) => {
-      const total = (historico || [])
-        .filter((h: any) =>
-          (item.produto_id && h.produto_id === item.produto_id) ||
-          (item.kit_id && h.kit_id === item.kit_id)
-        )
-        .reduce((acc: number, h: any) => acc + Number(h.quantidade), 0);
-      somaPorItem[item.id] = total;
+    (itensData || []).forEach((i: any) => {
+      somaPorItem[i.id] = Number(i.quantidade_conferida) || 0;
     });
     setConferidoPorItem(somaPorItem);
 
@@ -211,7 +207,7 @@ export default function ConferenciaMateriais() {
         return;
       }
 
-      await carregarItens(orcamentoAberto!.id, conferenciaId!);
+      await carregarItens(orcamentoAberto!.id);
       toast({ title: "Item conferido", description: `${item.nome}: +${quantidade}` });
     } catch (error: any) {
       toast({ title: "Erro ao conferir item", description: error.message, variant: "destructive" });
