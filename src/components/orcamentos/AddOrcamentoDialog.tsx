@@ -4660,6 +4660,27 @@ const EditOrcamentoContent = ({ orcamento, onClose }: { orcamento: OrcamentoComI
 
       if (orcError) throw orcError;
 
+      // Salva o progresso de conferência (quantidade_conferida/status_conferencia)
+      // antes de apagar os itens antigos, e devolve pros itens novos casando por
+      // produto/kit na mesma ordem em que aparecem. Sem isso, editar um orçamento
+      // com conferência de materiais em andamento (ou já finalizada) zerava
+      // silenciosamente tudo o que já tinha sido conferido.
+      const { data: itensAntigos } = await supabase
+        .from('orcamento_itens')
+        .select('produto_id, kit_id, quantidade_conferida, status_conferencia')
+        .eq('orcamento_id', orcamento.id);
+
+      const progressoDisponivel = new Map<string, Array<{ quantidade_conferida: number; status_conferencia: string }>>();
+      (itensAntigos || []).forEach((i: any) => {
+        const chave = i.produto_id ? `p:${i.produto_id}` : `k:${i.kit_id}`;
+        const fila = progressoDisponivel.get(chave) || [];
+        fila.push({
+          quantidade_conferida: Number(i.quantidade_conferida) || 0,
+          status_conferencia: i.status_conferencia || 'pendente',
+        });
+        progressoDisponivel.set(chave, fila);
+      });
+
       const { error: deleteError } = await supabase
         .from('orcamento_itens')
         .delete()
@@ -4669,7 +4690,10 @@ const EditOrcamentoContent = ({ orcamento, onClose }: { orcamento: OrcamentoComI
 
       const orcamentoItens = itens.map(item => {
         const subtotalComDesconto = calcularSubtotalComDesconto(item);
-        
+        const chave = item.tipo === 'produto' ? `p:${item.produto_id}` : `k:${item.kit_id}`;
+        const progresso = progressoDisponivel.get(chave)?.shift();
+        const quantidadeConferida = Math.min(progresso?.quantidade_conferida || 0, item.quantidade);
+
         return {
           orcamento_id: orcamento.id,
           produto_id: item.tipo === 'produto' ? item.produto_id : null,
@@ -4678,7 +4702,11 @@ const EditOrcamentoContent = ({ orcamento, onClose }: { orcamento: OrcamentoComI
           preco_unitario: Number(item.preco_unitario.toFixed(2)),
           desconto: item.desconto,
           peso: item.peso,
-          subtotal: Number(subtotalComDesconto.toFixed(2))
+          subtotal: Number(subtotalComDesconto.toFixed(2)),
+          quantidade_conferida: quantidadeConferida,
+          status_conferencia: quantidadeConferida >= item.quantidade && item.quantidade > 0
+            ? 'conferido'
+            : quantidadeConferida > 0 ? 'parcial' : 'pendente',
         };
       });
 
@@ -4697,7 +4725,7 @@ const EditOrcamentoContent = ({ orcamento, onClose }: { orcamento: OrcamentoComI
         const vendedorSelecionado = vendedores.find(v => v.id === vendedorId);
         if (vendedorSelecionado) {
           const valorComissao = (valorTotal * vendedorSelecionado.comissao_percentual) / 100;
-          
+
           await supabase
             .from('comissoes')
             .insert({
@@ -4726,7 +4754,7 @@ const EditOrcamentoContent = ({ orcamento, onClose }: { orcamento: OrcamentoComI
       }
 
       onClose();
-      
+
     } catch (error: any) {
       console.error('❌ Erro:', error);
       toast({
