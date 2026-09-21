@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { PlusCircle, Package, FileText, CheckCircle, ShoppingBag, List, Search, RefreshCw, Receipt, Truck, XCircle, Clock, DollarSign, Eye } from 'lucide-react';
+import { PlusCircle, Package, FileText, CheckCircle, ShoppingBag, List, Search, RefreshCw, Receipt, Truck, XCircle, Clock, DollarSign, Eye, Pencil } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import NovaCompra from '@/components/compras/NovaCompra';
+import EditarCompraDialog from '@/components/compras/EditarCompraDialog';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 
@@ -70,7 +71,11 @@ export default function Compras() {
   // Estados para VER ITENS
   const [dialogItensAberto, setDialogItensAberto] = useState(false);
   const [compraSelecionada, setCompraSelecionada] = useState<Compra | null>(null);
-  
+
+  // Estados para EDITAR
+  const [dialogEditarAberto, setDialogEditarAberto] = useState(false);
+  const [compraParaEditar, setCompraParaEditar] = useState<Compra | null>(null);
+
   // Estados para faturar
   const [dialogFaturamentoAberto, setDialogFaturamentoAberto] = useState(false);
   const [compraParaFaturar, setCompraParaFaturar] = useState<Compra | null>(null);
@@ -149,6 +154,17 @@ export default function Compras() {
     setCompraSelecionada(compra);
     setDialogItensAberto(true);
   };
+
+  const handleEditarClick = (compra: Compra) => {
+    setCompraParaEditar(compra);
+    setDialogEditarAberto(true);
+  };
+
+  // Editar só faz sentido antes de faturar/receber: depois disso o
+  // financeiro já gerou parcelas e/ou o estoque já subiu com base nos
+  // itens atuais.
+  const podeEditar = (compra: Compra) =>
+    compra.status !== 'cancelada' && !compra.compra_faturada && !compra.mercadoria_recebida;
 
   const handleFaturarClick = (compra: Compra) => {
     setCompraParaFaturar(compra);
@@ -664,6 +680,19 @@ export default function Compras() {
                                     Ver Itens
                                   </Button>
 
+                                  {/* Botão Editar */}
+                                  {podeEditar(compra) && (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="border-blue-300 text-blue-700 hover:bg-blue-50"
+                                      onClick={() => handleEditarClick(compra)}
+                                    >
+                                      <Pencil className="h-4 w-4 mr-1" />
+                                      Editar
+                                    </Button>
+                                  )}
+
                                   {/* Botão Faturar */}
                                   {!compra.compra_faturada && compra.status !== 'cancelada' && (
                                     <Button
@@ -994,6 +1023,15 @@ export default function Compras() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Dialog Editar Compra */}
+      <EditarCompraDialog
+        compra={compraParaEditar}
+        fornecedores={fornecedores}
+        open={dialogEditarAberto}
+        onOpenChange={setDialogEditarAberto}
+        onSuccess={carregarDados}
+      />
     </div>
   );
 }
