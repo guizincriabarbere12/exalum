@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Link } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -61,6 +61,38 @@ export default function CatalogoPublico() {
   const [produtos, setProdutos] = useState<Produto[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  // Quando a busca do topo sai da tela, mostra a busca fixa na barra de filtros
+  const buscaHeroRef = useRef<HTMLDivElement>(null);
+  const headerRef = useRef<HTMLDivElement>(null);
+  const [buscaHeroVisivel, setBuscaHeroVisivel] = useState(true);
+  const [alturaHeader, setAlturaHeader] = useState(65);
+
+  useEffect(() => {
+    const atualizar = () => {
+      const busca = buscaHeroRef.current;
+      const header = headerRef.current;
+      if (!busca || !header) return;
+      // A altura usada é a do header sem a busca fixa, para não ficar alternando
+      const limite = header.querySelector('[data-header-topo]')?.getBoundingClientRect().bottom ?? 65;
+      setBuscaHeroVisivel(busca.getBoundingClientRect().bottom > limite);
+    };
+    atualizar();
+    window.addEventListener("scroll", atualizar, { passive: true });
+    window.addEventListener("resize", atualizar);
+    return () => {
+      window.removeEventListener("scroll", atualizar);
+      window.removeEventListener("resize", atualizar);
+    };
+  }, []);
+
+  // A barra de categorias gruda logo abaixo do header, cuja altura muda (celular / busca fixa)
+  useEffect(() => {
+    const header = headerRef.current;
+    if (!header) return;
+    const observer = new ResizeObserver(() => setAlturaHeader(header.offsetHeight));
+    observer.observe(header);
+    return () => observer.disconnect();
+  }, []);
   const [filtroTipo, setFiltroTipo] = useState<string>("todos");
   const [filtroLiga, setFiltroLiga] = useState<string>("todos");
   const [filtroLocalizacao, setFiltroLocalizacao] = useState<string>("todos");
@@ -408,9 +440,9 @@ export default function CatalogoPublico() {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
-      <div className="sticky top-0 z-40 bg-white/95 backdrop-blur-2xl border-b border-primary/10 shadow-sm">
+      <div ref={headerRef} className="sticky top-0 z-40 bg-white/95 backdrop-blur-2xl border-b border-primary/10 shadow-sm">
         <div className="container mx-auto px-4 py-3">
-          <div className="flex items-center justify-between flex-wrap gap-3">
+          <div data-header-topo className="flex items-center justify-between flex-wrap gap-3">
             <div className="flex items-center gap-3">
               {logoEmpresa ? (
                 <img src={logoEmpresa} alt="Logo" className="h-11 w-auto object-contain" />
@@ -530,6 +562,18 @@ export default function CatalogoPublico() {
               </Sheet>
             </div>
           </div>
+
+          {!buscaHeroVisivel && (
+            <div className="relative mt-3">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar produtos, kits, códigos..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 h-10 bg-white rounded-full"
+              />
+            </div>
+          )}
         </div>
       </div>
 
@@ -542,7 +586,7 @@ export default function CatalogoPublico() {
             <p className="text-primary-foreground/85 text-base sm:text-lg mb-6">
               Perfis, kits e acessórios em alumínio com entrega rápida. Faça seu pedido online e acompanhe tudo pelo número gerado.
             </p>
-            <div className="relative max-w-lg">
+            <div ref={buscaHeroRef} className="relative max-w-lg">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
               <Input
                 placeholder="Buscar produtos, kits, códigos..."
@@ -571,7 +615,7 @@ export default function CatalogoPublico() {
       </div>
 
       {/* Category pills + secondary filters */}
-      <div className="border-b bg-white/70 backdrop-blur-sm sticky top-[65px] z-30">
+      <div className="border-b bg-white/70 backdrop-blur-sm sticky z-30" style={{ top: alturaHeader }}>
         <div className="container mx-auto px-4 py-3 flex items-center gap-3 flex-wrap">
           <div className="flex items-center gap-2 overflow-x-auto pb-1 flex-1 min-w-0">
             <Button
