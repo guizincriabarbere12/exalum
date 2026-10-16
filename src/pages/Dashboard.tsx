@@ -227,6 +227,11 @@ export default function Dashboard() {
         statusFaturados.includes(o.status?.toLowerCase())
       ) || [];
 
+      // O faturamento entra no mês em que o orçamento foi APROVADO (não no
+      // mês em que foi criado). Orçamentos antigos sem data_aprovacao caem
+      // na data de criação.
+      const dataFaturamento = (o: any) => new Date(o.data_aprovacao || o.created_at);
+
       // Faturamento total
       const faturamento_total = orcamentosFaturados.reduce((acc, o) =>
         acc + (Number(o.valor_total) || 0), 0
@@ -234,7 +239,7 @@ export default function Dashboard() {
 
       // Faturamento do mês
       const faturamento_mes = orcamentosFaturados.reduce((acc, o) => {
-        const data = new Date(o.created_at);
+        const data = dataFaturamento(o);
         if (data.getMonth() === mesAtual && data.getFullYear() === anoAtual) {
           return acc + (Number(o.valor_total) || 0);
         }
@@ -243,7 +248,7 @@ export default function Dashboard() {
 
       // Faturamento do ano
       const faturamento_ano = orcamentosFaturados.reduce((acc, o) => {
-        const data = new Date(o.created_at);
+        const data = dataFaturamento(o);
         if (data.getFullYear() === anoAtual) {
           return acc + (Number(o.valor_total) || 0);
         }
@@ -255,7 +260,7 @@ export default function Dashboard() {
       umAnoAtras.setFullYear(anoAtual - 1);
 
       const orcamentosUltimos12Meses = orcamentosFaturados.filter(o => {
-        const data = new Date(o.created_at);
+        const data = dataFaturamento(o);
         return data >= umAnoAtras;
       });
 
@@ -298,7 +303,7 @@ export default function Dashboard() {
 
       // Agrupar faturamento por mês
       orcamentosFaturados.forEach(o => {
-        const data = new Date(o.created_at);
+        const data = dataFaturamento(o);
         const mesAno = data.toLocaleDateString('pt-BR', { month: '2-digit', year: 'numeric' });
         
         const mesEncontrado = ultimos12Meses.find(m => m.mes === mesAno);
