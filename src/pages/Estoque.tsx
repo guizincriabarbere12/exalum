@@ -79,6 +79,7 @@ export default function Estoque() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [filtroTipo, setFiltroTipo] = useState<string>("todos");
+  const [filtroBox, setFiltroBox] = useState<string>("todos");
   const [categorias, setCategorias] = useState<string[]>([]);
   const [expandedKits, setExpandedKits] = useState<Set<string>>(new Set());
 
@@ -173,11 +174,24 @@ export default function Estoque() {
 
   useEffect(() => { fetchEstoque(); }, [fetchEstoque]);
 
+  // Box/localizacao: um produto pode estar em varios ("A.07 / A.10").
+  // A comparacao ignora espacos, pontos e zeros a esquerda, entao
+  // "box 14", "BOX14" e "BOX014" encontram o mesmo box.
+  const boxesDoItem = (localizacao: string | null) =>
+    (localizacao || "").split("/").map((b) => b.trim()).filter((b) => b && b !== "-");
+  const normalizarBox = (texto: string) =>
+    texto.toUpperCase().replace(/[\s.]/g, "").replace(/(\D)0+(\d)/g, "$1$2");
+  const boxes = Array.from(new Set(estoque.flatMap((item) => boxesDoItem(item.localizacao))))
+    .sort((a, b) => a.localeCompare(b, "pt-BR", { numeric: true }));
+
   const estoquesFiltrados = estoque.filter(item => {
-    const matchSearch = (item.descricao || item.nome || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-                       item.codigo.toLowerCase().includes(searchTerm.toLowerCase());
+    const termo = searchTerm.toLowerCase();
+    const matchSearch = (item.descricao || item.nome || "").toLowerCase().includes(termo) ||
+                       item.codigo.toLowerCase().includes(termo) ||
+                       (!!termo.trim() && boxesDoItem(item.localizacao).some((b) => normalizarBox(b).includes(normalizarBox(termo))));
     const matchTipo = filtroTipo === "todos" || item.categoria === filtroTipo;
-    return matchSearch && matchTipo;
+    const matchBox = filtroBox === "todos" || boxesDoItem(item.localizacao).includes(filtroBox);
+    return matchSearch && matchTipo && matchBox;
   });
 
   const kitsFiltrados = kits.filter(kit =>
@@ -405,16 +419,23 @@ export default function Estoque() {
               <CardTitle className="flex items-center gap-2"><Package className="h-5 w-5 text-primary" />Estoque de Produtos - {nomeFilialSel}</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="mb-4 flex gap-4">
-                <div className="relative flex-1">
+              <div className="mb-4 flex flex-wrap gap-4">
+                <div className="relative flex-1 min-w-[200px]">
                   <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input placeholder="Buscar no estoque..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10" />
+                  <Input placeholder="Buscar por produto, código ou box..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10" />
                 </div>
                 <Select value={filtroTipo} onValueChange={setFiltroTipo}>
                   <SelectTrigger className="w-[200px]"><SelectValue placeholder="Categoria" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="todos">Todas</SelectItem>
                     {categorias.map(categoria => <SelectItem key={categoria} value={categoria}>{categoria}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <Select value={filtroBox} onValueChange={setFiltroBox}>
+                  <SelectTrigger className="w-[180px]"><SelectValue placeholder="Box" /></SelectTrigger>
+                  <SelectContent className="max-h-[300px]">
+                    <SelectItem value="todos">Todos os boxes</SelectItem>
+                    {boxes.map((box) => <SelectItem key={box} value={box}>{box}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
