@@ -1302,10 +1302,17 @@ interface DadosOrdemProducao {
   dataSaida: string;
   dataRetorno?: string | null;
   fornecedor?: string | null;
-  produtoOrigem: { codigo: string; nome: string; cor?: string | null; unidade: string };
-  produtoDestino?: { codigo: string; nome: string; cor?: string | null } | null;
-  quantidade: number;
-  pesoUnitarioKg: number;
+  corDestino?: string | null;
+  itens: {
+    codigo: string;
+    nome: string;
+    cor?: string | null;
+    unidade: string;
+    destino?: { nome: string; cor?: string | null } | null;
+    quantidade: number;
+    pesoUnitarioKg: number;
+    pesoTotalKg: number;
+  }[];
   pesoTotalKg: number;
   valorMaterial: number;
   custoPintura: number;
@@ -1434,21 +1441,26 @@ export async function gerarPDFOrdemProducao(
   // ========== MATERIAL ==========
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9);
-  doc.text('Material', MARGIN, y);
+  doc.text(dados.corDestino ? `Material - pintar na cor ${dados.corDestino}` : 'Material', MARGIN, y);
   y += 3;
 
   const nomeCor = (p: { nome: string; cor?: string | null }) => p.cor ? `${p.nome} (${p.cor})` : p.nome;
+  const qtdTotal = dados.itens.reduce((s, i) => s + (Number(i.quantidade) || 0), 0);
   autoTable(doc, {
     startY: y,
     head: [['Código', 'Produto enviado', 'Pintar para', 'Qtd', 'Peso un.', 'Peso total']],
-    body: [[
-      dados.produtoOrigem.codigo,
-      nomeCor(dados.produtoOrigem),
-      dados.produtoDestino ? nomeCor(dados.produtoDestino) : 'Mesma cor',
-      `${dados.quantidade} ${dados.produtoOrigem.unidade}`,
-      kg(dados.pesoUnitarioKg),
-      kg(dados.pesoTotalKg),
-    ]],
+    body: dados.itens.map((i) => [
+      i.codigo,
+      nomeCor(i),
+      i.destino ? nomeCor(i.destino) : 'Mesma cor',
+      `${i.quantidade} ${i.unidade}`,
+      kg(i.pesoUnitarioKg),
+      kg(i.pesoTotalKg),
+    ]),
+    foot: dados.itens.length > 1
+      ? [['', `${dados.itens.length} itens`, '', String(qtdTotal), '', kg(dados.pesoTotalKg)]]
+      : undefined,
+    footStyles: { fillColor: GRAY_HEAD, textColor: [0, 0, 0], fontStyle: 'bold', fontSize: 8, lineColor: GRAY_LINE, lineWidth: 0.2 },
     theme: 'grid',
     headStyles: { fillColor: GRAY_HEAD, textColor: [0, 0, 0], fontStyle: 'bold', fontSize: 8, halign: 'left', lineColor: GRAY_LINE, lineWidth: 0.2 },
     bodyStyles: { fontSize: 8, cellPadding: 2.5, textColor: [0, 0, 0], lineColor: GRAY_LINE, lineWidth: 0.2 },

@@ -19,7 +19,7 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { PaintBucket, Plus, Search, RefreshCw, Package, ArrowLeftRight, CircleCheck as CheckCircle, Circle as XCircle, Clock, DollarSign, Eye, History, TrendingDown, TrendingUp, ArrowRight, Filter, List, Grid, Pencil, Printer } from "lucide-react";
+import { PaintBucket, Plus, Search, RefreshCw, Package, ArrowLeftRight, CircleCheck as CheckCircle, Circle as XCircle, Clock, DollarSign, Eye, History, TrendingDown, TrendingUp, ArrowRight, Filter, Pencil, Printer, Trash2 } from "lucide-react";
 import { gerarPDFOrdemProducao, downloadPDF } from "@/utils/pdfGenerator";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
@@ -30,18 +30,29 @@ interface Produto {
   estoque: number; unidade: string; custo: number | null; preco: number; cor: string | null;
   peso?: number | null; peso_kg_m?: number | null; comprimento_barra?: number | null;
 }
+interface ItemOp {
+  id?: string;
+  produto_id: string;
+  produto_destino_id: string | null;
+  quantidade: number;
+  produto?: Produto;
+  produto_destino?: Produto | null;
+}
 interface OrdemProducao {
   id: string; numero: string; produto_id: string; produto_destino_id: string | null;
   quantidade: number; data_saida: string; data_retorno: string | null;
   custo_pintura: number; status: string; observacoes: string | null; created_at: string;
-  fornecedor_id: string | null;
-  produto?: Produto; produto_destino?: Produto; fornecedor?: Fornecedor | null;
+  fornecedor_id: string | null; cor_destino: string | null;
+  fornecedor?: Fornecedor | null;
+  itens: ItemOp[];
 }
 interface Fornecedor { id: string; nome: string; }
 interface HistoricoItem {
   id: string; status_anterior: string | null; status_novo: string;
   observacoes: string | null; created_at: string;
 }
+
+const CAMPOS_PRODUTO = "id, codigo, nome, descricao, estoque, unidade, custo, preco, cor, peso, peso_kg_m, comprimento_barra";
 
 const formatCurrency = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
 const formatDate = (d: string | null) => { if (!d) return "-"; const [a, m, di] = d.split("T")[0].split("-"); return `${di}/${m}/${a}`; };
@@ -61,37 +72,91 @@ const formatKg = (v: number) => `${v.toLocaleString("pt-BR", { maximumFractionDi
 const pesoUnitario = (p?: Produto | null) =>
   Number(p?.peso) || (Number(p?.peso_kg_m) || 0) * (Number(p?.comprimento_barra) || 6);
 
-// Valor da OP calculado pelo KG: material = kg total x custo por kg do
+// Totais de uma lista de itens: peso (kg) e material (kg x custo por kg do
+// produto de origem).
+const totaisItens = (itens: ItemOp[]) => itens.reduce((acc, i) => {
+  const kgUnit = pesoUnitario(i.produto);
+  const kg = kgUnit * (Number(i.quantidade) || 0);
+  const custoKg = kgUnit > 0 && i.produto?.custo != null ? Number(i.produto.custo) / kgUnit : 0;
+  return {
+    kg: acc.kg + kg,
+    material: acc.material + custoKg * kg,
+    qtd: acc.qtd + (Number(i.quantidade) || 0),
+    semPeso: acc.semPeso || (kgUnit === 0),
+  };
+}, { kg: 0, material: 0, qtd: 0, semPeso: false });
+
+// Mesmo perfil em outra cor: o codigo segue o padrao <perfil>.<cor>
+// (ex.: TR.3001.NTA -> TR.3001.9007); se nao bater, tenta pelo nome.
+const baseSemCor = (texto: string, cor: string | null) => {
+  let t = (texto || "").toUpperCase();
+  if (cor) t = t.replace(cor.toUpperCase(), "");
+  return t.replace(/[.\s]+/g, " ").trim();
+};
+const baseCodigo = (codigo: string) => (codigo || "").toUpperCase().split(".").slice(0, -1).join(".");
+const sugerirDestino = (origem: Produto | undefined, cor: string, produtos: Produto[]) => {
+  if (!origem || !cor) return null;
+  if (origem.cor === cor) return null;
+  const naCor = produtos.filter((p) => p.cor === cor && p.id !== origem.id);
+  const bc = baseCodigo(origem.codigo);
+  return (bc && naCor.find((p) => baseCodigo(p.codigo) === bc))
+    || naCor.find((p) => baseSemCor(p.nome, p.cor) === baseSemCor(origem.nome, origem.cor))
+    || null;
+};
+
+const nomeComCor = (p?: Produto | null) => (p ? `${p.nome}${p.cor ? ` (${p.cor})` : ""}` : "-");
+
+// Valor da OP calculado pelo KG: material = kg total x custo por kg de cada
 // produto de origem; pintura = custo informado (cobrado por kg).
-function ResumoValorOp({ produto, quantidade, custoPintura }: { produto?: Produto | null; quantidade: number; custoPintura: number }) {
-  const kgUnit = pesoUnitario(produto);
-  const kgTotal = kgUnit * (quantidade || 0);
-  const custoKg = kgUnit > 0 && produto?.custo != null ? Number(produto.custo) / kgUnit : null;
-  const valorMaterial = custoKg != null ? custoKg * kgTotal : 0;
+function ResumoValorOp({ itens, custoPintura }: { itens: ItemOp[]; custoPintura: number }) {
+  const t = totaisItens(itens);
   const pintura = Number(custoPintura) || 0;
-  const total = valorMaterial + pintura;
   return (
     <div className="border rounded-lg p-3 bg-primary/5 border-primary/20 space-y-1 text-sm">
       <div className="flex justify-between">
-        <span className="text-muted-foreground">Peso total ({quantidade || 0} × {formatKg(kgUnit)})</span>
-        <span className="font-medium">{kgUnit > 0 ? formatKg(kgTotal) : "peso não cadastrado"}</span>
+        <span className="text-muted-foreground">Peso total ({itens.length} {itens.length === 1 ? "item" : "itens"}, {t.qtd} peças)</span>
+        <span className="font-medium">{formatKg(t.kg)}{t.semPeso ? " *" : ""}</span>
+      </div>
+      <div className="flex justify-between">
+        <span className="text-muted-foreground">Material (kg × custo/kg de cada produto)</span>
+        <span className="font-medium">{formatCurrency(t.material)}</span>
       </div>
       <div className="flex justify-between">
         <span className="text-muted-foreground">
-          Material ({custoKg != null ? `${formatKg(kgTotal)} × ${formatCurrency(custoKg)}/kg` : "custo/peso não cadastrado"})
-        </span>
-        <span className="font-medium">{formatCurrency(valorMaterial)}</span>
-      </div>
-      <div className="flex justify-between">
-        <span className="text-muted-foreground">
-          Pintura{kgTotal > 0 ? ` (${formatKg(kgTotal)} × ${formatCurrency(pintura / kgTotal)}/kg)` : ""}
+          Pintura{t.kg > 0 ? ` (${formatKg(t.kg)} × ${formatCurrency(pintura / t.kg)}/kg)` : ""}
         </span>
         <span className="font-medium">{formatCurrency(pintura)}</span>
       </div>
       <div className="flex justify-between border-t pt-1 mt-1">
         <span className="font-semibold">Valor da OP</span>
-        <span className="font-bold text-primary text-base">{formatCurrency(total)}</span>
+        <span className="font-bold text-primary text-base">{formatCurrency(t.material + pintura)}</span>
       </div>
+      {t.semPeso && <p className="text-xs text-muted-foreground">* algum produto está sem peso cadastrado e não entra no peso/material.</p>}
+    </div>
+  );
+}
+
+function TabelaItensLeitura({ itens }: { itens: ItemOp[] }) {
+  return (
+    <div className="border rounded-lg overflow-hidden">
+      <Table>
+        <TableHeader><TableRow>
+          <TableHead>Produto enviado</TableHead>
+          <TableHead>Pintar para</TableHead>
+          <TableHead className="text-right">Qtd</TableHead>
+          <TableHead className="text-right">Peso</TableHead>
+        </TableRow></TableHeader>
+        <TableBody>
+          {itens.map((i, idx) => (
+            <TableRow key={i.id || idx}>
+              <TableCell className="text-sm">{nomeComCor(i.produto)}</TableCell>
+              <TableCell className="text-sm text-primary">{i.produto_destino ? nomeComCor(i.produto_destino) : <span className="text-muted-foreground">Mesmo produto</span>}</TableCell>
+              <TableCell className="text-right text-sm">{i.quantidade} {i.produto?.unidade || "un"}</TableCell>
+              <TableCell className="text-right text-sm">{formatKg(pesoUnitario(i.produto) * (Number(i.quantidade) || 0))}</TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
     </div>
   );
 }
@@ -111,10 +176,12 @@ export default function OrdensProducao() {
   const [buscaProduto, setBuscaProduto] = useState("");
   const [produtosFiltrados, setProdutosFiltrados] = useState<Produto[]>([]);
 
+  // Nova OP
   const [dialogNovaOpAberto, setDialogNovaOpAberto] = useState(false);
-  const [produtoSelecionado, setProdutoSelecionado] = useState("");
-  const [produtoDestinoSelecionado, setProdutoDestinoSelecionado] = useState("");
-  const [quantidade, setQuantidade] = useState(1);
+  const [corDestino, setCorDestino] = useState("");
+  const [novosItens, setNovosItens] = useState<ItemOp[]>([]);
+  const [produtoParaAdicionar, setProdutoParaAdicionar] = useState("");
+  const [quantidadeParaAdicionar, setQuantidadeParaAdicionar] = useState(1);
   const [custoPintura, setCustoPintura] = useState(0);
   const [precoKgPintura, setPrecoKgPintura] = useState(0);
   const [dataSaida, setDataSaida] = useState(new Date().toISOString().split("T")[0]);
@@ -137,8 +204,7 @@ export default function OrdensProducao() {
 
   const [dialogEditarAberto, setDialogEditarAberto] = useState(false);
   const [opEditando, setOpEditando] = useState<OrdemProducao | null>(null);
-  const [editDestino, setEditDestino] = useState("");
-  const [editQuantidade, setEditQuantidade] = useState(1);
+  const [editItens, setEditItens] = useState<ItemOp[]>([]);
   const [editDataSaida, setEditDataSaida] = useState("");
   const [editDataRetorno, setEditDataRetorno] = useState("");
   const [editCusto, setEditCusto] = useState(0);
@@ -150,7 +216,7 @@ export default function OrdensProducao() {
     try {
       setLoading(true);
       const { data: produtosData, error: produtosError } = await supabase
-        .from("produtos").select("id, codigo, nome, descricao, estoque, unidade, custo, preco, cor, peso, peso_kg_m, comprimento_barra")
+        .from("produtos").select(CAMPOS_PRODUTO)
         .eq("ativo", true).order("nome");
       if (produtosError) throw produtosError;
       setProdutos(produtosData || []);
@@ -160,10 +226,19 @@ export default function OrdensProducao() {
       setFornecedores(fornecedoresData || []);
 
       const { data: ordensData, error: ordensError } = await supabase
-        .from("ordens_producao").select(`*, produto:produtos!ordens_producao_produto_id_fkey(id, codigo, nome, descricao, estoque, unidade, custo, preco, cor, peso, peso_kg_m, comprimento_barra), produto_destino:produtos!ordens_producao_produto_destino_id_fkey(id, codigo, nome, descricao, estoque, unidade, custo, preco, cor, peso, peso_kg_m, comprimento_barra), fornecedor:fornecedores!ordens_producao_fornecedor_id_fkey(id, nome)`)
+        .from("ordens_producao").select(`*,
+          fornecedor:fornecedores!ordens_producao_fornecedor_id_fkey(id, nome),
+          itens:ordens_producao_itens(id, produto_id, produto_destino_id, quantidade, created_at,
+            produto:produtos!ordens_producao_itens_produto_id_fkey(${CAMPOS_PRODUTO}),
+            produto_destino:produtos!ordens_producao_itens_produto_destino_id_fkey(${CAMPOS_PRODUTO}))`)
         .order("created_at", { ascending: false });
       if (ordensError) throw ordensError;
-      setOrdens(ordensData || []);
+      setOrdens((ordensData || []).map((o) => ({
+        ...o,
+        itens: [...(o.itens || [])]
+          .sort((a, b) => (a.created_at || "").localeCompare(b.created_at || ""))
+          .map((i) => ({ ...i, quantidade: Number(i.quantidade) })),
+      })));
     } catch (error: any) {
       toast({ title: "Erro ao carregar dados", description: error.message, variant: "destructive" });
     } finally { setLoading(false); }
@@ -177,7 +252,7 @@ export default function OrdensProducao() {
       setProdutosFiltrados(produtos);
     } else {
       const term = buscaProduto.toLowerCase().trim();
-      const filtered = produtos.filter(p => 
+      const filtered = produtos.filter(p =>
         p.nome.toLowerCase().includes(term) ||
         p.codigo.toLowerCase().includes(term) ||
         (p.descricao && p.descricao.toLowerCase().includes(term)) ||
@@ -187,22 +262,22 @@ export default function OrdensProducao() {
     }
   }, [buscaProduto, produtos]);
 
-  // Função melhorada de filtragem das ordens
+  const cores = Array.from(new Set(produtos.map((p) => p.cor).filter(Boolean))).sort();
+
   const ordensFiltradas = ordens.filter((op) => {
-    const matchSearch = 
-      op.numero.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (op.produto?.nome || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (op.produto?.codigo || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (op.produto_destino?.nome || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (op.produto_destino?.codigo || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (op.fornecedor?.nome || "").toLowerCase().includes(searchTerm.toLowerCase());
-    
+    const termo = searchTerm.toLowerCase();
+    const matchSearch = !termo ||
+      op.numero.toLowerCase().includes(termo) ||
+      (op.cor_destino || "").toLowerCase().includes(termo) ||
+      (op.fornecedor?.nome || "").toLowerCase().includes(termo) ||
+      op.itens.some((i) =>
+        (i.produto?.nome || "").toLowerCase().includes(termo) ||
+        (i.produto?.codigo || "").toLowerCase().includes(termo) ||
+        (i.produto_destino?.nome || "").toLowerCase().includes(termo) ||
+        (i.produto_destino?.codigo || "").toLowerCase().includes(termo));
     const matchStatus = filtroStatus === "todos" || op.status === filtroStatus;
-    const matchProduto = 
-      filtroProduto === "todos" || 
-      op.produto_id === filtroProduto || 
-      op.produto_destino_id === filtroProduto;
-    
+    const matchProduto = filtroProduto === "todos" ||
+      op.itens.some((i) => i.produto_id === filtroProduto || i.produto_destino_id === filtroProduto);
     return matchSearch && matchStatus && matchProduto;
   });
 
@@ -210,108 +285,166 @@ export default function OrdensProducao() {
   const totalRetornados = ordens.filter((o) => o.status === "retornado").length;
   const custoTotalPintura = ordens.filter((o) => o.status !== "cancelada").reduce((acc, o) => acc + (Number(o.custo_pintura) || 0), 0);
 
+  const registrarMovimentacao = (produtoId: string, tipo: "entrada" | "saida", quantidade: number, anterior: number, atual: number, obs: string) =>
+    supabase.from("movimentacoes_estoque").insert({
+      produto_id: produtoId, tipo, quantidade,
+      quantidade_anterior: anterior, quantidade_atual: atual,
+      origem: "ordem_producao", usuario_id: user?.id, observacoes: obs,
+    });
+
+  // Soma (ou subtrai) do estoque lendo o valor atual do banco na hora.
+  const ajustarEstoque = async (produtoId: string, delta: number, obs: string) => {
+    const { data: prod, error } = await supabase.from("produtos").select("estoque").eq("id", produtoId).single();
+    if (error) throw error;
+    const anterior = Number(prod?.estoque) || 0;
+    const atual = anterior + delta;
+    const { error: upError } = await supabase.from("produtos").update({ estoque: atual }).eq("id", produtoId);
+    if (upError) throw upError;
+    await registrarMovimentacao(produtoId, delta >= 0 ? "entrada" : "saida", Math.abs(delta), anterior, atual, obs);
+  };
+
+  // ========== NOVA OP ==========
+  const resetNovaOp = () => {
+    setCorDestino(""); setNovosItens([]); setProdutoParaAdicionar(""); setQuantidadeParaAdicionar(1);
+    setFornecedorSelecionado(""); setCustoPintura(0); setPrecoKgPintura(0);
+    setDataSaida(new Date().toISOString().split("T")[0]); setObservacoes(""); setBuscaProduto("");
+  };
+
+  const alterarCorDestino = (cor: string) => {
+    setCorDestino(cor);
+    // re-sugere o destino de cada item para a nova cor
+    setNovosItens((itens) => itens.map((i) => {
+      const destino = sugerirDestino(i.produto, cor, produtos);
+      return { ...i, produto_destino_id: destino?.id || null, produto_destino: destino };
+    }));
+  };
+
+  const adicionarItem = () => {
+    const produto = produtos.find((p) => p.id === produtoParaAdicionar);
+    if (!produto) { toast({ title: "Selecione um produto", variant: "destructive" }); return; }
+    if (!(quantidadeParaAdicionar > 0)) { toast({ title: "Quantidade deve ser maior que zero", variant: "destructive" }); return; }
+    const existente = novosItens.find((i) => i.produto_id === produto.id);
+    if (existente) {
+      setNovosItens((itens) => itens.map((i) => i.produto_id === produto.id ? { ...i, quantidade: i.quantidade + quantidadeParaAdicionar } : i));
+    } else {
+      const destino = sugerirDestino(produto, corDestino, produtos);
+      setNovosItens((itens) => [...itens, { produto_id: produto.id, produto, quantidade: quantidadeParaAdicionar, produto_destino_id: destino?.id || null, produto_destino: destino }]);
+    }
+    setProdutoParaAdicionar(""); setQuantidadeParaAdicionar(1);
+  };
+
+  const alterarNovoItem = (idx: number, patch: Partial<ItemOp>) =>
+    setNovosItens((itens) => itens.map((i, k) => (k === idx ? { ...i, ...patch } : i)));
+
+  // Pintura cobrada por kg: o custo total da OP = kg total x R$/kg.
+  const kgNovaOp = totaisItens(novosItens).kg;
+  useEffect(() => {
+    if (kgNovaOp > 0) setCustoPintura(Math.round(kgNovaOp * precoKgPintura * 100) / 100);
+  }, [kgNovaOp, precoKgPintura]);
+
   const handleCriarOp = async () => {
-    if (!produtoSelecionado) { toast({ title: "Selecione um produto", variant: "destructive" }); return; }
-    if (quantidade <= 0) { toast({ title: "Quantidade deve ser maior que zero", variant: "destructive" }); return; }
+    if (novosItens.length === 0) { toast({ title: "Adicione pelo menos um item", variant: "destructive" }); return; }
+    if (novosItens.some((i) => !(i.quantidade > 0))) { toast({ title: "Todas as quantidades devem ser maiores que zero", variant: "destructive" }); return; }
     try {
       setProcessandoId("nova");
-      const produto = produtos.find((p) => p.id === produtoSelecionado);
-      if (!produto) { toast({ title: "Produto não encontrado", variant: "destructive" }); return; }
-      if (produto.estoque < quantidade) {
-        toast({ title: "Estoque insuficiente", description: `Estoque atual: ${produto.estoque} ${produto.unidade || "un"}`, variant: "destructive" });
+      // confere estoque com o valor atual do banco
+      const ids = novosItens.map((i) => i.produto_id);
+      const { data: estoques, error: estError } = await supabase.from("produtos").select("id, nome, estoque, unidade").in("id", ids);
+      if (estError) throw estError;
+      const faltando = novosItens.filter((i) => {
+        const p = (estoques || []).find((e) => e.id === i.produto_id);
+        return (Number(p?.estoque) || 0) < i.quantidade;
+      });
+      if (faltando.length) {
+        toast({
+          title: "Estoque insuficiente",
+          description: faltando.map((i) => {
+            const p = (estoques || []).find((e) => e.id === i.produto_id);
+            return `${p?.nome}: tem ${p?.estoque}, precisa ${i.quantidade}`;
+          }).join("; "),
+          variant: "destructive",
+        });
         return;
       }
+
       const { data: numeroOp, error: numeroError } = await supabase.rpc("gerar_numero_op");
       if (numeroError) throw numeroError;
+      const primeiro = novosItens[0];
+      const qtdTotal = novosItens.reduce((s, i) => s + i.quantidade, 0);
 
       const { data: opInsert, error: opError } = await supabase
         .from("ordens_producao").insert({
-          numero: numeroOp, produto_id: produtoSelecionado,
-          produto_destino_id: produtoDestinoSelecionado || null,
+          numero: numeroOp, produto_id: primeiro.produto_id,
+          produto_destino_id: primeiro.produto_destino_id || null,
+          cor_destino: corDestino || null,
           fornecedor_id: fornecedorSelecionado || null,
-          quantidade, data_saida: dataSaida, custo_pintura: custoPintura,
+          quantidade: qtdTotal, data_saida: dataSaida, custo_pintura: custoPintura,
           status: "em_pintura", observacoes: observacoes || null, created_by: user?.id,
         }).select().single();
       if (opError) throw opError;
 
-      const novoEstoque = produto.estoque - quantidade;
-      const { error: estoqueError } = await supabase.from("produtos").update({ estoque: novoEstoque }).eq("id", produtoSelecionado);
-      if (estoqueError) throw estoqueError;
+      const { error: itensError } = await supabase.from("ordens_producao_itens").insert(
+        novosItens.map((i) => ({ op_id: opInsert.id, produto_id: i.produto_id, produto_destino_id: i.produto_destino_id || null, quantidade: i.quantidade }))
+      );
+      if (itensError) throw itensError;
 
-      await supabase.from("movimentacoes_estoque").insert({
-        produto_id: produtoSelecionado, tipo: "saida", quantidade,
-        quantidade_anterior: produto.estoque, quantidade_atual: novoEstoque,
-        origem: "ordem_producao", usuario_id: user?.id,
-        observacoes: `Saída para pintura - OP ${numeroOp}`,
-      });
+      for (const i of novosItens) {
+        await ajustarEstoque(i.produto_id, -i.quantidade, `Saída para pintura - OP ${numeroOp}`);
+      }
 
       await supabase.from("ordens_producao_historico").insert({
         op_id: opInsert.id, status_anterior: null, status_novo: "em_pintura",
-        observacoes: produtoDestinoSelecionado ? `OP criada - produto será transformado em ${produtos.find(p => p.id === produtoDestinoSelecionado)?.nome || "produto destino"}` : "OP criada",
+        observacoes: `OP criada com ${novosItens.length} ${novosItens.length === 1 ? "item" : "itens"}${corDestino ? ` para a cor ${corDestino}` : ""}: ` +
+          novosItens.map((i) => `${i.quantidade}x ${i.produto?.nome}${i.produto_destino ? ` → ${i.produto_destino.nome}` : ""}`).join("; "),
         usuario_id: user?.id,
       });
 
       if (custoPintura > 0) {
+        const descricaoItens = novosItens.length === 1 ? primeiro.produto?.nome : `${novosItens.length} itens${corDestino ? ` - cor ${corDestino}` : ""}`;
         const { error: transError } = await supabase.from("transacoes_financeiras").insert({
-          descricao: `Custo de Pintura - OP ${numeroOp} (${produto.nome})`,
+          descricao: `Custo de Pintura - OP ${numeroOp} (${descricaoItens})`,
           tipo: "despesa", valor: custoPintura, data: dataSaida, status: "pendente",
           categoria: "Pintura", origem_tipo: "ordem_producao",
-          observacoes: `OP ${numeroOp} - ${quantidade} un de ${produto.nome}`,
+          observacoes: `OP ${numeroOp} - ` + novosItens.map((i) => `${i.quantidade} un de ${i.produto?.nome}`).join(", "),
           data_vencimento: dataSaida, created_by: user?.id,
         });
         if (transError) throw transError;
       }
 
-      toast({ title: "OP criada com sucesso!", description: `OP ${numeroOp} - Produto enviado para pintura. Estoque debitado.` });
-      setProdutoSelecionado(""); setProdutoDestinoSelecionado(""); setFornecedorSelecionado(""); setQuantidade(1); setCustoPintura(0); setPrecoKgPintura(0);
-      setDataSaida(new Date().toISOString().split("T")[0]); setObservacoes(""); setDialogNovaOpAberto(false);
+      toast({ title: "OP criada com sucesso!", description: `OP ${numeroOp} - ${novosItens.length} ${novosItens.length === 1 ? "item enviado" : "itens enviados"} para pintura. Estoque debitado.` });
+      resetNovaOp(); setDialogNovaOpAberto(false);
       await carregarDados();
     } catch (error: any) {
       toast({ title: "Erro ao criar OP", description: error.message, variant: "destructive" });
     } finally { setProcessandoId(null); }
   };
 
+  // ========== RETORNO / CANCELAMENTO ==========
   const handleRetornarOp = async () => {
-    if (!opParaRetornar) return;
+    const op = opParaRetornar;
+    if (!op) return;
     try {
-      setProcessandoId(opParaRetornar.id);
-      const produtoOriginal = opParaRetornar.produto;
-      if (!produtoOriginal) { toast({ title: "Produto não encontrado", variant: "destructive" }); return; }
-      const produtoDestinoId = opParaRetornar.produto_destino_id || opParaRetornar.produto_id;
-      const produtoDestino = opParaRetornar.produto_destino || produtoOriginal;
-      const estoqueAtualDestino = produtoDestino.estoque || 0;
-      const novoEstoqueDestino = estoqueAtualDestino + opParaRetornar.quantidade;
-
-      const { error: estoqueError } = await supabase.from("produtos").update({ estoque: novoEstoqueDestino }).eq("id", produtoDestinoId);
-      if (estoqueError) throw estoqueError;
-
-      await supabase.from("movimentacoes_estoque").insert({
-        produto_id: produtoDestinoId, tipo: "entrada", quantidade: opParaRetornar.quantidade,
-        quantidade_anterior: estoqueAtualDestino, quantidade_atual: novoEstoqueDestino,
-        origem: "ordem_producao", usuario_id: user?.id,
-        observacoes: opParaRetornar.produto_destino_id
-          ? `Retorno da pintura com transformação - OP ${opParaRetornar.numero} (${produtoOriginal.nome} → ${produtoDestino.nome})`
-          : `Retorno da pintura - OP ${opParaRetornar.numero}`,
-      });
+      setProcessandoId(op.id);
+      for (const i of op.itens) {
+        const destinoId = i.produto_destino_id || i.produto_id;
+        await ajustarEstoque(destinoId, i.quantidade,
+          i.produto_destino_id
+            ? `Retorno da pintura com transformação - OP ${op.numero} (${i.produto?.nome} → ${i.produto_destino?.nome})`
+            : `Retorno da pintura - OP ${op.numero}`);
+      }
 
       const { error: opError } = await supabase.from("ordens_producao").update({
         status: "retornado", data_retorno: dataRetorno, updated_at: new Date().toISOString(),
-      }).eq("id", opParaRetornar.id);
+      }).eq("id", op.id);
       if (opError) throw opError;
 
       await supabase.from("ordens_producao_historico").insert({
-        op_id: opParaRetornar.id, status_anterior: "em_pintura", status_novo: "retornado",
-        observacoes: opParaRetornar.produto_destino_id
-          ? `Produto retornado com transformação: ${produtoOriginal.nome} → ${produtoDestino.nome}`
-          : "Produto retornado da pintura ao estoque",
+        op_id: op.id, status_anterior: "em_pintura", status_novo: "retornado",
+        observacoes: "Retorno da pintura: " + op.itens.map((i) => `${i.quantidade}x ${(i.produto_destino || i.produto)?.nome}`).join("; "),
         usuario_id: user?.id,
       });
 
-      toast({ title: "Produto retornado com sucesso!",
-        description: opParaRetornar.produto_destino_id
-          ? `OP ${opParaRetornar.numero} - ${opParaRetornar.quantidade} un adicionadas a ${produtoDestino.nome}.`
-          : `OP ${opParaRetornar.numero} - ${opParaRetornar.quantidade} un de ${produtoOriginal.nome} voltaram ao estoque.`,
-      });
+      toast({ title: "Produtos retornados com sucesso!", description: `OP ${op.numero} - ${op.itens.length} ${op.itens.length === 1 ? "item voltou" : "itens voltaram"} ao estoque.` });
       setDialogRetornoAberto(false); setOpParaRetornar(null);
       await carregarDados();
     } catch (error: any) {
@@ -320,28 +453,24 @@ export default function OrdensProducao() {
   };
 
   const handleCancelarOp = async () => {
-    if (!opParaCancelar) return;
+    const op = opParaCancelar;
+    if (!op) return;
     try {
-      setProcessandoId(opParaCancelar.id);
-      if (opParaCancelar.status === "em_pintura" && opParaCancelar.produto) {
-        const novoEstoque = opParaCancelar.produto.estoque + opParaCancelar.quantidade;
-        await supabase.from("produtos").update({ estoque: novoEstoque }).eq("id", opParaCancelar.produto_id);
-        await supabase.from("movimentacoes_estoque").insert({
-          produto_id: opParaCancelar.produto_id, tipo: "entrada", quantidade: opParaCancelar.quantidade,
-          quantidade_anterior: opParaCancelar.produto.estoque, quantidade_atual: novoEstoque,
-          origem: "ordem_producao", usuario_id: user?.id,
-          observacoes: `Cancelamento da OP ${opParaCancelar.numero} - devolução ao estoque`,
-        });
+      setProcessandoId(op.id);
+      if (op.status === "em_pintura") {
+        for (const i of op.itens) {
+          await ajustarEstoque(i.produto_id, i.quantidade, `Cancelamento da OP ${op.numero} - devolução ao estoque`);
+        }
       }
       const { error: opError } = await supabase.from("ordens_producao").update({
         status: "cancelada", updated_at: new Date().toISOString(),
-      }).eq("id", opParaCancelar.id);
+      }).eq("id", op.id);
       if (opError) throw opError;
       await supabase.from("ordens_producao_historico").insert({
-        op_id: opParaCancelar.id, status_anterior: opParaCancelar.status, status_novo: "cancelada",
+        op_id: op.id, status_anterior: op.status, status_novo: "cancelada",
         observacoes: "OP cancelada", usuario_id: user?.id,
       });
-      toast({ title: "OP cancelada", description: `OP ${opParaCancelar.numero} foi cancelada.` });
+      toast({ title: "OP cancelada", description: `OP ${op.numero} foi cancelada.` });
       setDialogCancelarAberto(false); setOpParaCancelar(null);
       await carregarDados();
     } catch (error: any) {
@@ -349,50 +478,77 @@ export default function OrdensProducao() {
     } finally { setProcessandoId(null); }
   };
 
+  // ========== EDIÇÃO ==========
   const abrirEdicao = (op: OrdemProducao) => {
     setOpEditando(op);
-    setEditDestino(op.produto_destino_id || "");
-    setEditQuantidade(op.quantidade);
+    setEditItens(op.itens.map((i) => ({ ...i })));
     setEditDataSaida((op.data_saida || "").split("T")[0]);
     setEditDataRetorno((op.data_retorno || "").split("T")[0]);
     setEditCusto(Number(op.custo_pintura) || 0);
-    const kgOp = pesoUnitario(op.produto) * op.quantidade;
+    const kgOp = totaisItens(op.itens).kg;
     setEditPrecoKg(kgOp > 0 ? Math.round(((Number(op.custo_pintura) || 0) / kgOp) * 100) / 100 : 0);
     setEditObservacoes(op.observacoes || "");
     setEditFornecedor(op.fornecedor_id || "");
     setDialogEditarAberto(true);
   };
 
-  // Em pintura: tudo editavel (quantidade ajusta o estoque da origem pela
-  // diferenca). Retornada: so datas, custo e observacoes, pois o estoque do
-  // destino ja recebeu a quantidade.
+  // Na edicao so recalcula a pintura quando a pessoa mexe no R$/kg ou nas
+  // quantidades - abrir o modal nao pode alterar o custo ja gravado.
+  const recalcularCustoEdit = (itens: ItemOp[], precoKg: number) => {
+    const kg = totaisItens(itens).kg;
+    if (kg > 0) setEditCusto(Math.round(kg * precoKg * 100) / 100);
+  };
+  const alterarEditPrecoKg = (v: number) => { setEditPrecoKg(v); recalcularCustoEdit(editItens, v); };
+  const alterarEditItem = (idx: number, patch: Partial<ItemOp>) => {
+    const novos = editItens.map((i, k) => (k === idx ? { ...i, ...patch } : i));
+    setEditItens(novos);
+    if ("quantidade" in patch) recalcularCustoEdit(novos, editPrecoKg);
+  };
+
+  // Em pintura: quantidades e destinos editaveis (quantidade ajusta o estoque
+  // da origem pela diferenca). Retornada: so datas, custo, fornecedor e
+  // observacoes, pois o estoque do destino ja recebeu as quantidades.
   const handleSalvarEdicao = async () => {
     const op = opEditando;
     if (!op) return;
     const emPintura = op.status === "em_pintura";
-    if (emPintura && editQuantidade <= 0) { toast({ title: "Quantidade deve ser maior que zero", variant: "destructive" }); return; }
+    if (emPintura && editItens.some((i) => !(i.quantidade > 0))) { toast({ title: "Quantidades devem ser maiores que zero", variant: "destructive" }); return; }
     try {
       setProcessandoId(op.id);
       const alteracoes: string[] = [];
 
-      if (emPintura && editQuantidade !== op.quantidade) {
-        const { data: prod, error: prodError } = await supabase.from("produtos").select("estoque, nome, unidade").eq("id", op.produto_id).single();
-        if (prodError) throw prodError;
-        const diferenca = editQuantidade - op.quantidade;
-        if (diferenca > 0 && (prod.estoque || 0) < diferenca) {
-          toast({ title: "Estoque insuficiente", description: `Para aumentar ${diferenca} ${prod.unidade || "un"} é preciso ter estoque. Atual: ${prod.estoque}`, variant: "destructive" });
-          return;
+      if (emPintura) {
+        // confere estoque para os aumentos antes de mexer em qualquer coisa
+        for (const novo of editItens) {
+          const antigo = op.itens.find((i) => i.id === novo.id);
+          const diferenca = novo.quantidade - (antigo?.quantidade || 0);
+          if (diferenca > 0) {
+            const { data: prod } = await supabase.from("produtos").select("estoque, nome, unidade").eq("id", novo.produto_id).single();
+            if ((Number(prod?.estoque) || 0) < diferenca) {
+              toast({ title: "Estoque insuficiente", description: `${prod?.nome}: para aumentar ${diferenca} ${prod?.unidade || "un"} é preciso ter estoque. Atual: ${prod?.estoque}`, variant: "destructive" });
+              return;
+            }
+          }
         }
-        const novoEstoque = (prod.estoque || 0) - diferenca;
-        const { error: estoqueError } = await supabase.from("produtos").update({ estoque: novoEstoque }).eq("id", op.produto_id);
-        if (estoqueError) throw estoqueError;
-        await supabase.from("movimentacoes_estoque").insert({
-          produto_id: op.produto_id, tipo: diferenca > 0 ? "saida" : "entrada", quantidade: Math.abs(diferenca),
-          quantidade_anterior: prod.estoque || 0, quantidade_atual: novoEstoque,
-          origem: "ordem_producao", usuario_id: user?.id,
-          observacoes: `Edição da OP ${op.numero} - quantidade ${op.quantidade} → ${editQuantidade}`,
-        });
-        alteracoes.push(`quantidade ${op.quantidade} → ${editQuantidade}`);
+        for (const novo of editItens) {
+          const antigo = op.itens.find((i) => i.id === novo.id);
+          if (!antigo) continue;
+          const diferenca = novo.quantidade - antigo.quantidade;
+          const destinoMudou = (novo.produto_destino_id || null) !== (antigo.produto_destino_id || null);
+          if (diferenca !== 0) {
+            await ajustarEstoque(novo.produto_id, -diferenca, `Edição da OP ${op.numero} - ${antigo.produto?.nome}: quantidade ${antigo.quantidade} → ${novo.quantidade}`);
+            alteracoes.push(`${antigo.produto?.nome}: quantidade ${antigo.quantidade} → ${novo.quantidade}`);
+          }
+          if (destinoMudou) {
+            const nomeDestino = novo.produto_destino_id ? produtos.find((p) => p.id === novo.produto_destino_id)?.nome || "produto destino" : "mesmo produto";
+            alteracoes.push(`${antigo.produto?.nome}: destino → ${nomeDestino}`);
+          }
+          if (diferenca !== 0 || destinoMudou) {
+            const { error: itError } = await supabase.from("ordens_producao_itens")
+              .update({ quantidade: novo.quantidade, produto_destino_id: novo.produto_destino_id || null }).eq("id", novo.id);
+            if (itError) throw itError;
+          }
+        }
       }
 
       const custoAnterior = Number(op.custo_pintura) || 0;
@@ -408,12 +564,12 @@ export default function OrdensProducao() {
         } else if ((transacoes || []).some((t) => t.status === "pago")) {
           avisoFinanceiro = " A despesa no financeiro já foi paga e não foi alterada.";
         } else if (editCusto > 0) {
-          const produtoNome = op.produto?.nome || "";
+          const descricaoItens = op.itens.length === 1 ? op.itens[0].produto?.nome : `${op.itens.length} itens${op.cor_destino ? ` - cor ${op.cor_destino}` : ""}`;
           const { error: tError } = await supabase.from("transacoes_financeiras").insert({
-            descricao: `Custo de Pintura - OP ${op.numero} (${produtoNome})`,
+            descricao: `Custo de Pintura - OP ${op.numero} (${descricaoItens})`,
             tipo: "despesa", valor: editCusto, data: editDataSaida || op.data_saida, status: "pendente",
             categoria: "Pintura", origem_tipo: "ordem_producao",
-            observacoes: `OP ${op.numero} - ${emPintura ? editQuantidade : op.quantidade} un de ${produtoNome}`,
+            observacoes: `OP ${op.numero} - ` + editItens.map((i) => `${i.quantidade} un de ${i.produto?.nome}`).join(", "),
             data_vencimento: editDataSaida || op.data_saida, created_by: user?.id,
           });
           if (tError) throw tError;
@@ -421,11 +577,6 @@ export default function OrdensProducao() {
         alteracoes.push(`custo ${formatCurrency(custoAnterior)} → ${formatCurrency(editCusto)}`);
       }
 
-      const destinoNovo = editDestino || null;
-      if (emPintura && destinoNovo !== (op.produto_destino_id || null)) {
-        const nomeDestino = destinoNovo ? produtos.find((p) => p.id === destinoNovo)?.nome || "produto destino" : "sem transformação";
-        alteracoes.push(`destino → ${nomeDestino}`);
-      }
       if (editDataSaida !== (op.data_saida || "").split("T")[0]) alteracoes.push(`saída → ${formatDate(editDataSaida)}`);
       if (!emPintura && editDataRetorno !== (op.data_retorno || "").split("T")[0]) alteracoes.push(`retorno → ${formatDate(editDataRetorno)}`);
       if ((editObservacoes || "") !== (op.observacoes || "")) alteracoes.push("observações");
@@ -436,8 +587,11 @@ export default function OrdensProducao() {
 
       if (alteracoes.length === 0) { setDialogEditarAberto(false); return; }
 
+      const primeiro = emPintura ? editItens[0] : op.itens[0];
       const { error: opError } = await supabase.from("ordens_producao").update({
-        ...(emPintura ? { quantidade: editQuantidade, produto_destino_id: destinoNovo } : { data_retorno: editDataRetorno || null }),
+        ...(emPintura
+          ? { quantidade: editItens.reduce((s, i) => s + i.quantidade, 0), produto_destino_id: primeiro?.produto_destino_id || null }
+          : { data_retorno: editDataRetorno || null }),
         data_saida: editDataSaida, custo_pintura: editCusto, observacoes: editObservacoes || null,
         fornecedor_id: fornecedorNovo,
         updated_at: new Date().toISOString(),
@@ -457,26 +611,35 @@ export default function OrdensProducao() {
     } finally { setProcessandoId(null); }
   };
 
+  // ========== IMPRESSÃO / HISTÓRICO ==========
   const handleImprimirOp = async (op: OrdemProducao) => {
     try {
       setProcessandoId(`print-${op.id}`);
       const { data: config, error: configError } = await supabase.from("configuracoes").select("*").limit(1).single();
       if (configError) throw configError;
-      const kgUnit = pesoUnitario(op.produto);
-      const kgTotal = kgUnit * op.quantidade;
-      const custoKg = kgUnit > 0 && op.produto?.custo != null ? Number(op.produto.custo) / kgUnit : 0;
+      const t = totaisItens(op.itens);
       const pdfBlob = await gerarPDFOrdemProducao({
         numero: op.numero,
         status: getStatusInfo(op.status).label,
         dataSaida: formatDate(op.data_saida),
         dataRetorno: op.data_retorno ? formatDate(op.data_retorno) : null,
         fornecedor: op.fornecedor?.nome || null,
-        produtoOrigem: { codigo: op.produto?.codigo || "-", nome: op.produto?.nome || "-", cor: op.produto?.cor, unidade: op.produto?.unidade || "un" },
-        produtoDestino: op.produto_destino ? { codigo: op.produto_destino.codigo, nome: op.produto_destino.nome, cor: op.produto_destino.cor } : null,
-        quantidade: op.quantidade,
-        pesoUnitarioKg: kgUnit,
-        pesoTotalKg: kgTotal,
-        valorMaterial: custoKg * kgTotal,
+        corDestino: op.cor_destino,
+        itens: op.itens.map((i) => {
+          const kgUnit = pesoUnitario(i.produto);
+          return {
+            codigo: i.produto?.codigo || "-",
+            nome: i.produto?.nome || "-",
+            cor: i.produto?.cor,
+            unidade: i.produto?.unidade || "un",
+            destino: i.produto_destino ? { nome: i.produto_destino.nome, cor: i.produto_destino.cor } : null,
+            quantidade: i.quantidade,
+            pesoUnitarioKg: kgUnit,
+            pesoTotalKg: kgUnit * i.quantidade,
+          };
+        }),
+        pesoTotalKg: t.kg,
+        valorMaterial: t.material,
         custoPintura: Number(op.custo_pintura) || 0,
         observacoes: op.observacoes,
       }, config);
@@ -498,30 +661,6 @@ export default function OrdensProducao() {
     }
   };
 
-  const produtoOrigem = produtos.find((p) => p.id === produtoSelecionado);
-  const produtoDestino = produtos.find((p) => p.id === produtoDestinoSelecionado);
-
-  // Pintura cobrada por kg: o custo total da OP = kg total x R$/kg.
-  const kgNovaOp = pesoUnitario(produtoOrigem) * (quantidade || 0);
-  useEffect(() => {
-    if (kgNovaOp > 0) setCustoPintura(Math.round(kgNovaOp * precoKgPintura * 100) / 100);
-  }, [kgNovaOp, precoKgPintura]);
-
-  // Na edicao so recalcula quando a pessoa mexe no R$/kg ou na quantidade -
-  // abrir o modal nao pode alterar o custo ja gravado por arredondamento.
-  const kgUnitEdit = pesoUnitario(opEditando?.produto);
-  const kgEditOp = opEditando
-    ? kgUnitEdit * (opEditando.status === "em_pintura" ? editQuantidade : opEditando.quantidade)
-    : 0;
-  const alterarEditPrecoKg = (v: number) => {
-    setEditPrecoKg(v);
-    if (kgEditOp > 0) setEditCusto(Math.round(kgEditOp * v * 100) / 100);
-  };
-  const alterarEditQuantidade = (q: number) => {
-    setEditQuantidade(q);
-    if (kgUnitEdit > 0) setEditCusto(Math.round(kgUnitEdit * q * editPrecoKg * 100) / 100);
-  };
-
   const limparFiltros = () => {
     setSearchTerm("");
     setFiltroStatus("todos");
@@ -530,6 +669,9 @@ export default function OrdensProducao() {
   };
 
   const temFiltrosAtivos = searchTerm !== "" || filtroStatus !== "todos" || filtroProduto !== "todos" || buscaProduto !== "";
+  const kgEditOp = totaisItens(opEditando?.status === "em_pintura" ? editItens : (opEditando?.itens || [])).kg;
+  const produtosDestinoPossiveis = (origemId: string, cor: string) =>
+    produtos.filter((p) => p.id !== origemId && (!cor || p.cor === cor));
 
   return (
     <div className="container mx-auto p-4 sm:p-6 space-y-6">
@@ -540,7 +682,7 @@ export default function OrdensProducao() {
           </h1>
           <p className="text-muted-foreground mt-1">Controle de produtos enviados para pintura, transformação de cor e retorno ao estoque</p>
         </div>
-        <Button onClick={() => setDialogNovaOpAberto(true)} className="bg-primary hover:bg-primary/90 w-full sm:w-auto">
+        <Button onClick={() => { resetNovaOp(); setDialogNovaOpAberto(true); }} className="bg-primary hover:bg-primary/90 w-full sm:w-auto">
           <Plus className="mr-2 h-4 w-4" /> Nova OP
         </Button>
       </div>
@@ -577,15 +719,15 @@ export default function OrdensProducao() {
 
       <Card><CardContent className="pt-6">
         <div className="flex flex-col space-y-4">
-          {/* Linha de filtros - 2 linhas */}
+          {/* Linha de filtros */}
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input 
-                placeholder="Buscar por OP, produto, código..." 
-                value={searchTerm} 
-                onChange={(e) => setSearchTerm(e.target.value)} 
-                className="pl-10" 
+              <Input
+                placeholder="Buscar por OP, produto, código, cor, fornecedor..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
               />
             </div>
             <div className="flex flex-wrap gap-2">
@@ -600,7 +742,7 @@ export default function OrdensProducao() {
                   <SelectItem value="cancelada">Cancelada</SelectItem>
                 </SelectContent>
               </Select>
-              
+
               <Select value={filtroProduto} onValueChange={setFiltroProduto}>
                 <SelectTrigger className="w-[200px]">
                   <SelectValue placeholder="Filtrar por produto" />
@@ -614,11 +756,11 @@ export default function OrdensProducao() {
                   ))}
                 </SelectContent>
               </Select>
-              
+
               <Button variant="outline" onClick={carregarDados} title="Atualizar">
                 <RefreshCw className="h-4 w-4" />
               </Button>
-              
+
               {temFiltrosAtivos && (
                 <Button variant="ghost" onClick={limparFiltros} className="text-muted-foreground">
                   <Filter className="h-4 w-4 mr-1" /> Limpar
@@ -626,23 +768,23 @@ export default function OrdensProducao() {
               )}
             </div>
           </div>
-          
+
           {/* Segunda linha - Busca de produtos */}
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="relative flex-1">
               <Package className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input 
-                placeholder="Buscar produtos no estoque..." 
-                value={buscaProduto} 
-                onChange={(e) => setBuscaProduto(e.target.value)} 
-                className="pl-10" 
+              <Input
+                placeholder="Buscar produtos no estoque..."
+                value={buscaProduto}
+                onChange={(e) => setBuscaProduto(e.target.value)}
+                className="pl-10"
               />
             </div>
             <div className="text-sm text-muted-foreground flex items-center">
               {buscaProduto ? `${produtosFiltrados.length} produtos encontrados` : `${produtos.length} produtos no estoque`}
             </div>
           </div>
-          
+
           {/* Indicador de filtros ativos */}
           {temFiltrosAtivos && (
             <div className="flex flex-wrap gap-2 items-center text-sm text-muted-foreground">
@@ -678,7 +820,7 @@ export default function OrdensProducao() {
           )}
 
           {/* Lista de produtos encontrados */}
-          {buscaProduto && produtosFiltrados.length > 0 && (
+          {buscaProduto && !dialogNovaOpAberto && produtosFiltrados.length > 0 && (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 mt-2">
               {produtosFiltrados.slice(0, 8).map((produto) => (
                 <div key={produto.id} className="flex items-center justify-between p-2 bg-muted/30 rounded-lg border">
@@ -699,7 +841,7 @@ export default function OrdensProducao() {
             </div>
           )}
 
-          {buscaProduto && produtosFiltrados.length === 0 && (
+          {buscaProduto && !dialogNovaOpAberto && produtosFiltrados.length === 0 && (
             <div className="text-center py-4 text-muted-foreground">
               <Package className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
               Nenhum produto encontrado com "{buscaProduto}"
@@ -714,8 +856,8 @@ export default function OrdensProducao() {
             <Table>
               <TableHeader><TableRow>
                 <TableHead className="font-bold">Número</TableHead>
-                <TableHead className="font-bold">Produto Origem</TableHead>
-                <TableHead className="font-bold">Transforma em</TableHead>
+                <TableHead className="font-bold">Itens</TableHead>
+                <TableHead className="font-bold">Pintar para</TableHead>
                 <TableHead className="font-bold">Fornecedor</TableHead>
                 <TableHead className="font-bold text-right">Qtd</TableHead>
                 <TableHead className="font-bold">Saída</TableHead>
@@ -731,28 +873,36 @@ export default function OrdensProducao() {
                   </TableCell></TableRow>
                 ) : ordensFiltradas.map((op) => {
                   const si = getStatusInfo(op.status); const SIcon = si.icon;
+                  const qtdTotal = op.itens.reduce((s, i) => s + (Number(i.quantidade) || 0), 0);
+                  const unicoDestino = op.itens.length === 1 ? op.itens[0].produto_destino : null;
                   return (
                     <TableRow key={op.id} className="hover:bg-muted/50">
                       <TableCell className="font-mono font-medium">{op.numero}</TableCell>
                       <TableCell>
                         <div className="flex flex-col">
-                          <span className="font-medium">{op.produto?.nome || "-"}</span>
-                          <span className="text-xs text-muted-foreground">{op.produto?.codigo || "-"} {op.produto?.cor ? `· ${op.produto.cor}` : ""}</span>
+                          {op.itens.slice(0, 3).map((i, k) => (
+                            <span key={i.id || k} className="text-sm">
+                              <span className="font-medium">{i.quantidade}x</span> {i.produto?.nome || "-"}
+                            </span>
+                          ))}
+                          {op.itens.length > 3 && <span className="text-xs text-muted-foreground">+ {op.itens.length - 3} itens</span>}
                         </div>
                       </TableCell>
                       <TableCell>
-                        {op.produto_destino ? (
+                        {op.cor_destino ? (
                           <div className="flex items-center gap-2">
                             <ArrowRight className="h-3 w-3 text-primary" />
-                            <div className="flex flex-col">
-                              <span className="font-medium text-primary">{op.produto_destino.nome}</span>
-                              <span className="text-xs text-muted-foreground">{op.produto_destino.codigo} {op.produto_destino.cor ? `· ${op.produto_destino.cor}` : ""}</span>
-                            </div>
+                            <span className="font-medium text-primary">{op.cor_destino}</span>
+                          </div>
+                        ) : unicoDestino ? (
+                          <div className="flex items-center gap-2">
+                            <ArrowRight className="h-3 w-3 text-primary" />
+                            <span className="font-medium text-primary">{unicoDestino.nome}</span>
                           </div>
                         ) : <span className="text-muted-foreground text-sm">Sem transformação</span>}
                       </TableCell>
                       <TableCell>{op.fornecedor?.nome || <span className="text-muted-foreground text-sm">-</span>}</TableCell>
-                      <TableCell className="text-right font-semibold">{op.quantidade} {op.produto?.unidade || "un"}</TableCell>
+                      <TableCell className="text-right font-semibold">{qtdTotal}</TableCell>
                       <TableCell>{formatDate(op.data_saida)}</TableCell>
                       <TableCell>{formatDate(op.data_retorno)}</TableCell>
                       <TableCell className="text-right font-bold text-primary">{formatCurrency(op.custo_pintura)}</TableCell>
@@ -790,109 +940,141 @@ export default function OrdensProducao() {
         )}
       </CardContent></Card>
 
-      {/* DIALOG NOVA OP - com busca de produtos integrada */}
+      {/* DIALOG NOVA OP - varios itens para a mesma cor */}
       <Dialog open={dialogNovaOpAberto} onOpenChange={setDialogNovaOpAberto}>
-        <DialogContent className="sm:max-w-[600px]">
+        <DialogContent className="sm:max-w-[820px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2"><PaintBucket className="h-5 w-5 text-primary" />Nova Ordem de Produção</DialogTitle>
-            <DialogDescription>Envie um produto para pintura. O estoque será debitado e o custo será registrado no financeiro.</DialogDescription>
+            <DialogDescription>Escolha a cor e adicione os itens que vão para a pintura. O estoque de cada item será debitado e o custo será registrado no financeiro.</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label>Produto de Origem (será debitado) *</Label>
+          <div className="space-y-4 py-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Pintar para a cor</Label>
+                <Select value={corDestino || "__mesma__"} onValueChange={(v) => alterarCorDestino(v === "__mesma__" ? "" : v)}>
+                  <SelectTrigger><SelectValue placeholder="Selecione a cor..." /></SelectTrigger>
+                  <SelectContent className="max-h-[300px]">
+                    <SelectItem value="__mesma__">Sem transformação (mesma cor)</SelectItem>
+                    {cores.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">O produto equivalente nessa cor é sugerido para cada item; dá para trocar.</p>
+              </div>
+              <div className="space-y-2">
+                <Label>Fornecedor (pintura)</Label>
+                <Select value={fornecedorSelecionado || "__nenhum__"} onValueChange={(v) => setFornecedorSelecionado(v === "__nenhum__" ? "" : v)}>
+                  <SelectTrigger><SelectValue placeholder="Selecione o fornecedor..." /></SelectTrigger>
+                  <SelectContent className="max-h-[300px]">
+                    <SelectItem value="__nenhum__">Não informado</SelectItem>
+                    {fornecedores.map((f) => <SelectItem key={f.id} value={f.id}>{f.nome}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Adicionar item */}
+            <div className="border rounded-lg p-3 space-y-2 bg-muted/30">
+              <Label>Adicionar item (será debitado do estoque)</Label>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input 
-                  placeholder="Buscar produto por nome ou código..." 
-                  value={buscaProduto} 
-                  onChange={(e) => setBuscaProduto(e.target.value)} 
-                  className="pl-10" 
-                />
+                <Input placeholder="Buscar produto por nome, código ou cor..." value={buscaProduto} onChange={(e) => setBuscaProduto(e.target.value)} className="pl-10" />
               </div>
-              <Select value={produtoSelecionado} onValueChange={(v) => { setProdutoSelecionado(v); setProdutoDestinoSelecionado(""); }}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione o produto que vai para pintura..." />
-                </SelectTrigger>
-                <SelectContent className="max-h-[300px]">
-                  {produtosFiltrados.length === 0 ? (
-                    <SelectItem value="" disabled>Nenhum produto encontrado</SelectItem>
-                  ) : (
-                    produtosFiltrados.map((p) => (
+              <div className="flex flex-col sm:flex-row gap-2">
+                <Select value={produtoParaAdicionar} onValueChange={setProdutoParaAdicionar}>
+                  <SelectTrigger className="flex-1"><SelectValue placeholder="Selecione o produto..." /></SelectTrigger>
+                  <SelectContent className="max-h-[300px]">
+                    {produtosFiltrados.length === 0 ? (
+                      <SelectItem value="__vazio__" disabled>Nenhum produto encontrado</SelectItem>
+                    ) : produtosFiltrados.map((p) => (
                       <SelectItem key={p.id} value={p.id}>
                         {p.codigo} - {p.nome} {p.cor ? `(${p.cor})` : ""} (Est: {p.estoque} {p.unidade || "un"})
                       </SelectItem>
-                    ))
-                  )}
-                </SelectContent>
-              </Select>
-              {produtoOrigem && (
-                <div className="flex items-center gap-2 p-2 bg-primary/5 rounded-lg border border-primary/20">
-                  <Package className="h-4 w-4 text-primary" />
-                  <span className="text-sm">
-                    <span className="font-medium">{produtoOrigem.nome}</span>
-                    <span className="text-muted-foreground ml-2">Estoque: {produtoOrigem.estoque} {produtoOrigem.unidade || "un"} {produtoOrigem.cor ? `· Cor: ${produtoOrigem.cor}` : ""}</span>
-                  </span>
-                </div>
-              )}
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Input type="number" min={1} className="sm:w-28" value={quantidadeParaAdicionar} onChange={(e) => setQuantidadeParaAdicionar(parseInt(e.target.value) || 0)} placeholder="Qtd" />
+                <Button type="button" onClick={adicionarItem}><Plus className="h-4 w-4 mr-1" />Adicionar</Button>
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label>Produto Destino (após pintura - opcional)</Label>
-              <Select value={produtoDestinoSelecionado} onValueChange={setProdutoDestinoSelecionado}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione o produto transformado (ou deixe vazio para o mesmo)" />
-                </SelectTrigger>
-                <SelectContent className="max-h-[300px]">
-                  {produtos.filter((p) => p.id !== produtoSelecionado).map((p) => (
-                    <SelectItem key={p.id} value={p.id}>{p.codigo} - {p.nome} {p.cor ? `(${p.cor})` : ""}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">Use quando o produto muda de cor na pintura. O estoque será adicionado ao produto destino no retorno.</p>
-              {produtoOrigem && produtoDestino && (
-                <div className="flex items-center gap-2 p-2 bg-primary/5 rounded-lg border border-primary/20">
-                  <span className="text-sm font-medium">{produtoOrigem.nome} {produtoOrigem.cor ? `(${produtoOrigem.cor})` : ""}</span>
-                  <ArrowRight className="h-4 w-4 text-primary" />
-                  <span className="text-sm font-medium text-primary">{produtoDestino.nome} {produtoDestino.cor ? `(${produtoDestino.cor})` : ""}</span>
-                </div>
-              )}
-            </div>
-            <div className="space-y-2">
-              <Label>Fornecedor (pintura)</Label>
-              <Select value={fornecedorSelecionado || "__nenhum__"} onValueChange={(v) => setFornecedorSelecionado(v === "__nenhum__" ? "" : v)}>
-                <SelectTrigger><SelectValue placeholder="Selecione o fornecedor..." /></SelectTrigger>
-                <SelectContent className="max-h-[300px]">
-                  <SelectItem value="__nenhum__">Não informado</SelectItem>
-                  {fornecedores.map((f) => <SelectItem key={f.id} value={f.id}>{f.nome}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2"><Label>Quantidade *</Label><Input type="number" min={1} value={quantidade} onChange={(e) => setQuantidade(parseInt(e.target.value) || 0)} /></div>
+
+            {/* Itens da OP */}
+            {novosItens.length > 0 ? (
+              <div className="border rounded-lg overflow-x-auto">
+                <Table>
+                  <TableHeader><TableRow>
+                    <TableHead>Produto enviado</TableHead>
+                    <TableHead className="w-24">Qtd</TableHead>
+                    <TableHead>Pintar para</TableHead>
+                    <TableHead className="text-right">Peso</TableHead>
+                    <TableHead className="w-10"></TableHead>
+                  </TableRow></TableHeader>
+                  <TableBody>
+                    {novosItens.map((i, idx) => {
+                      const estoque = Number(i.produto?.estoque) || 0;
+                      return (
+                        <TableRow key={i.produto_id}>
+                          <TableCell className="text-sm">
+                            <div className="font-medium">{nomeComCor(i.produto)}</div>
+                            <div className={`text-xs ${estoque < i.quantidade ? "text-red-600" : "text-muted-foreground"}`}>Estoque: {estoque}</div>
+                          </TableCell>
+                          <TableCell>
+                            <Input type="number" min={1} className="h-8" value={i.quantidade} onChange={(e) => alterarNovoItem(idx, { quantidade: parseInt(e.target.value) || 0 })} />
+                          </TableCell>
+                          <TableCell>
+                            <Select value={i.produto_destino_id || "__mesmo__"} onValueChange={(v) => {
+                              const destino = v === "__mesmo__" ? null : produtos.find((p) => p.id === v) || null;
+                              alterarNovoItem(idx, { produto_destino_id: destino?.id || null, produto_destino: destino });
+                            }}>
+                              <SelectTrigger className="h-8 min-w-[180px]"><SelectValue placeholder="Mesmo produto" /></SelectTrigger>
+                              <SelectContent className="max-h-[300px]">
+                                <SelectItem value="__mesmo__">Mesmo produto (sem transformação)</SelectItem>
+                                {produtosDestinoPossiveis(i.produto_id, corDestino).map((p) => (
+                                  <SelectItem key={p.id} value={p.id}>{p.codigo} - {p.nome}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            {corDestino && !i.produto_destino_id && <p className="text-xs text-amber-600 mt-1">Sem equivalente na cor {corDestino} - escolha o produto.</p>}
+                          </TableCell>
+                          <TableCell className="text-right text-sm">{formatKg(pesoUnitario(i.produto) * (i.quantidade || 0))}</TableCell>
+                          <TableCell>
+                            <Button type="button" size="sm" variant="ghost" className="h-8 w-8 p-0 text-red-600" onClick={() => setNovosItens((itens) => itens.filter((_, k) => k !== idx))} title="Remover item"><Trash2 className="h-4 w-4" /></Button>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground text-center py-3 border rounded-lg border-dashed">Nenhum item adicionado ainda.</p>
+            )}
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2"><Label>Data de Saída</Label><Input type="date" value={dataSaida} onChange={(e) => setDataSaida(e.target.value)} /></div>
+              <div className="space-y-2">
+                {kgNovaOp > 0 ? (
+                  <>
+                    <Label>Pintura - R$ por kg</Label>
+                    <Input type="number" min={0} step="0.01" value={precoKgPintura} onChange={(e) => setPrecoKgPintura(parseFloat(e.target.value) || 0)} placeholder="0,00" />
+                    <p className="text-xs text-muted-foreground">
+                      {formatKg(kgNovaOp)} × {formatCurrency(precoKgPintura)}/kg = <span className="font-medium">{formatCurrency(custoPintura)}</span>
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <Label>Custo de Pintura (R$)</Label>
+                    <Input type="number" min={0} step="0.01" value={custoPintura} onChange={(e) => setCustoPintura(parseFloat(e.target.value) || 0)} placeholder="0,00" />
+                    <p className="text-xs text-muted-foreground">{novosItens.length ? "Itens sem peso cadastrado - informe o custo total. " : ""}Registrado como despesa no financeiro.</p>
+                  </>
+                )}
+              </div>
             </div>
-            <div className="space-y-2">
-              {kgNovaOp > 0 ? (
-                <>
-                  <Label>Pintura - R$ por kg</Label>
-                  <Input type="number" min={0} step="0.01" value={precoKgPintura} onChange={(e) => setPrecoKgPintura(parseFloat(e.target.value) || 0)} placeholder="0,00" />
-                  <p className="text-xs text-muted-foreground">
-                    {formatKg(kgNovaOp)} × {formatCurrency(precoKgPintura)}/kg = <span className="font-medium">{formatCurrency(custoPintura)}</span> — registrado como despesa no financeiro.
-                  </p>
-                </>
-              ) : (
-                <>
-                  <Label>Custo de Pintura (R$)</Label>
-                  <Input type="number" min={0} step="0.01" value={custoPintura} onChange={(e) => setCustoPintura(parseFloat(e.target.value) || 0)} placeholder="0,00" />
-                  <p className="text-xs text-muted-foreground">{produtoOrigem ? "Produto sem peso cadastrado - informe o custo total. " : ""}Será registrado como despesa no financeiro.</p>
-                </>
-              )}
-            </div>
-            {produtoOrigem && <ResumoValorOp produto={produtoOrigem} quantidade={quantidade} custoPintura={custoPintura} />}
+            {novosItens.length > 0 && <ResumoValorOp itens={novosItens} custoPintura={custoPintura} />}
             <div className="space-y-2"><Label>Observações</Label><Textarea value={observacoes} onChange={(e) => setObservacoes(e.target.value)} placeholder="Observações opcionais..." rows={2} /></div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogNovaOpAberto(false)}>Cancelar</Button>
-            <Button onClick={handleCriarOp} disabled={processandoId === "nova"} className="bg-primary">
+            <Button onClick={handleCriarOp} disabled={processandoId === "nova" || novosItens.length === 0} className="bg-primary">
               {processandoId === "nova" ? <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div> : <Plus className="h-4 w-4 mr-2" />}Criar OP
             </Button>
           </DialogFooter>
@@ -901,41 +1083,56 @@ export default function OrdensProducao() {
 
       {/* DIALOG EDITAR OP */}
       <Dialog open={dialogEditarAberto} onOpenChange={setDialogEditarAberto}>
-        <DialogContent className="sm:max-w-[600px]">
+        <DialogContent className="sm:max-w-[760px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2"><Pencil className="h-5 w-5 text-primary" />Editar OP {opEditando?.numero}</DialogTitle>
             <DialogDescription>
               {opEditando?.status === "em_pintura"
-                ? "Alterar a quantidade ajusta o estoque do produto de origem pela diferença."
-                : "OP já retornada: só datas, custo e observações podem ser alterados."}
+                ? "Alterar a quantidade de um item ajusta o estoque do produto de origem pela diferença."
+                : "OP já retornada: só datas, custo, fornecedor e observações podem ser alterados."}
             </DialogDescription>
           </DialogHeader>
           {opEditando && (
-            <div className="space-y-4 py-4">
-              <div className="p-2 bg-muted/50 rounded-lg border text-sm">
-                <span className="text-muted-foreground">Produto de origem: </span>
-                <span className="font-medium">{opEditando.produto?.nome || "-"}</span>
-                {opEditando.produto?.cor ? <span className="text-muted-foreground"> ({opEditando.produto.cor})</span> : null}
-              </div>
-              {opEditando.status === "em_pintura" && (
-                <>
-                  <div className="space-y-2">
-                    <Label>Produto Destino (após pintura - opcional)</Label>
-                    <Select value={editDestino || "__nenhum__"} onValueChange={(v) => setEditDestino(v === "__nenhum__" ? "" : v)}>
-                      <SelectTrigger><SelectValue placeholder="Sem transformação" /></SelectTrigger>
-                      <SelectContent className="max-h-[300px]">
-                        <SelectItem value="__nenhum__">Sem transformação (mesmo produto)</SelectItem>
-                        {produtos.filter((p) => p.id !== opEditando.produto_id).map((p) => (
-                          <SelectItem key={p.id} value={p.id}>{p.codigo} - {p.nome} {p.cor ? `(${p.cor})` : ""}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Quantidade *</Label>
-                    <Input type="number" min={1} value={editQuantidade} onChange={(e) => alterarEditQuantidade(parseInt(e.target.value) || 0)} />
-                  </div>
-                </>
+            <div className="space-y-4 py-2">
+              {opEditando.cor_destino && (
+                <div className="p-2 bg-muted/50 rounded-lg border text-sm">
+                  <span className="text-muted-foreground">Pintar para a cor: </span><span className="font-medium text-primary">{opEditando.cor_destino}</span>
+                </div>
+              )}
+              {opEditando.status === "em_pintura" ? (
+                <div className="border rounded-lg overflow-x-auto">
+                  <Table>
+                    <TableHeader><TableRow>
+                      <TableHead>Produto enviado</TableHead>
+                      <TableHead className="w-24">Qtd</TableHead>
+                      <TableHead>Pintar para</TableHead>
+                    </TableRow></TableHeader>
+                    <TableBody>
+                      {editItens.map((i, idx) => (
+                        <TableRow key={i.id || idx}>
+                          <TableCell className="text-sm font-medium">{nomeComCor(i.produto)}</TableCell>
+                          <TableCell><Input type="number" min={1} className="h-8" value={i.quantidade} onChange={(e) => alterarEditItem(idx, { quantidade: parseInt(e.target.value) || 0 })} /></TableCell>
+                          <TableCell>
+                            <Select value={i.produto_destino_id || "__mesmo__"} onValueChange={(v) => {
+                              const destino = v === "__mesmo__" ? null : produtos.find((p) => p.id === v) || null;
+                              alterarEditItem(idx, { produto_destino_id: destino?.id || null, produto_destino: destino });
+                            }}>
+                              <SelectTrigger className="h-8 min-w-[180px]"><SelectValue placeholder="Mesmo produto" /></SelectTrigger>
+                              <SelectContent className="max-h-[300px]">
+                                <SelectItem value="__mesmo__">Mesmo produto (sem transformação)</SelectItem>
+                                {produtosDestinoPossiveis(i.produto_id, opEditando.cor_destino || "").map((p) => (
+                                  <SelectItem key={p.id} value={p.id}>{p.codigo} - {p.nome}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              ) : (
+                <TabelaItensLeitura itens={opEditando.itens} />
               )}
               <div className="space-y-2">
                 <Label>Fornecedor (pintura)</Label>
@@ -970,11 +1167,7 @@ export default function OrdensProducao() {
                   </>
                 )}
               </div>
-              <ResumoValorOp
-                produto={opEditando.produto}
-                quantidade={opEditando.status === "em_pintura" ? editQuantidade : opEditando.quantidade}
-                custoPintura={editCusto}
-              />
+              <ResumoValorOp itens={opEditando.status === "em_pintura" ? editItens : opEditando.itens} custoPintura={editCusto} />
               <div className="space-y-2"><Label>Observações</Label><Textarea value={editObservacoes} onChange={(e) => setEditObservacoes(e.target.value)} rows={2} /></div>
             </div>
           )}
@@ -989,27 +1182,20 @@ export default function OrdensProducao() {
 
       {/* DIALOG RETORNO */}
       <Dialog open={dialogRetornoAberto} onOpenChange={setDialogRetornoAberto}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-[640px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2"><ArrowLeftRight className="h-5 w-5 text-green-600" />Confirmar Retorno da Pintura</DialogTitle>
-            <DialogDescription>O produto voltará ao estoque. Confirme a data de retorno.</DialogDescription>
+            <DialogDescription>Os itens voltarão ao estoque (no produto de destino, quando houver). Confirme a data de retorno.</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
+          <div className="space-y-4 py-2">
             <div className="space-y-2"><Label>Data de Retorno</Label><Input type="date" value={dataRetorno} onChange={(e) => setDataRetorno(e.target.value)} /></div>
             {opParaRetornar && (
-              <div className="border rounded-lg p-4 bg-muted/50">
-                <p className="font-medium mb-2">Resumo:</p>
-                <div className="space-y-1 text-sm">
-                  <div className="flex justify-between"><span>OP:</span><span className="font-medium">{opParaRetornar.numero}</span></div>
-                  <div className="flex justify-between"><span>Produto Origem:</span><span className="font-medium">{opParaRetornar.produto?.nome}</span></div>
-                  {opParaRetornar.produto_destino ? (<div className="flex justify-between"><span>Produto Destino:</span><span className="font-medium text-primary">{opParaRetornar.produto_destino.nome}</span></div>) : null}
-                  <div className="flex justify-between"><span>Quantidade:</span><span className="font-medium">{opParaRetornar.quantidade} {opParaRetornar.produto?.unidade || "un"}</span></div>
-                  <div className="flex justify-between"><span>Custo Pintura:</span><span className="font-medium">{formatCurrency(opParaRetornar.custo_pintura)}</span></div>
-                  <div className="flex justify-between border-t pt-1 mt-1"><span>Estoque após retorno:</span><span className="font-bold text-green-600">{(opParaRetornar.produto_destino?.estoque || opParaRetornar.produto?.estoque || 0) + opParaRetornar.quantidade}</span></div>
-                </div>
-              </div>
+              <>
+                <p className="text-sm font-medium">OP {opParaRetornar.numero}{opParaRetornar.cor_destino ? ` — cor ${opParaRetornar.cor_destino}` : ""}</p>
+                <TabelaItensLeitura itens={opParaRetornar.itens} />
+                <ResumoValorOp itens={opParaRetornar.itens} custoPintura={opParaRetornar.custo_pintura} />
+              </>
             )}
-            {opParaRetornar && <ResumoValorOp produto={opParaRetornar.produto} quantidade={opParaRetornar.quantidade} custoPintura={opParaRetornar.custo_pintura} />}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogRetornoAberto(false)}>Cancelar</Button>
@@ -1025,7 +1211,7 @@ export default function OrdensProducao() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2"><XCircle className="h-5 w-5 text-red-600" />Cancelar OP {opParaCancelar?.numero}</AlertDialogTitle>
-            <AlertDialogDescription>{opParaCancelar?.status === "em_pintura" ? "A OP será cancelada e o produto será devolvido ao estoque. Esta ação não pode ser desfeita." : "A OP será cancelada. Esta ação não pode ser desfeita."}</AlertDialogDescription>
+            <AlertDialogDescription>{opParaCancelar?.status === "em_pintura" ? "A OP será cancelada e os itens serão devolvidos ao estoque. Esta ação não pode ser desfeita." : "A OP será cancelada. Esta ação não pode ser desfeita."}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Voltar</AlertDialogCancel>
@@ -1041,7 +1227,9 @@ export default function OrdensProducao() {
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2"><History className="h-5 w-5 text-primary" />Histórico da OP {opHistorico?.numero}</DialogTitle>
-            <DialogDescription>{opHistorico?.produto?.nome} - {opHistorico?.quantidade} {opHistorico?.produto?.unidade || "un"}</DialogDescription>
+            <DialogDescription>
+              {opHistorico ? `${opHistorico.itens.length} ${opHistorico.itens.length === 1 ? "item" : "itens"}${opHistorico.cor_destino ? ` — cor ${opHistorico.cor_destino}` : ""}` : ""}
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 py-4">
             {historico.length === 0 ? <p className="text-center text-muted-foreground py-4">Nenhum histórico encontrado.</p> : historico.map((item) => (
@@ -1065,24 +1253,21 @@ export default function OrdensProducao() {
 
       {/* DIALOG DETALHES */}
       <Dialog open={dialogDetalhesAberto} onOpenChange={setDialogDetalhesAberto}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="sm:max-w-[640px] max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle className="flex items-center gap-2"><Eye className="h-5 w-5 text-primary" />Detalhes da OP {opDetalhes?.numero}</DialogTitle></DialogHeader>
           {opDetalhes && (
-            <div className="space-y-4 py-4">
+            <div className="space-y-4 py-2">
               <div className="grid grid-cols-2 gap-4">
-                <div><p className="text-sm text-muted-foreground">Produto Origem</p><p className="font-medium">{opDetalhes.produto?.nome || "-"}</p><p className="text-xs text-muted-foreground">{opDetalhes.produto?.codigo} {opDetalhes.produto?.cor ? `· ${opDetalhes.produto.cor}` : ""}</p></div>
-                <div><p className="text-sm text-muted-foreground">Produto Destino</p>{opDetalhes.produto_destino ? (<><p className="font-medium text-primary">{opDetalhes.produto_destino.nome}</p><p className="text-xs text-muted-foreground">{opDetalhes.produto_destino.codigo} {opDetalhes.produto_destino.cor ? `· ${opDetalhes.produto_destino.cor}` : ""}</p></>) : <p className="font-medium text-muted-foreground">Sem transformação</p>}</div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div><p className="text-sm text-muted-foreground">Quantidade</p><p className="font-medium">{opDetalhes.quantidade} {opDetalhes.produto?.unidade || "un"}</p></div>
+                <div><p className="text-sm text-muted-foreground">Pintar para a cor</p><p className="font-medium text-primary">{opDetalhes.cor_destino || "Sem transformação"}</p></div>
                 <div><p className="text-sm text-muted-foreground">Status</p>{(() => { const si = getStatusInfo(opDetalhes.status); const SIcon = si.icon; return <Badge variant="outline" className={si.className}><SIcon className="h-3 w-3 mr-1" />{si.label}</Badge>; })()}</div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <TabelaItensLeitura itens={opDetalhes.itens} />
+              <div className="grid grid-cols-3 gap-4">
                 <div><p className="text-sm text-muted-foreground">Data de Saída</p><p className="font-medium">{formatDate(opDetalhes.data_saida)}</p></div>
                 <div><p className="text-sm text-muted-foreground">Data de Retorno</p><p className="font-medium">{formatDate(opDetalhes.data_retorno)}</p></div>
+                <div><p className="text-sm text-muted-foreground">Fornecedor</p><p className="font-medium">{opDetalhes.fornecedor?.nome || "Não informado"}</p></div>
               </div>
-              <div><p className="text-sm text-muted-foreground">Fornecedor</p><p className="font-medium">{opDetalhes.fornecedor?.nome || "Não informado"}</p></div>
-              <ResumoValorOp produto={opDetalhes.produto} quantidade={opDetalhes.quantidade} custoPintura={opDetalhes.custo_pintura} />
+              <ResumoValorOp itens={opDetalhes.itens} custoPintura={opDetalhes.custo_pintura} />
               {opDetalhes.observacoes && <div><p className="text-sm text-muted-foreground">Observações</p><p className="text-sm bg-muted/50 p-3 rounded">{opDetalhes.observacoes}</p></div>}
             </div>
           )}
