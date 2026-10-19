@@ -250,6 +250,23 @@ export function AppSidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               )}
+              {canAccess("notas-fiscais") && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild>
+                    <NavLink
+                      to="/notas-fiscais"
+                      className={({ isActive }) =>
+                        isActive
+                          ? "bg-gradient-to-r from-primary/20 to-accent/20 text-sidebar-foreground font-semibold border-l-4 border-primary shadow-sm"
+                          : "hover:bg-sidebar-accent/70 hover:translate-x-1 transition-all duration-200"
+                      }
+                    >
+                      <FileText className="h-4 w-4" />
+                      {!collapsed && <span>Notas Fiscais</span>}
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
               {canAccess("configuracoes") && (
                 <SidebarMenuItem>
                   <SidebarMenuButton asChild>

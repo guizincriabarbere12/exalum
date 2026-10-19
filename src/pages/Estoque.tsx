@@ -422,7 +422,6 @@ export default function Estoque() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Código</TableHead>
                       <TableHead>Produto</TableHead>
                       <TableHead>Categoria</TableHead>
                       <TableHead>Localização</TableHead>
@@ -435,10 +434,9 @@ export default function Estoque() {
                   </TableHeader>
                   <TableBody>
                     {estoquesFiltrados.length === 0 ? (
-                      <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Nenhum produto encontrado.</TableCell></TableRow>
+                      <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Nenhum produto encontrado.</TableCell></TableRow>
                     ) : estoquesFiltrados.map((item) => (
                       <TableRow key={item.id}>
-                        <TableCell className="font-medium">{item.codigo || '-'}</TableCell>
                         <TableCell>{item.descricao || item.nome || '-'}</TableCell>
                         <TableCell><Badge variant="outline">{item.categoria || 'Outros'}</Badge></TableCell>
                         <TableCell>{item.localizacao || '-'}</TableCell>

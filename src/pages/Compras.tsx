@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { PlusCircle, Package, FileText, CheckCircle, ShoppingBag, List, Search, RefreshCw, Receipt, Truck, XCircle, Clock, DollarSign, Eye, Pencil } from 'lucide-react';
+import { PlusCircle, Package, FileText, CheckCircle, ShoppingBag, List, Search, RefreshCw, Receipt, Truck, XCircle, Clock, DollarSign, Eye, Printer, Pencil } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -14,6 +14,7 @@ import NovaCompra from '@/components/compras/NovaCompra';
 import EditarCompraDialog from '@/components/compras/EditarCompraDialog';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import { gerarPDFCompra, downloadPDF } from '@/utils/pdfGenerator';
 
 interface Fornecedor {
   id: string;
@@ -28,6 +29,7 @@ interface CompraItem {
   compra_id: string;
   produto_id: string;
   quantidade: number;
+  quantidade_recebida?: number | null;
   valor_unitario: number;
   subtotal: number;
   produto?: {
@@ -85,10 +87,16 @@ export default function Compras() {
   const [dialogRecebimentoAberto, setDialogRecebimentoAberto] = useState(false);
   const [compraParaReceber, setCompraParaReceber] = useState<Compra | null>(null);
   const [dataRecebimento, setDataRecebimento] = useState(new Date().toISOString().split('T')[0]);
+  // null = ainda nao respondeu se quer alterar quantidades; true = editando
+  const [alterarQuantidades, setAlterarQuantidades] = useState<boolean | null>(null);
+  const [qtdRecebidas, setQtdRecebidas] = useState<Record<string, number>>({});
   
   // Estados para cancelar
   const [dialogCancelarAberto, setDialogCancelarAberto] = useState(false);
   const [compraParaCancelar, setCompraParaCancelar] = useState<string | null>(null);
+
+  // Estado para geração do arquivo/pedido de compra em PDF
+  const [gerandoPdfId, setGerandoPdfId] = useState<string | null>(null);
 
   useEffect(() => {
     carregarDados();
@@ -166,6 +174,72 @@ export default function Compras() {
   const podeEditar = (compra: Compra) =>
     compra.status !== 'cancelada' && !compra.compra_faturada && !compra.mercadoria_recebida;
 
+  // romaneio = true gera o romaneio de recebimento (conferencia da mercadoria)
+  // em vez do pedido de compra.
+  const handleImprimirCompra = async (compra: Compra, romaneio = false) => {
+    try {
+      setGerandoPdfId(romaneio ? `${compra.id}:romaneio` : compra.id);
+      const { data: config, error: configError } = await supabase
+        .from('configuracoes')
+        .select('*')
+        .limit(1)
+        .single();
+      if (configError) throw configError;
+
+      const statusInfo = getStatusInfo(compra);
+
+      const pdfBlob = await gerarPDFCompra(
+        {
+          numero: compra.numero,
+          dataEmissao: formatDate(compra.data_emissao),
+          dataEntregaPrevista: compra.data_entrega_prevista ? formatDate(compra.data_entrega_prevista) : null,
+          status: statusInfo.label.replace(/[^\w\sÀ-ÿ]/g, '').trim(),
+          fornecedor: {
+            nome: compra.fornecedor?.nome || 'Fornecedor',
+            cnpj: compra.fornecedor?.cnpj || null,
+            telefone: compra.fornecedor?.telefone || null,
+            email: compra.fornecedor?.email || null,
+          },
+          condicaoPagamento: compra.condicao_pagamento || null,
+          numeroParcelas: compra.numero_parcelas || null,
+          formaPagamento: compra.forma_pagamento || null,
+          observacoes: (romaneio
+            ? [
+              compra.observacoes,
+              ...(compra.itens || [])
+                .filter(item => item.quantidade_recebida != null && Number(item.quantidade_recebida) !== Number(item.quantidade))
+                .map(item => `Divergência: ${item.produto?.nome || 'Produto'} — pedido ${item.quantidade}, recebido ${item.quantidade_recebida}`),
+            ].filter(Boolean).join('\n')
+            : compra.observacoes) || null,
+          itens: (compra.itens || []).map((item) => ({
+            codigo: item.produto?.codigo || '-',
+            nome: item.produto?.nome || item.produto_id,
+            unidade: item.produto?.unidade || 'un',
+            quantidade: romaneio && item.quantidade_recebida != null ? Number(item.quantidade_recebida) : item.quantidade,
+            valor_unitario: item.valor_unitario,
+            valor_total: item.subtotal || item.valor_unitario * item.quantidade,
+          })),
+          valorTotal: compra.valor_total,
+          romaneio: romaneio
+            // data_recebimento e' "AAAA-MM-DD": formata direto pra nao cair no
+            // dia anterior pelo fuso (new Date() trata como meia-noite UTC).
+            ? { dataRecebimento: (compra.data_recebimento || '').split('T')[0].split('-').reverse().join('/') || '-' }
+            : null,
+        },
+        config
+      );
+      downloadPDF(pdfBlob, romaneio ? `romaneio_${compra.numero}.pdf` : `compra_${compra.numero}.pdf`);
+    } catch (error: any) {
+      toast({
+        title: "Erro ao gerar arquivo",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setGerandoPdfId(null);
+    }
+  };
+
   const handleFaturarClick = (compra: Compra) => {
     setCompraParaFaturar(compra);
     setDataFaturamento(new Date().toISOString().split('T')[0]);
@@ -175,6 +249,8 @@ export default function Compras() {
   const handleReceberClick = (compra: Compra) => {
     setCompraParaReceber(compra);
     setDataRecebimento(new Date().toISOString().split('T')[0]);
+    setAlterarQuantidades(null);
+    setQtdRecebidas(Object.fromEntries((compra.itens || []).map(item => [item.id, Number(item.quantidade)])));
     setDialogRecebimentoAberto(true);
   };
 
@@ -284,9 +360,47 @@ export default function Compras() {
 
       if (itensError) throw itensError;
 
-      // Atualizar estoque de cada produto
+      // Quantidade efetivamente recebida (pode ter sido alterada no modal)
+      const qtdRecebida = (item: { id: string; quantidade: number }) =>
+        alterarQuantidades && qtdRecebidas[item.id] !== undefined ? qtdRecebidas[item.id] : Number(item.quantidade);
+
+      if ((itens || []).some(item => !(qtdRecebida(item) >= 0))) {
+        throw new Error('Informe quantidades recebidas válidas (zero ou mais).');
+      }
+
+      // Marca como recebida ANTES de mexer no estoque: se a gravacao falhar
+      // nada entra no estoque, e o filtro mercadoria_recebida=false impede que
+      // um segundo clique (ou outra aba) some o estoque em dobro.
+      const { data: marcada, error: updateError } = await supabase
+        .from('compras')
+        .update({
+          mercadoria_recebida: true,
+          data_recebimento: dataRecebimento,
+          status: 'recebida'
+        })
+        .eq('id', compraParaReceber.id)
+        .eq('mercadoria_recebida', false)
+        .select('id');
+
+      if (updateError) throw updateError;
+      if (!marcada || marcada.length === 0) {
+        throw new Error('Esta compra já foi recebida — o estoque não foi alterado novamente.');
+      }
+
+      // Atualizar estoque de cada produto com a quantidade recebida
+      const recebidasPorItem: Record<string, number> = {};
       if (itens) {
         for (const item of itens) {
+          const recebida = qtdRecebida(item);
+          recebidasPorItem[item.id] = recebida;
+
+          await supabase
+            .from('compra_itens')
+            .update({ quantidade_recebida: recebida })
+            .eq('id', item.id);
+
+          if (recebida === 0) continue;
+
           const { data: produto } = await supabase
             .from('produtos')
             .select('estoque')
@@ -294,8 +408,8 @@ export default function Compras() {
             .single();
 
           if (produto) {
-            const novoEstoque = (produto.estoque || 0) + item.quantidade;
-            
+            const novoEstoque = (produto.estoque || 0) + recebida;
+
             await supabase
               .from('produtos')
               .update({ estoque: novoEstoque })
@@ -306,36 +420,41 @@ export default function Compras() {
               .insert({
                 produto_id: item.produto_id,
                 tipo: 'entrada',
-                quantidade: item.quantidade,
+                quantidade: recebida,
                 quantidade_anterior: produto.estoque || 0,
                 quantidade_atual: novoEstoque,
                 origem: 'compra',
                 compra_id: compraParaReceber.id,
                 usuario_id: user?.id,
-                observacoes: `Recebimento da compra ${compraParaReceber.numero}`
+                observacoes: recebida !== Number(item.quantidade)
+                  ? `Recebimento da compra ${compraParaReceber.numero} (pedido: ${item.quantidade}, recebido: ${recebida})`
+                  : `Recebimento da compra ${compraParaReceber.numero}`
               });
           }
         }
       }
 
-      // Atualizar status da compra
-      const { error: updateError } = await supabase
-        .from('compras')
-        .update({
-          mercadoria_recebida: true,
-          data_recebimento: dataRecebimento,
-          status: 'recebida'
-        })
-        .eq('id', compraParaReceber.id);
-
-      if (updateError) throw updateError;
-
       toast({
         title: "📦 Compra recebida com sucesso!",
-        description: "Estoque atualizado.",
+        description: "Estoque atualizado. Gerando o romaneio...",
       });
 
       setDialogRecebimentoAberto(false);
+
+      await handleImprimirCompra(
+        {
+          ...compraParaReceber,
+          mercadoria_recebida: true,
+          data_recebimento: dataRecebimento,
+          status: 'recebida',
+          itens: (compraParaReceber.itens || []).map(item => ({
+            ...item,
+            quantidade_recebida: recebidasPorItem[item.id] ?? item.quantidade,
+          })),
+        },
+        true
+      );
+
       await carregarDados();
       
     } catch (error: any) {
@@ -693,6 +812,39 @@ export default function Compras() {
                                     </Button>
                                   )}
 
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => handleImprimirCompra(compra)}
+                                    disabled={gerandoPdfId === compra.id}
+                                    title="Gerar arquivo da compra"
+                                  >
+                                    {gerandoPdfId === compra.id ? (
+                                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-1"></div>
+                                    ) : (
+                                      <Printer className="h-4 w-4 mr-1" />
+                                    )}
+                                    Arquivo
+                                  </Button>
+
+                                  {/* Botão Romaneio (reimpressão do romaneio de recebimento) */}
+                                  {compra.mercadoria_recebida && (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => handleImprimirCompra(compra, true)}
+                                      disabled={gerandoPdfId === `${compra.id}:romaneio`}
+                                      title="Gerar romaneio de recebimento"
+                                    >
+                                      {gerandoPdfId === `${compra.id}:romaneio` ? (
+                                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-1"></div>
+                                      ) : (
+                                        <FileText className="h-4 w-4 mr-1" />
+                                      )}
+                                      Romaneio
+                                    </Button>
+                                  )}
+
                                   {/* Botão Faturar */}
                                   {!compra.compra_faturada && compra.status !== 'cancelada' && (
                                     <Button
@@ -974,15 +1126,42 @@ export default function Compras() {
 
             {compraParaReceber && (
               <div className="border rounded-lg p-4 bg-gray-50">
-                <p className="font-medium mb-2">Produtos a receber:</p>
-                <div className="max-h-40 overflow-y-auto">
-                  {compraParaReceber.itens?.map(item => (
-                    <div key={item.id} className="flex justify-between text-sm py-1 border-b last:border-0">
-                      <span>{item.produto?.nome || 'Produto'}</span>
-                      <span className="font-medium">{item.quantidade} {item.produto?.unidade || 'un'}</span>
-                    </div>
-                  ))}
+                <p className="font-medium mb-2">
+                  {alterarQuantidades ? 'Informe a quantidade recebida de cada item:' : 'Produtos a receber:'}
+                </p>
+                <div className="max-h-60 overflow-y-auto">
+                  {compraParaReceber.itens?.map(item => {
+                    const recebida = qtdRecebidas[item.id];
+                    const divergente = alterarQuantidades && recebida !== Number(item.quantidade);
+                    return (
+                      <div key={item.id} className="flex items-center justify-between gap-3 text-sm py-1.5 border-b last:border-0">
+                        <span className="flex-1">{item.produto?.nome || 'Produto'}</span>
+                        {alterarQuantidades ? (
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className="text-xs text-muted-foreground">Pedido: {item.quantidade}</span>
+                            <Input
+                              type="number"
+                              min={0}
+                              step="any"
+                              value={Number.isNaN(recebida) ? '' : recebida}
+                              onChange={(e) => setQtdRecebidas(prev => ({ ...prev, [item.id]: e.target.value === '' ? NaN : parseFloat(e.target.value) }))}
+                              className={`w-24 h-8 ${divergente ? 'border-amber-500 bg-amber-50' : ''}`}
+                            />
+                            <span className="text-xs w-6">{item.produto?.unidade || 'un'}</span>
+                          </div>
+                        ) : (
+                          <span className="font-medium">{item.quantidade} {item.produto?.unidade || 'un'}</span>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
+              </div>
+            )}
+
+            {alterarQuantidades === null && (
+              <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">
+                Deseja alterar a quantidade de algum item? (por exemplo, se o fornecedor entregou a menos ou a mais)
               </div>
             )}
           </div>
@@ -991,10 +1170,23 @@ export default function Compras() {
             <Button variant="outline" onClick={() => setDialogRecebimentoAberto(false)}>
               Cancelar
             </Button>
-            <Button onClick={receberCompra} disabled={processandoId !== null} className="bg-blue-600">
-              {processandoId ? <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div> : null}
-              Confirmar Recebimento
-            </Button>
+            {alterarQuantidades === null ? (
+              <>
+                <Button variant="outline" onClick={() => setAlterarQuantidades(true)} disabled={processandoId !== null}>
+                  <Pencil className="h-4 w-4 mr-1" />
+                  Sim, alterar quantidades
+                </Button>
+                <Button onClick={receberCompra} disabled={processandoId !== null} className="bg-blue-600">
+                  {processandoId ? <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div> : null}
+                  Não, receber tudo
+                </Button>
+              </>
+            ) : (
+              <Button onClick={receberCompra} disabled={processandoId !== null} className="bg-blue-600">
+                {processandoId ? <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div> : null}
+                Confirmar Recebimento
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

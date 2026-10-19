@@ -6,11 +6,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Settings, Save, ExternalLink, Copy, Users, Shield, Upload, Image, UserPlus } from "lucide-react";
+import { Settings, Save, ExternalLink, Copy, Users, Shield, Upload, Image, UserPlus, CreditCard, Plus, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { logActivity } from "@/lib/auditLog";
+import { useFormasPagamentoCustom } from "@/hooks/useFormasPagamentoCustom";
+import { Switch } from "@/components/ui/switch";
 import {
   Table,
   TableBody,
@@ -27,6 +29,16 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   Select,
   SelectContent,
@@ -76,6 +88,11 @@ export default function Configuracoes() {
     logo_url: '',
   });
   const [uploadingLogo, setUploadingLogo] = useState(false);
+
+  const { formas: formasPagamento, refetch: refetchFormasPagamento } = useFormasPagamentoCustom(false);
+  const [novaFormaPagamento, setNovaFormaPagamento] = useState("");
+  const [salvandoFormaPagamento, setSalvandoFormaPagamento] = useState(false);
+  const [formaPagamentoParaExcluir, setFormaPagamentoParaExcluir] = useState<{ id: string; nome: string } | null>(null);
 
   const catalogoUrl = `${window.location.origin}/catalogo-publico`;
 
@@ -316,6 +333,65 @@ export default function Configuracoes() {
     }
   };
 
+  const handleCriarFormaPagamento = async () => {
+    const nome = novaFormaPagamento.trim();
+    if (!nome) return;
+
+    setSalvandoFormaPagamento(true);
+    try {
+      const { error } = await supabase
+        .from('formas_pagamento')
+        .insert({ nome, ordem: formasPagamento.length });
+
+      if (error) throw error;
+
+      await logActivity({ acao: "criar", entidade: "formas_pagamento", descricao: `Criou a forma de pagamento "${nome}"` });
+
+      setNovaFormaPagamento("");
+      refetchFormasPagamento();
+      toast({ title: "Forma de pagamento adicionada", description: `"${nome}" já pode ser usada nos orçamentos.` });
+    } catch (error: any) {
+      toast({ title: "Erro ao adicionar", description: error.message, variant: "destructive" });
+    } finally {
+      setSalvandoFormaPagamento(false);
+    }
+  };
+
+  const handleToggleAtivoFormaPagamento = async (id: string, ativo: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('formas_pagamento')
+        .update({ ativo: !ativo })
+        .eq('id', id);
+
+      if (error) throw error;
+      refetchFormasPagamento();
+    } catch (error: any) {
+      toast({ title: "Erro ao atualizar", description: error.message, variant: "destructive" });
+    }
+  };
+
+  const handleExcluirFormaPagamento = async () => {
+    if (!formaPagamentoParaExcluir) return;
+    try {
+      const { error } = await supabase
+        .from('formas_pagamento')
+        .delete()
+        .eq('id', formaPagamentoParaExcluir.id);
+
+      if (error) throw error;
+
+      await logActivity({ acao: "excluir", entidade: "formas_pagamento", descricao: `Excluiu a forma de pagamento "${formaPagamentoParaExcluir.nome}"` });
+
+      refetchFormasPagamento();
+      toast({ title: "Forma de pagamento excluída" });
+    } catch (error: any) {
+      toast({ title: "Erro ao excluir", description: error.message, variant: "destructive" });
+    } finally {
+      setFormaPagamentoParaExcluir(null);
+    }
+  };
+
   if (loading) {
     return (
       <div className="space-y-6 animate-fade-in">
@@ -494,6 +570,89 @@ export default function Configuracoes() {
           </div>
         </CardContent>
       </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <CreditCard className="h-5 w-5 text-primary" />
+            Formas de Pagamento
+          </CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Opções adicionais que aparecem para o cliente escolher como forma de pagamento nos orçamentos e no PDF.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {isAdmin && (
+            <div className="flex gap-2">
+              <Input
+                placeholder="Ex: PIX Parcelado, Cheque, Transferência..."
+                value={novaFormaPagamento}
+                onChange={(e) => setNovaFormaPagamento(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") handleCriarFormaPagamento(); }}
+              />
+              <Button onClick={handleCriarFormaPagamento} disabled={salvandoFormaPagamento || !novaFormaPagamento.trim()}>
+                <Plus className="h-4 w-4 mr-2" />
+                Adicionar
+              </Button>
+            </div>
+          )}
+
+          {formasPagamento.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-4">Nenhuma forma de pagamento adicional cadastrada.</p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nome</TableHead>
+                  <TableHead className="w-[100px]">Ativa</TableHead>
+                  {isAdmin && <TableHead className="text-right w-[80px]">Ações</TableHead>}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {formasPagamento.map((f) => (
+                  <TableRow key={f.id}>
+                    <TableCell className="font-medium">{f.nome}</TableCell>
+                    <TableCell>
+                      <Switch
+                        checked={f.ativo}
+                        disabled={!isAdmin}
+                        onCheckedChange={() => handleToggleAtivoFormaPagamento(f.id, f.ativo)}
+                      />
+                    </TableCell>
+                    {isAdmin && (
+                      <TableCell className="text-right">
+                        <Button variant="ghost" size="sm" onClick={() => setFormaPagamentoParaExcluir({ id: f.id, nome: f.nome })}>
+                          <Trash2 className="h-4 w-4 text-red-600" />
+                        </Button>
+                      </TableCell>
+                    )}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+          <p className="text-xs text-muted-foreground">
+            As formas fixas do sistema (À Vista, Boleto, Cartão de Crédito, Cartão de Débito, Cliente com Crédito) já aparecem sempre e não precisam ser cadastradas aqui.
+          </p>
+        </CardContent>
+      </Card>
+
+      <AlertDialog open={!!formaPagamentoParaExcluir} onOpenChange={(open) => !open && setFormaPagamentoParaExcluir(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir forma de pagamento?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Isso removerá "{formaPagamentoParaExcluir?.nome}" das opções disponíveis. Orçamentos que já usam essa forma continuam com o nome salvo normalmente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleExcluirFormaPagamento} className="bg-red-600 hover:bg-red-700">
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Card>
         <CardHeader>

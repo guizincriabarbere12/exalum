@@ -38,18 +38,21 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { Search, Plus, Download, Eye, FileText, ChevronDown, CircleAlert as AlertCircle, Trash2, Loader as Loader2, DollarSign, Calculator, X, Zap, UserCheck, TrendingUp, CreditCard as Edit, CreditCard, History, PenLine } from "lucide-react";
+import { Search, Plus, Download, Eye, FileText, Truck, ChevronDown, CircleAlert as AlertCircle, Trash2, Loader as Loader2, DollarSign, Calculator, X, Zap, UserCheck, TrendingUp, CreditCard as Edit, CreditCard, History, PenLine } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { gerarPDFOrcamento, downloadPDF } from "@/utils/pdfGenerator";
+import { gerarPDFOrcamento, gerarPDFRomaneioOrcamento, downloadPDF } from "@/utils/pdfGenerator";
 import AddClienteInlineDialog from "@/components/clientes/AddClienteInlineDialog";
 import {
   MATRIZ_SENTINEL,
   verificarEstoqueSuficiente,
   baixarEstoqueOrcamento,
   voltarEstoqueOrcamento,
+  expandirKitProdutos,
 } from "@/lib/orcamentoEstoque";
 import { logActivity } from "@/lib/auditLog";
+import { getFormaPagamentoLabel, FORMAS_PAGAMENTO_PADRAO } from "@/lib/formasPagamento";
+import { useFormasPagamentoCustom } from "@/hooks/useFormasPagamentoCustom";
 
 // ========== INTERFACES ==========
 interface Orcamento {
@@ -212,16 +215,6 @@ const getStatusColor = (status: string) => {
   return colors[status] || 'bg-gray-100 text-gray-800';
 };
 
-const getFormaPagamentoLabel = (forma: string) => {
-  const formas: Record<string, string> = {
-    'avista': 'À Vista',
-    'boleto': 'Boleto',
-    'credito': 'Cartão de Crédito',
-    'debito': 'Cartão de Débito',
-    'credito_cliente': 'Cliente com Crédito',
-  };
-  return formas[forma] || forma;
-};
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat('pt-BR', {
@@ -571,7 +564,7 @@ const DialogEscolhaPDF = ({
   onGerar: (tipo: 'comKg' | 'semKg') => void;
   gerando: boolean;
 }) => {
-  const [tipoSelecionado, setTipoSelecionado] = useState<'comKg' | 'semKg'>('comKg');
+  const [tipoSelecionado, setTipoSelecionado] = useState<'comKg' | 'semKg'>('semKg');
   const ehPedido = orcamento?.status === 'aprovado';
   const rotulo = ehPedido ? 'Pedido' : 'Orçamento';
   const numeroDoc = ehPedido
@@ -941,6 +934,7 @@ const visualizarCreditosUtilizados = async (clienteId: string, clienteNome: stri
 
 // ========== COMPONENTE PRINCIPAL ==========
 export default function OrcamentosPage() {
+  useFormasPagamentoCustom();
   const [orcamentos, setOrcamentos] = useState<OrcamentoWithRelations[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -959,6 +953,7 @@ export default function OrcamentosPage() {
   const [pdfDialogOpen, setPdfDialogOpen] = useState(false);
   const [orcamentoSelecionado, setOrcamentoSelecionado] = useState<OrcamentoWithRelations | null>(null);
   const [gerandoPDF, setGerandoPDF] = useState(false);
+  const [gerandoRomaneioId, setGerandoRomaneioId] = useState<string | null>(null);
 
   const fetchOrcamentos = async () => {
     try {
@@ -1629,6 +1624,109 @@ export default function OrcamentosPage() {
     }
   };
 
+  // Romaneio de separacao/entrega: itens sem valores, kits abertos em
+  // componentes com a localizacao de cada produto.
+  const gerarRomaneio = async (orcamento: OrcamentoWithRelations) => {
+    setGerandoRomaneioId(orcamento.id);
+    try {
+      const { data: orcamentoCompleto, error } = await supabase
+        .from('orcamentos')
+        .select(`
+          *,
+          clientes(*),
+          vendedor:vendedores(nome),
+          filial:filiais(nome),
+          orcamento_itens(
+            *,
+            produto:produtos(id, codigo, nome, localizacao, unidade),
+            kit:kits(id, codigo, nome)
+          )
+        `)
+        .eq('id', orcamento.id)
+        .single();
+
+      if (error) throw error;
+
+      const { data: config } = await supabase
+        .from('configuracoes')
+        .select('*')
+        .limit(1)
+        .single();
+
+      const itens = await Promise.all((orcamentoCompleto?.orcamento_itens || []).map(async (item: any) => {
+        if (!item.kit_id) {
+          return {
+            codigo: item.produto?.codigo || '-',
+            nome: item.produto?.nome || '-',
+            localizacao: item.produto?.localizacao || '-',
+            unidade: item.produto?.unidade || 'Un',
+            quantidade: item.quantidade,
+          };
+        }
+
+        const qtdPorProduto = await expandirKitProdutos(item.kit_id, item.quantidade);
+        const ids = Object.keys(qtdPorProduto);
+        const { data: produtos } = ids.length
+          ? await supabase.from('produtos').select('id, codigo, nome, localizacao, unidade').in('id', ids)
+          : { data: [] as any[] };
+
+        return {
+          codigo: item.kit?.codigo || '-',
+          nome: item.kit?.nome || 'Kit',
+          localizacao: '-',
+          unidade: 'Kit',
+          quantidade: item.quantidade,
+          componentes: (produtos || [])
+            .map((p: any) => ({
+              codigo: p.codigo || '-',
+              nome: p.nome,
+              localizacao: p.localizacao || '-',
+              unidade: p.unidade || 'Un',
+              quantidade: qtdPorProduto[p.id],
+            }))
+            .sort((a: any, b: any) => a.nome.localeCompare(b.nome)),
+        };
+      }));
+
+      const cliente: any = orcamentoCompleto?.clientes;
+      const enderecoCliente = [
+        [cliente?.logradouro, cliente?.numero_endereco].filter(Boolean).join(', ') || cliente?.endereco,
+        cliente?.bairro,
+        [cliente?.cidade, cliente?.estado].filter(Boolean).join(' - '),
+        cliente?.cep ? `CEP: ${cliente.cep}` : null,
+      ].filter(Boolean).join(', ');
+
+      const pdfBlob = await gerarPDFRomaneioOrcamento(
+        {
+          numero: orcamento.numero,
+          data: new Date().toLocaleDateString('pt-BR'),
+          status: getStatusLabel(orcamento.status),
+          loja: orcamentoCompleto?.filial?.nome || 'Matriz',
+          cliente: {
+            nome: cliente?.nome || 'Cliente',
+            cpf_cnpj: cliente?.cpf_cnpj || null,
+            telefone: cliente?.telefone || null,
+            endereco: enderecoCliente || null,
+          },
+          vendedor: orcamentoCompleto?.vendedor?.nome || null,
+          observacoes: orcamento.observacoes,
+          itens,
+        },
+        config
+      );
+      downloadPDF(pdfBlob, `romaneio_${orcamento.numero}.pdf`);
+    } catch (error: any) {
+      console.error('Erro ao gerar romaneio:', error);
+      toast({
+        title: "❌ Erro ao gerar romaneio",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setGerandoRomaneioId(null);
+    }
+  };
+
   const pagarComissao = async (comissaoId: string) => {
     try {
       const { error } = await supabase
@@ -2090,6 +2188,20 @@ export default function OrcamentosPage() {
                             <Button
                               variant="outline"
                               size="sm"
+                              onClick={() => gerarRomaneio(orcamento)}
+                              disabled={gerandoRomaneioId === orcamento.id}
+                              title="Gerar romaneio (separação/entrega)"
+                            >
+                              {gerandoRomaneioId === orcamento.id ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Truck className="h-4 w-4" />
+                              )}
+                            </Button>
+                            
+                            <Button
+                              variant="outline"
+                              size="sm"
                               onClick={() => handleEditClick(orcamento)}
                               title="Editar orçamento"
                               className="text-blue-600"
@@ -2189,7 +2301,9 @@ const AddOrcamentoContent = ({ onClose }: { onClose: () => void }) => {
   const [valorParcela, setValorParcela] = useState<number>(0);
   const [parcelado, setParcelado] = useState<boolean>(false);
   const [clienteLimite, setClienteLimite] = useState<number>(0);
-  
+  const { formas: formasPagamentoCustom } = useFormasPagamentoCustom();
+  const formaPagamentoEhFixa = !formaPagamento || !!FORMAS_PAGAMENTO_PADRAO[formaPagamento];
+
   const [mostrarCalculoReverso, setMostrarCalculoReverso] = useState<number | null>(null);
   const [novoPrecoPorKg, setNovoPrecoPorKg] = useState<string>("");
   const [mostrarAplicarTodos, setMostrarAplicarTodos] = useState(false);
@@ -2591,16 +2705,6 @@ const AddOrcamentoContent = ({ onClose }: { onClose: () => void }) => {
     }).format(value);
   };
 
-  const getFormaPagamentoLabel = (forma: string) => {
-    const formas: Record<string, string> = {
-      'avista': 'À Vista',
-      'boleto': 'Boleto',
-      'credito': 'Cartão de Crédito',
-      'debito': 'Cartão de Débito',
-      'credito_cliente': 'Cliente com Crédito',
-    };
-    return formas[forma] || forma;
-  };
 
   const getDescricaoCondicao = (condicao: string): string => {
     const descricoes: Record<string, string> = {
@@ -3129,26 +3233,21 @@ const AddOrcamentoContent = ({ onClose }: { onClose: () => void }) => {
                 }
               }}
               className="h-4 w-4 rounded border-gray-300"
-              disabled={formaPagamento === "credito_cliente"}
+              disabled={formaPagamento === "credito_cliente" || !formaPagamentoEhFixa}
             />
             <label htmlFor="parcelado" className="text-sm font-medium">
               Pagamento Parcelado?
             </label>
           </div>
-          
+
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <label className="text-sm font-medium">Forma de Pagamento *</label>
               <Select value={formaPagamento || "sem_forma"} onValueChange={(value) => {
                 const novaForma = value === "sem_forma" ? "" : value;
                 setFormaPagamento(novaForma);
-                
-                if (novaForma === "credito_cliente") {
-                  setParcelado(false);
-                  setCondicaoPagamento("");
-                  setEntradaValor(0);
-                  setParcelas(1);
-                } else if (novaForma === "avista") {
+
+                if (novaForma === "credito_cliente" || novaForma === "avista" || (novaForma && !FORMAS_PAGAMENTO_PADRAO[novaForma])) {
                   setParcelado(false);
                   setCondicaoPagamento("");
                   setEntradaValor(0);
@@ -3165,6 +3264,9 @@ const AddOrcamentoContent = ({ onClose }: { onClose: () => void }) => {
                   <SelectItem value="credito">Cartão de Crédito</SelectItem>
                   <SelectItem value="debito">Cartão de Débito</SelectItem>
                   <SelectItem value="credito_cliente">Cliente com Crédito</SelectItem>
+                  {formasPagamentoCustom.map((f) => (
+                    <SelectItem key={f.id} value={f.id}>{f.chave ? `${f.nome} (${f.chave})` : f.nome}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -3263,7 +3365,7 @@ const AddOrcamentoContent = ({ onClose }: { onClose: () => void }) => {
                 ) : !parcelado || formaPagamento === "avista" ? (
                   <div className="flex justify-between text-green-600">
                     <span>Pagamento:</span>
-                    <span className="font-medium">À Vista</span>
+                    <span className="font-medium">{formaPagamentoEhFixa ? "À Vista" : getFormaPagamentoLabel(formaPagamento)}</span>
                   </div>
                 ) : (
                   <>
@@ -3855,7 +3957,9 @@ const EditOrcamentoContent = ({ orcamento, onClose }: { orcamento: OrcamentoComI
   const [valorParcela, setValorParcela] = useState<number>(orcamento.valor_parcela || 0);
   const [parcelado, setParcelado] = useState<boolean>(orcamento.parcelado || false);
   const [clienteLimite, setClienteLimite] = useState<number>(0);
-  
+  const { formas: formasPagamentoCustom } = useFormasPagamentoCustom();
+  const formaPagamentoEhFixa = !formaPagamento || !!FORMAS_PAGAMENTO_PADRAO[formaPagamento];
+
   const [tipoItem, setTipoItem] = useState<'produto' | 'kit'>('produto');
   const [itemSelecionado, setItemSelecionado] = useState("");
   const [quantidade, setQuantidade] = useState(1);
@@ -4338,16 +4442,6 @@ const EditOrcamentoContent = ({ orcamento, onClose }: { orcamento: OrcamentoComI
     }).format(value);
   };
 
-  const getFormaPagamentoLabel = (forma: string) => {
-    const formas: Record<string, string> = {
-      'avista': 'À Vista',
-      'boleto': 'Boleto',
-      'credito': 'Cartão de Crédito',
-      'debito': 'Cartão de Débito',
-      'credito_cliente': 'Cliente com Crédito',
-    };
-    return formas[forma] || forma;
-  };
 
   const getDescricaoCondicao = (condicao: string): string => {
     const descricoes: Record<string, string> = {
@@ -4905,26 +4999,21 @@ const EditOrcamentoContent = ({ orcamento, onClose }: { orcamento: OrcamentoComI
                 }
               }}
               className="h-4 w-4 rounded border-gray-300"
-              disabled={formaPagamento === "credito_cliente"}
+              disabled={formaPagamento === "credito_cliente" || !formaPagamentoEhFixa}
             />
             <label htmlFor="parcelado" className="text-sm font-medium">
               Pagamento Parcelado?
             </label>
           </div>
-          
+
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <label className="text-sm font-medium">Forma de Pagamento *</label>
               <Select value={formaPagamento || "sem_forma"} onValueChange={(value) => {
                 const novaForma = value === "sem_forma" ? "" : value;
                 setFormaPagamento(novaForma);
-                
-                if (novaForma === "credito_cliente") {
-                  setParcelado(false);
-                  setCondicaoPagamento("");
-                  setEntradaValor(0);
-                  setParcelas(1);
-                } else if (novaForma === "avista") {
+
+                if (novaForma === "credito_cliente" || novaForma === "avista" || (novaForma && !FORMAS_PAGAMENTO_PADRAO[novaForma])) {
                   setParcelado(false);
                   setCondicaoPagamento("");
                   setEntradaValor(0);
@@ -4941,6 +5030,9 @@ const EditOrcamentoContent = ({ orcamento, onClose }: { orcamento: OrcamentoComI
                   <SelectItem value="credito">Cartão de Crédito</SelectItem>
                   <SelectItem value="debito">Cartão de Débito</SelectItem>
                   <SelectItem value="credito_cliente">Cliente com Crédito</SelectItem>
+                  {formasPagamentoCustom.map((f) => (
+                    <SelectItem key={f.id} value={f.id}>{f.chave ? `${f.nome} (${f.chave})` : f.nome}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -5039,7 +5131,7 @@ const EditOrcamentoContent = ({ orcamento, onClose }: { orcamento: OrcamentoComI
                 ) : !parcelado || formaPagamento === "avista" ? (
                   <div className="flex justify-between text-green-600">
                     <span>Pagamento:</span>
-                    <span className="font-medium">À Vista</span>
+                    <span className="font-medium">{formaPagamentoEhFixa ? "À Vista" : getFormaPagamentoLabel(formaPagamento)}</span>
                   </div>
                 ) : (
                   <>

@@ -1234,6 +1234,34 @@ export default function FinanceiroSub() {
       {/* Caixas e Bancos */}
       {slug === "caixas-bancos" && (
         <div className="space-y-4">
+          <Card><CardContent className="pt-6">
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="relative flex-1 min-w-[200px]">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input placeholder="Buscar por descrição ou categoria..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10" />
+              </div>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-[140px]"><SelectValue placeholder="Status" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos</SelectItem>
+                  <SelectItem value="pendente">Pendente</SelectItem>
+                  <SelectItem value="pago">Pago</SelectItem>
+                  <SelectItem value="recebido">Recebido</SelectItem>
+                  <SelectItem value="cancelado">Cancelado</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={contaFilter} onValueChange={setContaFilter}>
+                <SelectTrigger className="w-[180px]"><SelectValue placeholder="Conta" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todas">Todas as contas</SelectItem>
+                  {contasDisponiveis.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Input type="date" value={dataInicio} onChange={(e) => setDataInicio(e.target.value)} className="w-[150px]" title="Data início" />
+              <Input type="date" value={dataFim} onChange={(e) => setDataFim(e.target.value)} className="w-[150px]" title="Data fim" />
+              <Button variant="ghost" size="sm" onClick={limparFiltros}><X className="h-4 w-4" /> Limpar</Button>
+            </div>
+          </CardContent></Card>
           {Object.entries(porConta).map(([conta, dados]) => (
             <Card key={conta}>
               <CardHeader className="pb-3">

@@ -30,6 +30,7 @@ export const MODULOS = [
   { key: "crm-conversas", label: "Conversas WhatsApp" },
   { key: "meu-whatsapp", label: "Meu WhatsApp" },
   { key: "conexoes-whatsapp", label: "Conexões WhatsApp" },
+  { key: "notas-fiscais", label: "Notas Fiscais" },
   { key: "financeiro", label: "Financeiro" },
   { key: "relatorios", label: "Relatórios" },
   { key: "configuracoes", label: "Configurações" },

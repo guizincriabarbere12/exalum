@@ -26,6 +26,7 @@ import CatalogoCliente from "./pages/CatalogoCliente";
 import Carrinho from "./pages/Carrinho";
 import MeusPedidos from "./pages/MeusPedidos";
 import CatalogoPublico from "./pages/CatalogoPublico";
+import AcompanharPedido from "./pages/AcompanharPedido";
 import Compras from "./pages/Compras";
 import SaldoClientes from "./pages/SaldoClientes";
 import Vendedores from "./pages/Vendedores";
@@ -38,8 +39,8 @@ import Auditoria from "./pages/Auditoria";
 import Permissoes from "./pages/Permissoes";
 import ConferenciaMateriais from "./pages/ConferenciaMateriais";
 import ConfiguracaoFiscal from "./pages/ConfiguracaoFiscal";
-import AcompanharPedido from "./pages/AcompanharPedido";
 import AssinarPedido from "./pages/AssinarPedido";
+import NotasFiscais from "./pages/NotasFiscais";
 import PedidoSerralheiro from "./pages/PedidoSerralheiro";
 import MeusPedidosSerralheiro from "./pages/MeusPedidosSerralheiro";
 import RequisicoesMateriais from "./pages/RequisicoesMateriais";
@@ -398,6 +399,16 @@ const App = () => (
               <ProtectedRoute>
                 <AppLayout>
                   <ConfiguracaoFiscal />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/notas-fiscais"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <NotasFiscais />
                 </AppLayout>
               </ProtectedRoute>
             }

@@ -1,7 +1,7 @@
 // @ts-nocheck - Temporary fix until Supabase types are regenerated
 import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ShoppingCart, Search, Building2, DollarSign, Package, RefreshCw } from "lucide-react";
+import { ShoppingCart, Search, Building2, DollarSign, Package, RefreshCw, FileCheck, ArrowRightCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,6 +25,12 @@ interface Venda {
   filial_id: string | null;
   clientes: { nome: string } | null;
   filiais: { nome: string } | null;
+  cliente_id?: string;
+  vendedor_id?: string | null;
+  /** Para tipo "orcamento": o proprio id. Para tipo "pedido": o orcamento_id de origem. Usado so pra converter em venda. */
+  orcamentoOrigemId?: string | null;
+  /** filial_id real da origem (orcamento/pedido) - separado do "filial_id" de exibicao, que fica forçado null pros orçamentos. Usado so pra converter em venda. */
+  filialOrigemId?: string | null;
 }
 
 const MATRIZ_ID = "__MATRIZ__";
@@ -54,6 +60,76 @@ export default function Vendas() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filtroFilial, setFiltroFilial] = useState<string>("todos");
   const [filtroTipo, setFiltroTipo] = useState<string>("todos");
+  const [emitindoNfeId, setEmitindoNfeId] = useState<string | null>(null);
+  const [convertendoId, setConvertendoId] = useState<string | null>(null);
+
+  const handleEmitirNFe = async (vendaId: string) => {
+    setEmitindoNfeId(vendaId);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      if (!token) throw new Error("Sessão expirada, faça login novamente.");
+
+      const response = await fetch("/api/nfe/emitir", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ vendaId }),
+      });
+      const resultado = await response.json();
+
+      if (!response.ok) {
+        throw new Error(resultado.erro || `Falha na emissão (${resultado.xMotivo || response.status})`);
+      }
+
+      toast({
+        title: "✅ NF-e autorizada!",
+        description: `Protocolo ${resultado.protocolo} — chave ${resultado.chaveAcesso}`,
+      });
+    } catch (error: any) {
+      toast({ title: "Erro ao emitir NF-e", description: error.message, variant: "destructive" });
+    } finally {
+      setEmitindoNfeId(null);
+    }
+  };
+
+  const handleConverterEmVenda = async (item: Venda) => {
+    if (!item.orcamentoOrigemId) {
+      toast({ title: "Não é possível converter", description: "Este pedido não está vinculado a um orçamento com os itens da venda.", variant: "destructive" });
+      return;
+    }
+    if (!item.cliente_id) {
+      toast({ title: "Não é possível converter", description: "Cliente não encontrado para este registro.", variant: "destructive" });
+      return;
+    }
+    setConvertendoId(item.id);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const userId = sessionData.session?.user.id;
+
+      const { error } = await supabase.from("vendas").insert({
+        numero: item.numero,
+        cliente_id: item.cliente_id,
+        orcamento_id: item.orcamentoOrigemId,
+        valor_total: item.valor_total,
+        status: "pendente",
+        vendedor_id: item.vendedor_id || null,
+        filial_id: item.filialOrigemId || null,
+        created_by: userId,
+      });
+
+      if (error) {
+        if (error.code === "23505") throw new Error("Já existe uma venda com esse número — este registro já foi convertido.");
+        throw error;
+      }
+
+      toast({ title: "Convertido em venda!", description: `Agora é possível emitir a NF-e para ${item.numero}.` });
+      fetchVendas();
+    } catch (error: any) {
+      toast({ title: "Erro ao converter em venda", description: error.message, variant: "destructive" });
+    } finally {
+      setConvertendoId(null);
+    }
+  };
 
   const fetchVendas = useCallback(async () => {
     try {
@@ -66,16 +142,16 @@ export default function Vendas() {
 
       const [vRes, oRes, pRes] = await Promise.all([
         supabase.from("vendas").select("id, numero, valor_total, status, created_at, filial_id, clientes(nome), filiais:filial_id(nome)").order("created_at", { ascending: false }),
-        supabase.from("orcamentos").select("id, numero, valor_total, status, created_at, clientes(nome)").eq("status", "aprovado").order("created_at", { ascending: false }),
-        supabase.from("pedidos").select("id, numero, valor_total, status, created_at, filial_id, clientes(nome), filiais:filial_id(nome)").eq("status", "confirmado").order("created_at", { ascending: false }),
+        supabase.from("orcamentos").select("id, numero, valor_total, status, created_at, cliente_id, vendedor_id, filial_id, clientes(nome)").eq("status", "aprovado").order("created_at", { ascending: false }),
+        supabase.from("pedidos").select("id, numero, valor_total, status, created_at, filial_id, cliente_id, vendedor_id, orcamento_id, clientes(nome), filiais:filial_id(nome)").eq("status", "confirmado").order("created_at", { ascending: false }),
       ]);
       if (vRes.error) throw vRes.error;
       if (oRes.error) throw oRes.error;
       if (pRes.error) throw pRes.error;
 
       const vendasFormatadas: Venda[] = (vRes.data || []).map((v: any) => ({ ...v, tipo: "venda" as const }));
-      const orcamentosFormatados: Venda[] = (oRes.data || []).map((o: any) => ({ ...o, tipo: "orcamento" as const, filial_id: null, filiais: null }));
-      const pedidosFormatados: Venda[] = (pRes.data || []).map((p: any) => ({ ...p, tipo: "pedido" as const }));
+      const orcamentosFormatados: Venda[] = (oRes.data || []).map((o: any) => ({ ...o, tipo: "orcamento" as const, filial_id: null, filiais: null, orcamentoOrigemId: o.id, filialOrigemId: o.filial_id }));
+      const pedidosFormatados: Venda[] = (pRes.data || []).map((p: any) => ({ ...p, tipo: "pedido" as const, orcamentoOrigemId: p.orcamento_id, filialOrigemId: p.filial_id }));
 
       const todas = [...vendasFormatadas, ...orcamentosFormatados, ...pedidosFormatados]
         .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
@@ -214,11 +290,12 @@ export default function Vendas() {
                     <TableHead>Data</TableHead>
                     <TableHead className="text-right">Valor Total</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {vendasFiltradas.length === 0 ? (
-                    <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Nenhuma venda encontrada.</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Nenhuma venda encontrada.</TableCell></TableRow>
                   ) : vendasFiltradas.map((venda) => (
                     <TableRow key={`${venda.tipo}-${venda.id}`}>
                       <TableCell className="font-mono font-medium">{venda.numero}</TableCell>
@@ -240,6 +317,41 @@ export default function Vendas() {
                         <Badge variant="outline" className={statusColors[venda.status] || "bg-gray-100 text-gray-800 border-gray-200"}>
                           <span className="capitalize">{venda.status}</span>
                         </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {venda.tipo === "venda" ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={emitindoNfeId === venda.id}
+                            onClick={() => handleEmitirNFe(venda.id)}
+                            title="Emitir NF-e"
+                          >
+                            {emitindoNfeId === venda.id ? (
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary" />
+                            ) : (
+                              <>
+                                <FileCheck className="h-4 w-4 mr-1" /> NF-e
+                              </>
+                            )}
+                          </Button>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={convertendoId === venda.id}
+                            onClick={() => handleConverterEmVenda(venda)}
+                            title="Converter em Venda para poder emitir NF-e"
+                          >
+                            {convertendoId === venda.id ? (
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary" />
+                            ) : (
+                              <>
+                                <ArrowRightCircle className="h-4 w-4 mr-1" /> Converter
+                              </>
+                            )}
+                          </Button>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))}

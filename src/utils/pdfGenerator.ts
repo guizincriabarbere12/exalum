@@ -1,5 +1,7 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import QRCode from 'qrcode';
+import JsBarcode from 'jsbarcode';
 
 interface ConfiguracaoEmpresa {
   nome_empresa: string;
@@ -56,49 +58,40 @@ interface DadosOrcamento {
   } | null;
 }
 
-const THUMB_SIZE = 56;
+// Miniatura impressa com 14mm: 240px ≈ 435 dpi, nítida na tela e na impressão
+const THUMB_SIZE = 240;
+const THUMB_QUALITY = 0.85;
 const MARGIN = 15;
 const GRAY_LINE: [number, number, number] = [130, 130, 130];
 const GRAY_HEAD: [number, number, number] = [235, 235, 235];
 const GRAY_LABEL: [number, number, number] = [95, 95, 95];
 
-function redimensionarBase64(dataURL: string): Promise<string> {
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      const scale = Math.min(THUMB_SIZE / img.width, THUMB_SIZE / img.height, 1);
-      canvas.width = Math.round(img.width * scale);
-      canvas.height = Math.round(img.height * scale);
-      const ctx = canvas.getContext('2d');
-      ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
-      resolve(canvas.toDataURL('image/jpeg', 0.6));
-    };
-    img.onerror = () => resolve(dataURL);
-    img.src = dataURL;
-  });
+function gerarMiniatura(img: HTMLImageElement): string {
+  const scale = Math.min(THUMB_SIZE / img.width, THUMB_SIZE / img.height, 1);
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.max(1, Math.round(img.width * scale));
+  canvas.height = Math.max(1, Math.round(img.height * scale));
+  const ctx = canvas.getContext('2d');
+  if (ctx) {
+    // Fundo branco: sem ele, áreas transparentes de PNG viram preto no JPEG
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+  }
+  return canvas.toDataURL('image/jpeg', THUMB_QUALITY);
 }
 
 async function carregarImagemDaURL(url: string): Promise<string> {
-  if (url.startsWith('data:')) {
-    return redimensionarBase64(url);
-  }
+  const isDataURL = url.startsWith('data:');
 
   return new Promise((resolve, reject) => {
     const img = new Image();
-    img.crossOrigin = 'Anonymous';
+    if (!isDataURL) img.crossOrigin = 'Anonymous';
 
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      const scale = Math.min(THUMB_SIZE / img.width, THUMB_SIZE / img.height, 1);
-      canvas.width = Math.round(img.width * scale);
-      canvas.height = Math.round(img.height * scale);
-      const ctx = canvas.getContext('2d');
-      ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
-      resolve(canvas.toDataURL('image/jpeg', 0.6));
-    };
-
-    img.onerror = reject;
+    img.onload = () => resolve(gerarMiniatura(img));
+    img.onerror = isDataURL ? () => resolve(url) : reject;
     img.src = url;
   });
 }
@@ -1045,6 +1038,1481 @@ export async function gerarPDFRomaneio(dados: DadosRomaneio, config: Configuraca
   for (let i = 1; i <= totalPages; i++) {
     doc.setPage(i);
     drawFooter(i, totalPages);
+  }
+
+  return doc.output('blob');
+}
+
+interface TransferenciaItem {
+  codigo: string;
+  nome: string;
+  unidade: string;
+  quantidade: number;
+}
+
+interface DadosTransferencia {
+  numero: string;
+  data: string;
+  status: string;
+  origem: string;
+  destino: string;
+  transportadora?: string | null;
+  observacoes?: string | null;
+  itens: TransferenciaItem[];
+}
+
+/**
+ * Gera o documento que acompanha fisicamente a mercadoria até a transportadora.
+ * NAO e uma nota fiscal eletronica - e um romaneio interno de conferencia, por
+ * isso o aviso "sem valor fiscal" fica destacado no cabecalho.
+ */
+export async function gerarPDFTransferencia(
+  dados: DadosTransferencia,
+  config: ConfiguracaoEmpresa
+): Promise<Blob> {
+  const doc = new jsPDF();
+
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const contentWidth = pageWidth - MARGIN * 2;
+
+  let logo: LogoInfo | null = null;
+  if (config.logo_url) {
+    logo = await carregarLogo(config.logo_url);
+  }
+
+  // ========== CABEÇALHO (logo + dados da empresa) ==========
+  let logoBottom = MARGIN;
+  if (logo) {
+    const boxW = 42;
+    const boxH = 22;
+    let imgW = boxW;
+    let imgH = imgW / logo.aspect;
+    if (imgH > boxH) {
+      imgH = boxH;
+      imgW = imgH * logo.aspect;
+    }
+    try {
+      doc.addImage(logo.dataURL, 'PNG', MARGIN, 12, imgW, imgH);
+      logoBottom = 12 + imgH;
+    } catch (error) {
+      console.error('Erro ao desenhar logo:', error);
+    }
+  }
+
+  let companyY = 15;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.setTextColor(20, 20, 20);
+  doc.text(config.nome_empresa || 'Empresa', pageWidth - MARGIN, companyY, { align: 'right' });
+  companyY += 5;
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.setTextColor(60, 60, 60);
+
+  if (config.telefone) {
+    doc.text(`Tel: ${config.telefone}`, pageWidth - MARGIN, companyY, { align: 'right' });
+    companyY += 4;
+  }
+  if (config.endereco) {
+    const linhas = doc.splitTextToSize(config.endereco, 95);
+    linhas.forEach((linha: string) => {
+      doc.text(linha, pageWidth - MARGIN, companyY, { align: 'right' });
+      companyY += 4;
+    });
+  }
+  if (config.cnpj) {
+    doc.text(`CNPJ: ${config.cnpj}`, pageWidth - MARGIN, companyY, { align: 'right' });
+    companyY += 4;
+  }
+
+  let y = Math.max(logoBottom, companyY) + 6;
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(15);
+  doc.setTextColor(0, 0, 0);
+  doc.text(`Transferência de Estoque ${dados.numero}`, pageWidth / 2, y, { align: 'center' });
+  y += 5;
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.setTextColor(...GRAY_LABEL);
+  doc.text('Documento para acompanhamento de transporte — sem valor fiscal', pageWidth / 2, y, { align: 'center' });
+  y += 8;
+
+  // ========== ORIGEM / DESTINO ==========
+  const halfW = (contentWidth - 4) / 2;
+  const locBoxH = 16;
+
+  doc.setDrawColor(...GRAY_LINE);
+  doc.setLineWidth(0.2);
+  doc.rect(MARGIN, y, halfW, locBoxH);
+  doc.rect(MARGIN + halfW + 4, y, halfW, locBoxH);
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7);
+  doc.setTextColor(...GRAY_LABEL);
+  doc.text('ORIGEM', MARGIN + 3, y + 4.5);
+  doc.text('DESTINO', MARGIN + halfW + 4 + 3, y + 4.5);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9.5);
+  doc.setTextColor(0, 0, 0);
+  doc.text(dados.origem, MARGIN + 3, y + 11.5);
+  doc.text(dados.destino, MARGIN + halfW + 4 + 3, y + 11.5);
+
+  y += locBoxH + 6;
+
+  // ========== NÚMERO / DATA / STATUS / TRANSPORTADORA ==========
+  const metaBoxH = 16;
+  const quarterW = (contentWidth - 12) / 4;
+  const metaCols: [string, string][] = [
+    ['NÚMERO', dados.numero],
+    ['DATA', dados.data],
+    ['STATUS', dados.status],
+    ['TRANSPORTADORA', dados.transportadora || 'A definir'],
+  ];
+
+  metaCols.forEach((col, i) => {
+    const bx = MARGIN + i * (quarterW + 4);
+    doc.setDrawColor(...GRAY_LINE);
+    doc.rect(bx, y, quarterW, metaBoxH);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(6.5);
+    doc.setTextColor(...GRAY_LABEL);
+    doc.text(col[0], bx + 2, y + 4.5);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(0, 0, 0);
+    const linhas = doc.splitTextToSize(col[1], quarterW - 4);
+    doc.text(linhas.slice(0, 2), bx + 2, y + 10);
+  });
+
+  y += metaBoxH + 8;
+
+  // ========== ITENS ==========
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.setTextColor(0, 0, 0);
+  doc.text('Itens Transferidos', MARGIN, y);
+  y += 3;
+
+  autoTable(doc, {
+    startY: y,
+    head: [['Código', 'Descrição', 'Un.', 'Quantidade']],
+    body: dados.itens.map(item => [item.codigo, item.nome, item.unidade, item.quantidade.toString()]),
+    theme: 'grid',
+    headStyles: {
+      fillColor: GRAY_HEAD,
+      textColor: [0, 0, 0],
+      fontStyle: 'bold',
+      fontSize: 8,
+      halign: 'left',
+      lineColor: GRAY_LINE,
+      lineWidth: 0.2,
+    },
+    bodyStyles: {
+      fontSize: 8,
+      cellPadding: 2.5,
+      textColor: [0, 0, 0],
+      lineColor: GRAY_LINE,
+      lineWidth: 0.2,
+    },
+    columnStyles: {
+      0: { cellWidth: 30 },
+      2: { halign: 'center', cellWidth: 20 },
+      3: { halign: 'center', cellWidth: 30 },
+    },
+    margin: { left: MARGIN, right: MARGIN, bottom: 22 },
+  });
+
+  y = (doc as any).lastAutoTable.finalY + 8;
+
+  // ========== OBSERVAÇÕES ==========
+  const obsTexto = (dados.observacoes || '').trim();
+  if (obsTexto) {
+    const obsLinhas = doc.splitTextToSize(obsTexto, contentWidth - 6);
+    const obsBoxH = Math.max(14, obsLinhas.length * 4 + 6);
+
+    if (y + obsBoxH > pageHeight - 45) {
+      doc.addPage();
+      y = 20;
+    }
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(0, 0, 0);
+    doc.text('Observações', MARGIN, y);
+    y += 3;
+
+    doc.setDrawColor(...GRAY_LINE);
+    doc.rect(MARGIN, y, contentWidth, obsBoxH);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.text(obsLinhas, MARGIN + 3, y + 5.5);
+
+    y += obsBoxH + 10;
+  }
+
+  // ========== ASSINATURAS ==========
+  if (y + 30 > pageHeight - 20) {
+    doc.addPage();
+    y = 20;
+  } else {
+    y += 6;
+  }
+
+  const sigW = (contentWidth - 10) / 2;
+  const sigY = y + 16;
+
+  doc.setDrawColor(...GRAY_LINE);
+  doc.line(MARGIN, sigY, MARGIN + sigW, sigY);
+  doc.line(MARGIN + sigW + 10, sigY, MARGIN + sigW + 10 + sigW, sigY);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.setTextColor(...GRAY_LABEL);
+  doc.text('Retirado por (nome / assinatura)', MARGIN, sigY + 5);
+  doc.text('Recebido por (nome / assinatura)', MARGIN + sigW + 10, sigY + 5);
+
+  doc.setTextColor(0, 0, 0);
+  doc.setFontSize(7.5);
+  doc.text(`Data: ____/____/______`, MARGIN, sigY + 11);
+  doc.text(`Data: ____/____/______`, MARGIN + sigW + 10, sigY + 11);
+
+  const totalPages = (doc as any).internal.getNumberOfPages();
+  for (let i = 1; i <= totalPages; i++) {
+    doc.setPage(i);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(...GRAY_LABEL);
+    doc.text('Documento sem valor fiscal', MARGIN, pageHeight - 8);
+    doc.text(`Página ${i} de ${totalPages}`, pageWidth - MARGIN, pageHeight - 8, { align: 'right' });
+    doc.setTextColor(0, 0, 0);
+  }
+
+  return doc.output('blob');
+}
+
+interface DadosOrdemProducao {
+  numero: string;
+  status: string;
+  dataSaida: string;
+  dataRetorno?: string | null;
+  fornecedor?: string | null;
+  produtoOrigem: { codigo: string; nome: string; cor?: string | null; unidade: string };
+  produtoDestino?: { codigo: string; nome: string; cor?: string | null } | null;
+  quantidade: number;
+  pesoUnitarioKg: number;
+  pesoTotalKg: number;
+  valorMaterial: number;
+  custoPintura: number;
+  observacoes?: string | null;
+}
+
+/**
+ * Ordem de producao (envio para pintura): acompanha o material ate o
+ * fornecedor. Sem valor fiscal, mesmo layout do documento de transferencia.
+ */
+export async function gerarPDFOrdemProducao(
+  dados: DadosOrdemProducao,
+  config: ConfiguracaoEmpresa
+): Promise<Blob> {
+  const doc = new jsPDF();
+
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const contentWidth = pageWidth - MARGIN * 2;
+  const brl = (v: number) => `R$ ${(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const kg = (v: number) => `${(v || 0).toLocaleString('pt-BR', { maximumFractionDigits: 2 })} kg`;
+
+  let logo: LogoInfo | null = null;
+  if (config.logo_url) {
+    logo = await carregarLogo(config.logo_url);
+  }
+
+  // ========== CABEÇALHO (logo + dados da empresa) ==========
+  let logoBottom = MARGIN;
+  if (logo) {
+    const boxW = 42;
+    const boxH = 22;
+    let imgW = boxW;
+    let imgH = imgW / logo.aspect;
+    if (imgH > boxH) {
+      imgH = boxH;
+      imgW = imgH * logo.aspect;
+    }
+    try {
+      doc.addImage(logo.dataURL, 'PNG', MARGIN, 12, imgW, imgH);
+      logoBottom = 12 + imgH;
+    } catch (error) {
+      console.error('Erro ao desenhar logo:', error);
+    }
+  }
+
+  let companyY = 15;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.setTextColor(20, 20, 20);
+  doc.text(config.nome_empresa || 'Empresa', pageWidth - MARGIN, companyY, { align: 'right' });
+  companyY += 5;
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.setTextColor(60, 60, 60);
+  if (config.telefone) {
+    doc.text(`Tel: ${config.telefone}`, pageWidth - MARGIN, companyY, { align: 'right' });
+    companyY += 4;
+  }
+  if (config.endereco) {
+    const linhas = doc.splitTextToSize(config.endereco, 95);
+    linhas.forEach((linha: string) => {
+      doc.text(linha, pageWidth - MARGIN, companyY, { align: 'right' });
+      companyY += 4;
+    });
+  }
+  if (config.cnpj) {
+    doc.text(`CNPJ: ${config.cnpj}`, pageWidth - MARGIN, companyY, { align: 'right' });
+    companyY += 4;
+  }
+
+  let y = Math.max(logoBottom, companyY) + 6;
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(15);
+  doc.setTextColor(0, 0, 0);
+  doc.text(`Ordem de Produção ${dados.numero}`, pageWidth / 2, y, { align: 'center' });
+  y += 5;
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.setTextColor(...GRAY_LABEL);
+  doc.text('Envio de material para pintura — sem valor fiscal', pageWidth / 2, y, { align: 'center' });
+  y += 8;
+
+  // ========== FORNECEDOR ==========
+  const fornecedorBoxH = 16;
+  doc.setDrawColor(...GRAY_LINE);
+  doc.setLineWidth(0.2);
+  doc.rect(MARGIN, y, contentWidth, fornecedorBoxH);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7);
+  doc.setTextColor(...GRAY_LABEL);
+  doc.text('FORNECEDOR (PINTURA)', MARGIN + 3, y + 4.5);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9.5);
+  doc.setTextColor(0, 0, 0);
+  doc.text(dados.fornecedor || 'Não informado', MARGIN + 3, y + 11.5);
+  y += fornecedorBoxH + 6;
+
+  // ========== NÚMERO / SAÍDA / RETORNO / STATUS ==========
+  const metaBoxH = 16;
+  const quarterW = (contentWidth - 12) / 4;
+  const metaCols: [string, string][] = [
+    ['NÚMERO', dados.numero],
+    ['SAÍDA', dados.dataSaida],
+    ['RETORNO', dados.dataRetorno || '-'],
+    ['STATUS', dados.status],
+  ];
+  metaCols.forEach((col, i) => {
+    const bx = MARGIN + i * (quarterW + 4);
+    doc.setDrawColor(...GRAY_LINE);
+    doc.rect(bx, y, quarterW, metaBoxH);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(6.5);
+    doc.setTextColor(...GRAY_LABEL);
+    doc.text(col[0], bx + 2, y + 4.5);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(0, 0, 0);
+    doc.text(doc.splitTextToSize(col[1], quarterW - 4).slice(0, 2), bx + 2, y + 10);
+  });
+  y += metaBoxH + 8;
+
+  // ========== MATERIAL ==========
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.text('Material', MARGIN, y);
+  y += 3;
+
+  const nomeCor = (p: { nome: string; cor?: string | null }) => p.cor ? `${p.nome} (${p.cor})` : p.nome;
+  autoTable(doc, {
+    startY: y,
+    head: [['Código', 'Produto enviado', 'Pintar para', 'Qtd', 'Peso un.', 'Peso total']],
+    body: [[
+      dados.produtoOrigem.codigo,
+      nomeCor(dados.produtoOrigem),
+      dados.produtoDestino ? nomeCor(dados.produtoDestino) : 'Mesma cor',
+      `${dados.quantidade} ${dados.produtoOrigem.unidade}`,
+      kg(dados.pesoUnitarioKg),
+      kg(dados.pesoTotalKg),
+    ]],
+    theme: 'grid',
+    headStyles: { fillColor: GRAY_HEAD, textColor: [0, 0, 0], fontStyle: 'bold', fontSize: 8, halign: 'left', lineColor: GRAY_LINE, lineWidth: 0.2 },
+    bodyStyles: { fontSize: 8, cellPadding: 2.5, textColor: [0, 0, 0], lineColor: GRAY_LINE, lineWidth: 0.2 },
+    columnStyles: {
+      0: { cellWidth: 26 },
+      3: { halign: 'center', cellWidth: 18 },
+      4: { halign: 'right', cellWidth: 20 },
+      5: { halign: 'right', cellWidth: 22 },
+    },
+    margin: { left: MARGIN, right: MARGIN, bottom: 22 },
+  });
+  y = (doc as any).lastAutoTable.finalY + 6;
+
+  // ========== VALORES ==========
+  const precoKg = dados.pesoTotalKg > 0 ? dados.custoPintura / dados.pesoTotalKg : 0;
+  const linhasValores: [string, string][] = [
+    ['Material', brl(dados.valorMaterial)],
+    [dados.pesoTotalKg > 0 ? `Pintura (${kg(dados.pesoTotalKg)} × ${brl(precoKg)}/kg)` : 'Pintura', brl(dados.custoPintura)],
+  ];
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8.5);
+  doc.setTextColor(40, 40, 40);
+  linhasValores.forEach(([rotulo, valor]) => {
+    doc.text(rotulo, pageWidth - MARGIN - 70, y + 3);
+    doc.text(valor, pageWidth - MARGIN, y + 3, { align: 'right' });
+    y += 5;
+  });
+  doc.setDrawColor(...GRAY_LINE);
+  doc.line(pageWidth - MARGIN - 70, y, pageWidth - MARGIN, y);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(11);
+  doc.setTextColor(0, 0, 0);
+  doc.text('Valor da OP', pageWidth - MARGIN - 70, y + 6);
+  doc.text(brl(dados.valorMaterial + dados.custoPintura), pageWidth - MARGIN, y + 6, { align: 'right' });
+  y += 14;
+
+  // ========== OBSERVAÇÕES ==========
+  const obsTexto = (dados.observacoes || '').trim();
+  if (obsTexto) {
+    const obsLinhas = doc.splitTextToSize(obsTexto, contentWidth - 6);
+    const obsBoxH = Math.max(14, obsLinhas.length * 4 + 6);
+    if (y + obsBoxH > pageHeight - 45) {
+      doc.addPage();
+      y = 20;
+    }
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.text('Observações', MARGIN, y);
+    y += 3;
+    doc.setDrawColor(...GRAY_LINE);
+    doc.rect(MARGIN, y, contentWidth, obsBoxH);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.text(obsLinhas, MARGIN + 3, y + 5.5);
+    y += obsBoxH + 10;
+  }
+
+  // ========== ASSINATURAS ==========
+  if (y + 30 > pageHeight - 20) {
+    doc.addPage();
+    y = 20;
+  } else {
+    y += 6;
+  }
+  const sigW = (contentWidth - 10) / 2;
+  const sigY = y + 16;
+  doc.setDrawColor(...GRAY_LINE);
+  doc.line(MARGIN, sigY, MARGIN + sigW, sigY);
+  doc.line(MARGIN + sigW + 10, sigY, MARGIN + sigW + 10 + sigW, sigY);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.setTextColor(...GRAY_LABEL);
+  doc.text('Entregue por (nome / assinatura)', MARGIN, sigY + 5);
+  doc.text('Recebido pelo fornecedor (nome / assinatura)', MARGIN + sigW + 10, sigY + 5);
+  doc.setTextColor(0, 0, 0);
+  doc.setFontSize(7.5);
+  doc.text(`Data: ____/____/______`, MARGIN, sigY + 11);
+  doc.text(`Data: ____/____/______`, MARGIN + sigW + 10, sigY + 11);
+
+  const totalPages = (doc as any).internal.getNumberOfPages();
+  for (let i = 1; i <= totalPages; i++) {
+    doc.setPage(i);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(...GRAY_LABEL);
+    doc.text('Documento sem valor fiscal', MARGIN, pageHeight - 8);
+    doc.text(`Página ${i} de ${totalPages}`, pageWidth - MARGIN, pageHeight - 8, { align: 'right' });
+    doc.setTextColor(0, 0, 0);
+  }
+
+  return doc.output('blob');
+}
+
+interface RomaneioOrcamentoItem {
+  codigo: string;
+  nome: string;
+  localizacao: string;
+  unidade: string;
+  quantidade: number;
+  // Componentes de um kit (ja multiplicados pela quantidade de kits), listados
+  // abaixo da linha do kit para a separacao.
+  componentes?: { codigo: string; nome: string; localizacao: string; unidade: string; quantidade: number }[];
+}
+
+interface DadosRomaneioOrcamento {
+  numero: string;
+  data: string;
+  status: string;
+  loja: string;
+  cliente: {
+    nome: string;
+    cpf_cnpj?: string | null;
+    telefone?: string | null;
+    endereco?: string | null;
+  };
+  vendedor?: string | null;
+  observacoes?: string | null;
+  itens: RomaneioOrcamentoItem[];
+}
+
+/**
+ * Romaneio de separacao/entrega do orcamento: o que sai do estoque para o
+ * cliente, sem valores, com os componentes dos kits abertos e a localizacao
+ * de cada produto. Mesmo layout do documento de transferencia.
+ */
+export async function gerarPDFRomaneioOrcamento(
+  dados: DadosRomaneioOrcamento,
+  config: ConfiguracaoEmpresa
+): Promise<Blob> {
+  const doc = new jsPDF();
+
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const contentWidth = pageWidth - MARGIN * 2;
+
+  let logo: LogoInfo | null = null;
+  if (config.logo_url) {
+    logo = await carregarLogo(config.logo_url);
+  }
+
+  // ========== CABEÇALHO (logo + dados da empresa) ==========
+  let logoBottom = MARGIN;
+  if (logo) {
+    const boxW = 42;
+    const boxH = 22;
+    let imgW = boxW;
+    let imgH = imgW / logo.aspect;
+    if (imgH > boxH) {
+      imgH = boxH;
+      imgW = imgH * logo.aspect;
+    }
+    try {
+      doc.addImage(logo.dataURL, 'PNG', MARGIN, 12, imgW, imgH);
+      logoBottom = 12 + imgH;
+    } catch (error) {
+      console.error('Erro ao desenhar logo:', error);
+    }
+  }
+
+  let companyY = 15;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.setTextColor(20, 20, 20);
+  doc.text(config.nome_empresa || 'Empresa', pageWidth - MARGIN, companyY, { align: 'right' });
+  companyY += 5;
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.setTextColor(60, 60, 60);
+
+  if (config.telefone) {
+    doc.text(`Tel: ${config.telefone}`, pageWidth - MARGIN, companyY, { align: 'right' });
+    companyY += 4;
+  }
+  if (config.endereco) {
+    const linhas = doc.splitTextToSize(config.endereco, 95);
+    linhas.forEach((linha: string) => {
+      doc.text(linha, pageWidth - MARGIN, companyY, { align: 'right' });
+      companyY += 4;
+    });
+  }
+  if (config.cnpj) {
+    doc.text(`CNPJ: ${config.cnpj}`, pageWidth - MARGIN, companyY, { align: 'right' });
+    companyY += 4;
+  }
+
+  let y = Math.max(logoBottom, companyY) + 6;
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(15);
+  doc.setTextColor(0, 0, 0);
+  doc.text(`Romaneio ${dados.numero}`, pageWidth / 2, y, { align: 'center' });
+  y += 5;
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.setTextColor(...GRAY_LABEL);
+  doc.text('Documento para separação e entrega da mercadoria — sem valor fiscal', pageWidth / 2, y, { align: 'center' });
+  y += 8;
+
+  // ========== CLIENTE ==========
+  const enderecoLinhas = dados.cliente.endereco
+    ? doc.splitTextToSize(`Entrega: ${dados.cliente.endereco}`, contentWidth - 6)
+    : [];
+  const clienteBoxH = 16 + enderecoLinhas.length * 4;
+  doc.setDrawColor(...GRAY_LINE);
+  doc.setLineWidth(0.2);
+  doc.rect(MARGIN, y, contentWidth, clienteBoxH);
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7);
+  doc.setTextColor(...GRAY_LABEL);
+  doc.text('CLIENTE', MARGIN + 3, y + 4.5);
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9.5);
+  doc.setTextColor(0, 0, 0);
+  doc.text(dados.cliente.nome, MARGIN + 3, y + 10);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
+  doc.setTextColor(40, 40, 40);
+  const clienteLinha2 = [
+    dados.cliente.cpf_cnpj ? `CPF/CNPJ: ${dados.cliente.cpf_cnpj}` : null,
+    dados.cliente.telefone ? `Fone: ${dados.cliente.telefone}` : null,
+  ].filter(Boolean).join('   ');
+  if (clienteLinha2) doc.text(clienteLinha2, MARGIN + 3, y + 14);
+  if (enderecoLinhas.length) doc.text(enderecoLinhas, MARGIN + 3, y + 18);
+
+  y += clienteBoxH + 6;
+
+  // ========== NÚMERO / DATA / UNIDADE / VENDEDOR ==========
+  const metaBoxH = 16;
+  const quarterW = (contentWidth - 12) / 4;
+  const metaCols: [string, string][] = [
+    ['ORÇAMENTO', dados.numero],
+    ['DATA', dados.data],
+    ['SAÍDA DE', dados.loja],
+    ['VENDEDOR', dados.vendedor || '-'],
+  ];
+
+  metaCols.forEach((col, i) => {
+    const bx = MARGIN + i * (quarterW + 4);
+    doc.setDrawColor(...GRAY_LINE);
+    doc.rect(bx, y, quarterW, metaBoxH);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(6.5);
+    doc.setTextColor(...GRAY_LABEL);
+    doc.text(col[0], bx + 2, y + 4.5);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(0, 0, 0);
+    const linhas = doc.splitTextToSize(col[1], quarterW - 4);
+    doc.text(linhas.slice(0, 2), bx + 2, y + 10);
+  });
+
+  y += metaBoxH + 8;
+
+  // ========== ITENS ==========
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.setTextColor(0, 0, 0);
+  doc.text('Itens', MARGIN, y);
+  y += 3;
+
+  const linhasKit = new Set<number>();
+  const body: string[][] = [];
+  dados.itens.forEach(item => {
+    if (item.componentes && item.componentes.length) linhasKit.add(body.length);
+    body.push([item.codigo, item.nome, item.componentes?.length ? '' : item.localizacao, item.unidade, item.quantidade.toString(), '']);
+    (item.componentes || []).forEach(c => {
+      body.push([c.codigo, `   - ${c.nome}`, c.localizacao, c.unidade, c.quantidade.toString(), '']);
+    });
+  });
+
+  autoTable(doc, {
+    startY: y,
+    head: [['Código', 'Descrição', 'Local', 'Un.', 'Qtd', 'Conf.']],
+    body,
+    theme: 'grid',
+    headStyles: {
+      fillColor: GRAY_HEAD,
+      textColor: [0, 0, 0],
+      fontStyle: 'bold',
+      fontSize: 8,
+      halign: 'left',
+      lineColor: GRAY_LINE,
+      lineWidth: 0.2,
+    },
+    bodyStyles: {
+      fontSize: 8,
+      cellPadding: 2.2,
+      textColor: [0, 0, 0],
+      lineColor: GRAY_LINE,
+      lineWidth: 0.2,
+    },
+    columnStyles: {
+      0: { cellWidth: 28 },
+      2: { cellWidth: 24 },
+      3: { halign: 'center', cellWidth: 14 },
+      4: { halign: 'center', cellWidth: 16 },
+      5: { halign: 'center', cellWidth: 14 },
+    },
+    didParseCell: (data: any) => {
+      if (data.section === 'body' && linhasKit.has(data.row.index)) {
+        data.cell.styles.fontStyle = 'bold';
+        data.cell.styles.fillColor = [247, 247, 247];
+      }
+    },
+    margin: { left: MARGIN, right: MARGIN, bottom: 22 },
+  });
+
+  y = (doc as any).lastAutoTable.finalY + 8;
+
+  // ========== OBSERVAÇÕES ==========
+  const obsTexto = (dados.observacoes || '').trim();
+  if (obsTexto) {
+    const obsLinhas = doc.splitTextToSize(obsTexto, contentWidth - 6);
+    const obsBoxH = Math.max(14, obsLinhas.length * 4 + 6);
+
+    if (y + obsBoxH > pageHeight - 45) {
+      doc.addPage();
+      y = 20;
+    }
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(0, 0, 0);
+    doc.text('Observações', MARGIN, y);
+    y += 3;
+
+    doc.setDrawColor(...GRAY_LINE);
+    doc.rect(MARGIN, y, contentWidth, obsBoxH);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.text(obsLinhas, MARGIN + 3, y + 5.5);
+
+    y += obsBoxH + 10;
+  }
+
+  // ========== ASSINATURAS ==========
+  if (y + 30 > pageHeight - 20) {
+    doc.addPage();
+    y = 20;
+  } else {
+    y += 6;
+  }
+
+  const sigW = (contentWidth - 10) / 2;
+  const sigY = y + 16;
+
+  doc.setDrawColor(...GRAY_LINE);
+  doc.line(MARGIN, sigY, MARGIN + sigW, sigY);
+  doc.line(MARGIN + sigW + 10, sigY, MARGIN + sigW + 10 + sigW, sigY);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.setTextColor(...GRAY_LABEL);
+  doc.text('Separado / conferido por (nome / assinatura)', MARGIN, sigY + 5);
+  doc.text('Recebido pelo cliente (nome / assinatura)', MARGIN + sigW + 10, sigY + 5);
+
+  doc.setTextColor(0, 0, 0);
+  doc.setFontSize(7.5);
+  doc.text(`Data: ____/____/______`, MARGIN, sigY + 11);
+  doc.text(`Data: ____/____/______`, MARGIN + sigW + 10, sigY + 11);
+
+  const totalPages = (doc as any).internal.getNumberOfPages();
+  for (let i = 1; i <= totalPages; i++) {
+    doc.setPage(i);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(...GRAY_LABEL);
+    doc.text('Documento sem valor fiscal', MARGIN, pageHeight - 8);
+    doc.text(`Página ${i} de ${totalPages}`, pageWidth - MARGIN, pageHeight - 8, { align: 'right' });
+    doc.setTextColor(0, 0, 0);
+  }
+
+  return doc.output('blob');
+}
+
+interface ItemDanfe {
+  codigo: string;
+  descricao: string;
+  ncm: string;
+  cfop: string;
+  unidade: string;
+  quantidade: number;
+  valorUnitario: number;
+  valorTotal: number;
+}
+
+interface DadosDanfe {
+  numero: number;
+  serie: number;
+  chaveAcesso: string;
+  protocoloAutorizacao: string | null;
+  dataAutorizacao: string | null;
+  dataEmissao: string;
+  ambiente: 'homologacao' | 'producao';
+  status: string;
+  emitente: ConfiguracaoEmpresa & { inscricaoEstadual?: string | null };
+  destinatario: {
+    nome: string;
+    cpfCnpj: string;
+    inscricaoEstadual?: string | null;
+    endereco?: string | null;
+    bairro?: string | null;
+    cidade?: string | null;
+    estado?: string | null;
+    cep?: string | null;
+    telefone?: string | null;
+    email?: string | null;
+  };
+  itens: ItemDanfe[];
+  valorTotalProdutos: number;
+  valorTotalNota: number;
+  informacoesAdicionais?: string | null;
+}
+
+function formatarChaveEmGrupos(chave: string): string {
+  return chave.replace(/(\d{4})(?=\d)/g, '$1 ');
+}
+
+function formatarEnderecoDestinatario(d: DadosDanfe['destinatario']): string {
+  const partes: string[] = [];
+  if (d.endereco) partes.push(d.endereco);
+  if (d.bairro) partes.push(d.bairro);
+  if (d.cidade && d.estado) partes.push(`${d.cidade} - ${d.estado}`);
+  else if (d.cidade) partes.push(d.cidade);
+  if (d.cep) partes.push(`CEP: ${d.cep}`);
+  return partes.join(', ');
+}
+
+function gerarBarcodeDataUrl(valor: string): string | null {
+  try {
+    const canvas = document.createElement('canvas');
+    JsBarcode(canvas, valor, {
+      format: 'CODE128',
+      displayValue: false,
+      margin: 0,
+      height: 60,
+      width: 1.6,
+    });
+    return canvas.toDataURL('image/png');
+  } catch (error) {
+    console.error('Erro ao gerar código de barras:', error);
+    return null;
+  }
+}
+
+/**
+ * Gera uma versao simplificada do DANFE (Documento Auxiliar da NF-e) - tem
+ * todo o conteudo textual exigido (chave de acesso, protocolo, emitente,
+ * destinatario completo, dados adicionais, itens, totais), o codigo de
+ * barras Code-128 tradicional do modelo 55 e um QR Code com a chave de
+ * acesso em texto puro (nao a URL assinada digitalmente do layout oficial
+ * "DANFE Simplificado Tipo 2"/NT 2026.003, cujo formato exato de URL nao foi
+ * possivel confirmar em fontes confiaveis). Serve pra imprimir/conferir a
+ * nota, mas nao substitui o DANFE oficial completo pra fiscalizacao de
+ * transito de mercadoria.
+ */
+export async function gerarPDFDanfe(dados: DadosDanfe): Promise<Blob> {
+  const doc = new jsPDF();
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const contentWidth = pageWidth - MARGIN * 2;
+
+  let logo: LogoInfo | null = null;
+  if (dados.emitente.logo_url) {
+    logo = await carregarLogo(dados.emitente.logo_url);
+  }
+
+  let y = MARGIN;
+
+  // ========== CABEÇALHO ==========
+  const headerH = 28;
+  const colEmitW = contentWidth * 0.45;
+  const colTipoW = 18;
+  const colNumW = contentWidth - colEmitW - colTipoW - 8;
+
+  doc.setDrawColor(...GRAY_LINE);
+  doc.setLineWidth(0.2);
+  doc.rect(MARGIN, y, colEmitW, headerH);
+  doc.rect(MARGIN + colEmitW + 4, y, colTipoW, headerH);
+  doc.rect(MARGIN + colEmitW + colTipoW + 8, y, colNumW, headerH);
+
+  let emitTextX = MARGIN + 3;
+  if (logo) {
+    const logoBoxW = 20;
+    const logoBoxH = headerH - 4;
+    let imgW = logoBoxW;
+    let imgH = imgW / logo.aspect;
+    if (imgH > logoBoxH) {
+      imgH = logoBoxH;
+      imgW = imgH * logo.aspect;
+    }
+    try {
+      doc.addImage(logo.dataURL, 'PNG', MARGIN + 2, y + 2, imgW, imgH);
+      emitTextX = MARGIN + 2 + logoBoxW + 3;
+    } catch (error) {
+      console.error('Erro ao desenhar logo no DANFE:', error);
+    }
+  }
+  const emitTextW = colEmitW - (emitTextX - MARGIN) - 3;
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.setTextColor(0, 0, 0);
+  doc.text(dados.emitente.nome_empresa || 'Empresa', emitTextX, y + 6);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
+  doc.setTextColor(40, 40, 40);
+  let ey = y + 10;
+  if (dados.emitente.endereco) {
+    const linhas = doc.splitTextToSize(dados.emitente.endereco, emitTextW);
+    linhas.slice(0, 2).forEach((linha: string) => { doc.text(linha, emitTextX, ey); ey += 3.6; });
+  }
+  if (dados.emitente.cnpj) { doc.text(`CNPJ: ${dados.emitente.cnpj}`, emitTextX, ey); ey += 3.6; }
+  if (dados.emitente.inscricaoEstadual) { doc.text(`IE: ${dados.emitente.inscricaoEstadual}`, emitTextX, ey); }
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(13);
+  doc.text('DANFE', MARGIN + colEmitW + 4 + colTipoW / 2, y + 8, { align: 'center' });
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(6);
+  doc.text('Documento Auxiliar da', MARGIN + colEmitW + 4 + colTipoW / 2, y + 12, { align: 'center' });
+  doc.text('NF-e', MARGIN + colEmitW + 4 + colTipoW / 2, y + 15, { align: 'center' });
+  doc.setFontSize(7);
+  doc.text('0-Entrada', MARGIN + colEmitW + 4 + colTipoW / 2, y + 20, { align: 'center' });
+  doc.setFont('helvetica', 'bold');
+  doc.text('1-Saída', MARGIN + colEmitW + 4 + colTipoW / 2, y + 24, { align: 'center' });
+
+  const numX = MARGIN + colEmitW + colTipoW + 8;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.text(`Nº ${dados.numero}`, numX + colNumW / 2, y + 8, { align: 'center' });
+  doc.text(`Série ${dados.serie}`, numX + colNumW / 2, y + 14, { align: 'center' });
+  doc.setFontSize(7);
+  doc.text(dados.ambiente === 'producao' ? 'PRODUÇÃO' : 'HOMOLOGAÇÃO', numX + colNumW / 2, y + 20, { align: 'center' });
+  doc.setFontSize(6.5);
+  doc.setTextColor(...GRAY_LABEL);
+  doc.text(dados.dataEmissao, numX + colNumW / 2, y + 25, { align: 'center' });
+
+  y += headerH + 4;
+
+  // ========== CHAVE DE ACESSO + CÓDIGO DE BARRAS + QR CODE ==========
+  // QR e codigo de barras contem a chave de 44 digitos em texto puro (nao a
+  // URL assinada do layout oficial NT 2026.003, ainda nao confirmavel com
+  // fontes confiaveis)
+  const qrSize = 26;
+  const chaveH = qrSize + 6;
+  const chaveTextW = contentWidth - qrSize - 6;
+
+  doc.setDrawColor(...GRAY_LINE);
+  doc.rect(MARGIN, y, contentWidth, chaveH);
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7);
+  doc.setTextColor(...GRAY_LABEL);
+  doc.text('CHAVE DE ACESSO', MARGIN + 3, y + 4);
+
+  const barcodeDataUrl = gerarBarcodeDataUrl(dados.chaveAcesso);
+  if (barcodeDataUrl) {
+    const barcodeW = chaveTextW - 10;
+    const barcodeH = 9;
+    try {
+      doc.addImage(barcodeDataUrl, 'PNG', MARGIN + 5, y + 5, barcodeW, barcodeH);
+    } catch (error) {
+      console.error('Erro ao desenhar código de barras:', error);
+    }
+  }
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(0, 0, 0);
+  doc.text(formatarChaveEmGrupos(dados.chaveAcesso), MARGIN + chaveTextW / 2, y + 18, { align: 'center' });
+  doc.setFontSize(6.5);
+  doc.setTextColor(...GRAY_LABEL);
+  const consultaLinhas = doc.splitTextToSize(
+    'Consulte a autenticidade no Portal Nacional da NF-e (www.nfe.fazenda.gov.br/portal) ou pelo QR Code.',
+    chaveTextW - 6
+  );
+  doc.text(consultaLinhas, MARGIN + chaveTextW / 2, y + 22.5, { align: 'center' });
+
+  try {
+    const qrDataUrl = await QRCode.toDataURL(dados.chaveAcesso, { margin: 1, width: 240 });
+    doc.addImage(qrDataUrl, 'PNG', MARGIN + contentWidth - qrSize - 2, y + (chaveH - qrSize) / 2, qrSize, qrSize);
+  } catch (error) {
+    console.error('Erro ao gerar QR Code da chave de acesso:', error);
+  }
+
+  y += chaveH + 3;
+
+  if (dados.ambiente !== 'producao') {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(200, 30, 30);
+    doc.text('SEM VALOR FISCAL — AMBIENTE DE HOMOLOGAÇÃO', pageWidth / 2, y + 3, { align: 'center' });
+    doc.setTextColor(0, 0, 0);
+    y += 7;
+  }
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
+  doc.setTextColor(40, 40, 40);
+  const statusLabel = dados.status === 'autorizada' ? `Protocolo de Autorização: ${dados.protocoloAutorizacao || '-'}   Data: ${dados.dataAutorizacao || '-'}` : `Status: ${dados.status}`;
+  doc.text(statusLabel, MARGIN, y + 3);
+  y += 8;
+
+  // ========== DESTINATÁRIO / REMETENTE ==========
+  const enderecoDest = formatarEnderecoDestinatario(dados.destinatario);
+  const contatoDest = [
+    dados.destinatario.telefone ? `Fone: ${dados.destinatario.telefone}` : null,
+    dados.destinatario.email,
+  ].filter(Boolean).join('   ');
+  const destH = 26;
+
+  doc.setDrawColor(...GRAY_LINE);
+  doc.rect(MARGIN, y, contentWidth, destH);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7);
+  doc.setTextColor(...GRAY_LABEL);
+  doc.text('DESTINATÁRIO / REMETENTE', MARGIN + 3, y + 4);
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8.5);
+  doc.setTextColor(0, 0, 0);
+  doc.text(dados.destinatario.nome, MARGIN + 3, y + 9.5);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
+  doc.setTextColor(40, 40, 40);
+  let dy = y + 13.5;
+  const docLine = [
+    `CPF/CNPJ: ${dados.destinatario.cpfCnpj}`,
+    dados.destinatario.inscricaoEstadual ? `IE: ${dados.destinatario.inscricaoEstadual}` : null,
+  ].filter(Boolean).join('   ');
+  doc.text(docLine, MARGIN + 3, dy);
+  dy += 4;
+  if (enderecoDest) {
+    const linhasEnd = doc.splitTextToSize(enderecoDest, contentWidth - 6);
+    linhasEnd.slice(0, 2).forEach((linha: string) => { doc.text(linha, MARGIN + 3, dy); dy += 4; });
+  }
+  if (contatoDest) {
+    doc.text(contatoDest, MARGIN + 3, dy);
+  }
+
+  y += destH + 6;
+
+  // ========== ITENS ==========
+  autoTable(doc, {
+    startY: y,
+    head: [['Código', 'Descrição', 'NCM', 'CFOP', 'Un.', 'Qtd', 'V. Unit.', 'V. Total']],
+    body: dados.itens.map(item => [
+      item.codigo,
+      item.descricao,
+      item.ncm,
+      item.cfop,
+      item.unidade,
+      item.quantidade.toString(),
+      `R$ ${item.valorUnitario.toFixed(2)}`,
+      `R$ ${item.valorTotal.toFixed(2)}`,
+    ]),
+    theme: 'grid',
+    headStyles: { fillColor: GRAY_HEAD, textColor: [0, 0, 0], fontStyle: 'bold', fontSize: 7, lineColor: GRAY_LINE, lineWidth: 0.2 },
+    bodyStyles: { fontSize: 7.5, cellPadding: 2, textColor: [0, 0, 0], lineColor: GRAY_LINE, lineWidth: 0.2 },
+    columnStyles: {
+      0: { cellWidth: 22 },
+      2: { cellWidth: 18, halign: 'center' },
+      3: { cellWidth: 14, halign: 'center' },
+      4: { cellWidth: 12, halign: 'center' },
+      5: { cellWidth: 14, halign: 'center' },
+      6: { cellWidth: 22, halign: 'right' },
+      7: { cellWidth: 24, halign: 'right' },
+    },
+    margin: { left: MARGIN, right: MARGIN, bottom: 22 },
+  });
+
+  y = (doc as any).lastAutoTable.finalY + 6;
+
+  if (y + 16 > pageHeight - 20) {
+    doc.addPage();
+    y = MARGIN;
+  }
+
+  // ========== TOTAIS ==========
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8.5);
+  doc.setTextColor(40, 40, 40);
+  doc.text(`Valor Total dos Produtos: R$ ${dados.valorTotalProdutos.toFixed(2)}`, pageWidth - MARGIN, y, { align: 'right' });
+  y += 5;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(11);
+  doc.setTextColor(0, 0, 0);
+  doc.text(`Valor Total da NF-e: R$ ${dados.valorTotalNota.toFixed(2)}`, pageWidth - MARGIN, y, { align: 'right' });
+  y += 8;
+
+  // ========== DADOS ADICIONAIS ==========
+  const infoAdic = (dados.informacoesAdicionais || '').trim();
+  if (infoAdic) {
+    const infoLinhas = doc.splitTextToSize(infoAdic, contentWidth - 6);
+    const infoBoxH = Math.max(14, infoLinhas.length * 4 + 8);
+
+    if (y + infoBoxH > pageHeight - 20) {
+      doc.addPage();
+      y = MARGIN;
+    }
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7);
+    doc.setTextColor(...GRAY_LABEL);
+    doc.text('DADOS ADICIONAIS', MARGIN + 3, y + 4);
+
+    doc.setDrawColor(...GRAY_LINE);
+    doc.rect(MARGIN, y, contentWidth, infoBoxH);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(0, 0, 0);
+    doc.text(infoLinhas, MARGIN + 3, y + 9);
+
+    y += infoBoxH + 4;
+  }
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7);
+  doc.setTextColor(...GRAY_LABEL);
+  doc.text('QR Code contém apenas a chave de acesso (texto puro), para conferência e arquivo interno.', MARGIN, pageHeight - 8);
+
+  return doc.output('blob');
+}
+
+interface CompraItem {
+  codigo: string;
+  nome: string;
+  unidade: string;
+  quantidade: number;
+  valor_unitario: number;
+  valor_total: number;
+}
+
+interface DadosCompra {
+  numero: string;
+  dataEmissao: string;
+  dataEntregaPrevista?: string | null;
+  status: string;
+  fornecedor: {
+    nome: string;
+    cnpj?: string | null;
+    telefone?: string | null;
+    email?: string | null;
+  };
+  condicaoPagamento?: string | null;
+  numeroParcelas?: number | null;
+  formaPagamento?: string | null;
+  observacoes?: string | null;
+  itens: CompraItem[];
+  valorTotal: number;
+  // Quando informado, gera o romaneio de recebimento (conferencia da
+  // mercadoria que chegou) em vez do pedido de compra: sem valores, com
+  // coluna "Conferido" e campos de assinatura.
+  romaneio?: { dataRecebimento: string } | null;
+}
+
+/**
+ * Gera o pedido de compra para enviar/conferir com o fornecedor. Nao e' nota
+ * fiscal - por isso o aviso "sem valor fiscal" no rodape, igual ao documento
+ * de transferencia. Com `dados.romaneio`, gera o romaneio de recebimento.
+ */
+export async function gerarPDFCompra(dados: DadosCompra, config: ConfiguracaoEmpresa): Promise<Blob> {
+  const romaneio = dados.romaneio || null;
+  const doc = new jsPDF();
+
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const contentWidth = pageWidth - MARGIN * 2;
+
+  let logo: LogoInfo | null = null;
+  if (config.logo_url) {
+    logo = await carregarLogo(config.logo_url);
+  }
+
+  // ========== CABEÇALHO (logo + dados da empresa) ==========
+  let logoBottom = MARGIN;
+  if (logo) {
+    const boxW = 42;
+    const boxH = 22;
+    let imgW = boxW;
+    let imgH = imgW / logo.aspect;
+    if (imgH > boxH) {
+      imgH = boxH;
+      imgW = imgH * logo.aspect;
+    }
+    try {
+      doc.addImage(logo.dataURL, 'PNG', MARGIN, 12, imgW, imgH);
+      logoBottom = 12 + imgH;
+    } catch (error) {
+      console.error('Erro ao desenhar logo:', error);
+    }
+  }
+
+  let companyY = 15;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.setTextColor(20, 20, 20);
+  doc.text(config.nome_empresa || 'Empresa', pageWidth - MARGIN, companyY, { align: 'right' });
+  companyY += 5;
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.setTextColor(60, 60, 60);
+
+  if (config.telefone) {
+    doc.text(`Tel: ${config.telefone}`, pageWidth - MARGIN, companyY, { align: 'right' });
+    companyY += 4;
+  }
+  if (config.endereco) {
+    const linhas = doc.splitTextToSize(config.endereco, 95);
+    linhas.forEach((linha: string) => {
+      doc.text(linha, pageWidth - MARGIN, companyY, { align: 'right' });
+      companyY += 4;
+    });
+  }
+  if (config.cnpj) {
+    doc.text(`CNPJ: ${config.cnpj}`, pageWidth - MARGIN, companyY, { align: 'right' });
+    companyY += 4;
+  }
+
+  let y = Math.max(logoBottom, companyY) + 6;
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(15);
+  doc.setTextColor(0, 0, 0);
+  doc.text(
+    romaneio ? `Romaneio de Recebimento ${dados.numero}` : `Pedido de Compra ${dados.numero}`,
+    pageWidth / 2, y, { align: 'center' }
+  );
+  y += 5;
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.setTextColor(...GRAY_LABEL);
+  doc.text(
+    romaneio
+      ? 'Documento para conferência do recebimento da mercadoria — sem valor fiscal'
+      : 'Documento para conferência com o fornecedor — sem valor fiscal',
+    pageWidth / 2, y, { align: 'center' }
+  );
+  y += 8;
+
+  // ========== FORNECEDOR ==========
+  const fornecedorBoxH = 22;
+  doc.setDrawColor(...GRAY_LINE);
+  doc.setLineWidth(0.2);
+  doc.rect(MARGIN, y, contentWidth, fornecedorBoxH);
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7);
+  doc.setTextColor(...GRAY_LABEL);
+  doc.text('FORNECEDOR', MARGIN + 3, y + 4.5);
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9.5);
+  doc.setTextColor(0, 0, 0);
+  doc.text(dados.fornecedor.nome, MARGIN + 3, y + 10);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
+  doc.setTextColor(40, 40, 40);
+  const fornecedorLinha2 = [
+    dados.fornecedor.cnpj ? `CNPJ: ${dados.fornecedor.cnpj}` : null,
+    dados.fornecedor.telefone ? `Fone: ${dados.fornecedor.telefone}` : null,
+    dados.fornecedor.email,
+  ].filter(Boolean).join('   ');
+  if (fornecedorLinha2) doc.text(fornecedorLinha2, MARGIN + 3, y + 16);
+
+  y += fornecedorBoxH + 6;
+
+  // ========== NÚMERO / EMISSÃO / ENTREGA / STATUS ==========
+  const metaBoxH = 16;
+  const quarterW = (contentWidth - 12) / 4;
+  const metaCols: [string, string][] = [
+    ['NÚMERO', dados.numero],
+    ['EMISSÃO', dados.dataEmissao],
+    romaneio
+      ? ['RECEBIMENTO', romaneio.dataRecebimento]
+      : ['ENTREGA PREVISTA', dados.dataEntregaPrevista || 'A definir'],
+    ['STATUS', dados.status],
+  ];
+
+  metaCols.forEach((col, i) => {
+    const bx = MARGIN + i * (quarterW + 4);
+    doc.setDrawColor(...GRAY_LINE);
+    doc.rect(bx, y, quarterW, metaBoxH);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(6.5);
+    doc.setTextColor(...GRAY_LABEL);
+    doc.text(col[0], bx + 2, y + 4.5);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(0, 0, 0);
+    const linhas = doc.splitTextToSize(col[1], quarterW - 4);
+    doc.text(linhas.slice(0, 2), bx + 2, y + 10);
+  });
+
+  y += metaBoxH + 8;
+
+  // ========== ITENS ==========
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.setTextColor(0, 0, 0);
+  doc.text(romaneio ? 'Itens Recebidos' : 'Itens da Compra', MARGIN, y);
+  y += 3;
+
+  autoTable(doc, {
+    startY: y,
+    head: romaneio
+      ? [['Código', 'Produto', 'Un.', 'Qtd', 'Qtd Conferida', 'OK']]
+      : [['Código', 'Produto', 'Un.', 'Qtd', 'Valor Unit.', 'Valor Total']],
+    body: dados.itens.map(item => romaneio
+      ? [item.codigo, item.nome, item.unidade, item.quantidade.toString(), '', '']
+      : [
+        item.codigo,
+        item.nome,
+        item.unidade,
+        item.quantidade.toString(),
+        `R$ ${item.valor_unitario.toFixed(2)}`,
+        `R$ ${item.valor_total.toFixed(2)}`,
+      ]),
+    theme: 'grid',
+    headStyles: {
+      fillColor: GRAY_HEAD,
+      textColor: [0, 0, 0],
+      fontStyle: 'bold',
+      fontSize: 8,
+      halign: 'left',
+      lineColor: GRAY_LINE,
+      lineWidth: 0.2,
+    },
+    bodyStyles: {
+      fontSize: 8,
+      cellPadding: 2.5,
+      textColor: [0, 0, 0],
+      lineColor: GRAY_LINE,
+      lineWidth: 0.2,
+    },
+    columnStyles: romaneio
+      ? {
+        0: { cellWidth: 26 },
+        2: { halign: 'center', cellWidth: 16 },
+        3: { halign: 'center', cellWidth: 18 },
+        4: { halign: 'center', cellWidth: 28 },
+        5: { halign: 'center', cellWidth: 14 },
+      }
+      : {
+        0: { cellWidth: 26 },
+        2: { halign: 'center', cellWidth: 16 },
+        3: { halign: 'center', cellWidth: 18 },
+        4: { halign: 'right', cellWidth: 28 },
+        5: { halign: 'right', cellWidth: 28 },
+      },
+    margin: { left: MARGIN, right: MARGIN, bottom: 22 },
+  });
+
+  y = (doc as any).lastAutoTable.finalY + 6;
+
+  if (romaneio) {
+    const totalVolumes = dados.itens.reduce((soma, item) => soma + (Number(item.quantidade) || 0), 0);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(0, 0, 0);
+    doc.text(
+      `${dados.itens.length} item(ns) — ${totalVolumes.toLocaleString('pt-BR')} unidade(s)`,
+      pageWidth - MARGIN, y + 3, { align: 'right' }
+    );
+    y += 10;
+  }
+
+  // ========== TOTAL / CONDIÇÃO DE PAGAMENTO ==========
+  if (!romaneio) {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.5);
+    doc.setTextColor(40, 40, 40);
+    const pagamentoLinha = [
+      dados.condicaoPagamento ? `Condição: ${dados.condicaoPagamento}` : null,
+      dados.numeroParcelas && dados.numeroParcelas > 1 ? `${dados.numeroParcelas}x de R$ ${(dados.valorTotal / dados.numeroParcelas).toFixed(2)}` : null,
+      dados.formaPagamento ? `Forma: ${dados.formaPagamento}` : null,
+    ].filter(Boolean).join('   —   ');
+    if (pagamentoLinha) {
+      doc.text(pagamentoLinha, MARGIN, y + 3);
+    }
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.setTextColor(0, 0, 0);
+    doc.text(`Total: R$ ${dados.valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, pageWidth - MARGIN, y + 3, { align: 'right' });
+    y += 10;
+  }
+
+  // ========== OBSERVAÇÕES ==========
+  const obsTexto = (dados.observacoes || '').trim();
+  if (obsTexto) {
+    const obsLinhas = doc.splitTextToSize(obsTexto, contentWidth - 6);
+    const obsBoxH = Math.max(14, obsLinhas.length * 4 + 6);
+
+    if (y + obsBoxH > pageHeight - 22) {
+      doc.addPage();
+      y = 20;
+    }
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(0, 0, 0);
+    doc.text('Observações', MARGIN, y);
+    y += 3;
+
+    doc.setDrawColor(...GRAY_LINE);
+    doc.rect(MARGIN, y, contentWidth, obsBoxH);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.text(obsLinhas, MARGIN + 3, y + 5.5);
+
+    y += obsBoxH + 10;
+  }
+
+  // ========== ASSINATURAS (romaneio) ==========
+  if (romaneio) {
+    if (y + 30 > pageHeight - 20) {
+      doc.addPage();
+      y = 20;
+    } else {
+      y += 6;
+    }
+
+    const sigW = (contentWidth - 10) / 2;
+    const sigY = y + 16;
+
+    doc.setDrawColor(...GRAY_LINE);
+    doc.line(MARGIN, sigY, MARGIN + sigW, sigY);
+    doc.line(MARGIN + sigW + 10, sigY, MARGIN + sigW + 10 + sigW, sigY);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(...GRAY_LABEL);
+    doc.text('Entregue por (fornecedor / transportadora)', MARGIN, sigY + 5);
+    doc.text('Conferido por (nome / assinatura)', MARGIN + sigW + 10, sigY + 5);
+
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(7.5);
+    doc.text(`Data: ____/____/______`, MARGIN, sigY + 11);
+    doc.text(`Data: ____/____/______`, MARGIN + sigW + 10, sigY + 11);
+  }
+
+  const totalPages = (doc as any).internal.getNumberOfPages();
+  for (let i = 1; i <= totalPages; i++) {
+    doc.setPage(i);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(...GRAY_LABEL);
+    doc.text('Documento sem valor fiscal', MARGIN, pageHeight - 8);
+    doc.text(`Página ${i} de ${totalPages}`, pageWidth - MARGIN, pageHeight - 8, { align: 'right' });
+    doc.setTextColor(0, 0, 0);
   }
 
   return doc.output('blob');

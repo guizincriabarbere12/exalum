@@ -19,7 +19,8 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { PaintBucket, Plus, Search, RefreshCw, Package, ArrowLeftRight, CircleCheck as CheckCircle, Circle as XCircle, Clock, DollarSign, Eye, History, TrendingDown, TrendingUp, ArrowRight, Filter, List, Grid } from "lucide-react";
+import { PaintBucket, Plus, Search, RefreshCw, Package, ArrowLeftRight, CircleCheck as CheckCircle, Circle as XCircle, Clock, DollarSign, Eye, History, TrendingDown, TrendingUp, ArrowRight, Filter, List, Grid, Pencil, Printer } from "lucide-react";
+import { gerarPDFOrdemProducao, downloadPDF } from "@/utils/pdfGenerator";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
@@ -27,13 +28,16 @@ import { useAuth } from "@/hooks/useAuth";
 interface Produto {
   id: string; codigo: string; nome: string; descricao: string;
   estoque: number; unidade: string; custo: number | null; preco: number; cor: string | null;
+  peso?: number | null; peso_kg_m?: number | null; comprimento_barra?: number | null;
 }
 interface OrdemProducao {
   id: string; numero: string; produto_id: string; produto_destino_id: string | null;
   quantidade: number; data_saida: string; data_retorno: string | null;
   custo_pintura: number; status: string; observacoes: string | null; created_at: string;
-  produto?: Produto; produto_destino?: Produto;
+  fornecedor_id: string | null;
+  produto?: Produto; produto_destino?: Produto; fornecedor?: Fornecedor | null;
 }
+interface Fornecedor { id: string; nome: string; }
 interface HistoricoItem {
   id: string; status_anterior: string | null; status_novo: string;
   observacoes: string | null; created_at: string;
@@ -51,10 +55,52 @@ const getStatusInfo = (s: string) => {
   }
 };
 
+const formatKg = (v: number) => `${v.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} kg`;
+
+// Peso de uma peca/barra: peso cadastrado ou kg/m x comprimento da barra.
+const pesoUnitario = (p?: Produto | null) =>
+  Number(p?.peso) || (Number(p?.peso_kg_m) || 0) * (Number(p?.comprimento_barra) || 6);
+
+// Valor da OP calculado pelo KG: material = kg total x custo por kg do
+// produto de origem; pintura = custo informado (cobrado por kg).
+function ResumoValorOp({ produto, quantidade, custoPintura }: { produto?: Produto | null; quantidade: number; custoPintura: number }) {
+  const kgUnit = pesoUnitario(produto);
+  const kgTotal = kgUnit * (quantidade || 0);
+  const custoKg = kgUnit > 0 && produto?.custo != null ? Number(produto.custo) / kgUnit : null;
+  const valorMaterial = custoKg != null ? custoKg * kgTotal : 0;
+  const pintura = Number(custoPintura) || 0;
+  const total = valorMaterial + pintura;
+  return (
+    <div className="border rounded-lg p-3 bg-primary/5 border-primary/20 space-y-1 text-sm">
+      <div className="flex justify-between">
+        <span className="text-muted-foreground">Peso total ({quantidade || 0} × {formatKg(kgUnit)})</span>
+        <span className="font-medium">{kgUnit > 0 ? formatKg(kgTotal) : "peso não cadastrado"}</span>
+      </div>
+      <div className="flex justify-between">
+        <span className="text-muted-foreground">
+          Material ({custoKg != null ? `${formatKg(kgTotal)} × ${formatCurrency(custoKg)}/kg` : "custo/peso não cadastrado"})
+        </span>
+        <span className="font-medium">{formatCurrency(valorMaterial)}</span>
+      </div>
+      <div className="flex justify-between">
+        <span className="text-muted-foreground">
+          Pintura{kgTotal > 0 ? ` (${formatKg(kgTotal)} × ${formatCurrency(pintura / kgTotal)}/kg)` : ""}
+        </span>
+        <span className="font-medium">{formatCurrency(pintura)}</span>
+      </div>
+      <div className="flex justify-between border-t pt-1 mt-1">
+        <span className="font-semibold">Valor da OP</span>
+        <span className="font-bold text-primary text-base">{formatCurrency(total)}</span>
+      </div>
+    </div>
+  );
+}
+
 export default function OrdensProducao() {
   const { user } = useAuth();
   const [ordens, setOrdens] = useState<OrdemProducao[]>([]);
   const [produtos, setProdutos] = useState<Produto[]>([]);
+  const [fornecedores, setFornecedores] = useState<Fornecedor[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [filtroStatus, setFiltroStatus] = useState("todos");
@@ -70,8 +116,10 @@ export default function OrdensProducao() {
   const [produtoDestinoSelecionado, setProdutoDestinoSelecionado] = useState("");
   const [quantidade, setQuantidade] = useState(1);
   const [custoPintura, setCustoPintura] = useState(0);
+  const [precoKgPintura, setPrecoKgPintura] = useState(0);
   const [dataSaida, setDataSaida] = useState(new Date().toISOString().split("T")[0]);
   const [observacoes, setObservacoes] = useState("");
+  const [fornecedorSelecionado, setFornecedorSelecionado] = useState("");
 
   const [dialogRetornoAberto, setDialogRetornoAberto] = useState(false);
   const [opParaRetornar, setOpParaRetornar] = useState<OrdemProducao | null>(null);
@@ -87,18 +135,32 @@ export default function OrdensProducao() {
   const [dialogDetalhesAberto, setDialogDetalhesAberto] = useState(false);
   const [opDetalhes, setOpDetalhes] = useState<OrdemProducao | null>(null);
 
+  const [dialogEditarAberto, setDialogEditarAberto] = useState(false);
+  const [opEditando, setOpEditando] = useState<OrdemProducao | null>(null);
+  const [editDestino, setEditDestino] = useState("");
+  const [editQuantidade, setEditQuantidade] = useState(1);
+  const [editDataSaida, setEditDataSaida] = useState("");
+  const [editDataRetorno, setEditDataRetorno] = useState("");
+  const [editCusto, setEditCusto] = useState(0);
+  const [editPrecoKg, setEditPrecoKg] = useState(0);
+  const [editObservacoes, setEditObservacoes] = useState("");
+  const [editFornecedor, setEditFornecedor] = useState("");
+
   const carregarDados = useCallback(async () => {
     try {
       setLoading(true);
       const { data: produtosData, error: produtosError } = await supabase
-        .from("produtos").select("id, codigo, nome, descricao, estoque, unidade, custo, preco, cor")
+        .from("produtos").select("id, codigo, nome, descricao, estoque, unidade, custo, preco, cor, peso, peso_kg_m, comprimento_barra")
         .eq("ativo", true).order("nome");
       if (produtosError) throw produtosError;
       setProdutos(produtosData || []);
       setProdutosFiltrados(produtosData || []);
 
+      const { data: fornecedoresData } = await supabase.from("fornecedores").select("id, nome").order("nome");
+      setFornecedores(fornecedoresData || []);
+
       const { data: ordensData, error: ordensError } = await supabase
-        .from("ordens_producao").select(`*, produto:produtos!ordens_producao_produto_id_fkey(id, codigo, nome, descricao, estoque, unidade, custo, preco, cor), produto_destino:produtos!ordens_producao_produto_destino_id_fkey(id, codigo, nome, descricao, estoque, unidade, custo, preco, cor)`)
+        .from("ordens_producao").select(`*, produto:produtos!ordens_producao_produto_id_fkey(id, codigo, nome, descricao, estoque, unidade, custo, preco, cor, peso, peso_kg_m, comprimento_barra), produto_destino:produtos!ordens_producao_produto_destino_id_fkey(id, codigo, nome, descricao, estoque, unidade, custo, preco, cor, peso, peso_kg_m, comprimento_barra), fornecedor:fornecedores!ordens_producao_fornecedor_id_fkey(id, nome)`)
         .order("created_at", { ascending: false });
       if (ordensError) throw ordensError;
       setOrdens(ordensData || []);
@@ -132,7 +194,8 @@ export default function OrdensProducao() {
       (op.produto?.nome || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
       (op.produto?.codigo || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
       (op.produto_destino?.nome || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (op.produto_destino?.codigo || "").toLowerCase().includes(searchTerm.toLowerCase());
+      (op.produto_destino?.codigo || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (op.fornecedor?.nome || "").toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchStatus = filtroStatus === "todos" || op.status === filtroStatus;
     const matchProduto = 
@@ -165,6 +228,7 @@ export default function OrdensProducao() {
         .from("ordens_producao").insert({
           numero: numeroOp, produto_id: produtoSelecionado,
           produto_destino_id: produtoDestinoSelecionado || null,
+          fornecedor_id: fornecedorSelecionado || null,
           quantidade, data_saida: dataSaida, custo_pintura: custoPintura,
           status: "em_pintura", observacoes: observacoes || null, created_by: user?.id,
         }).select().single();
@@ -199,7 +263,7 @@ export default function OrdensProducao() {
       }
 
       toast({ title: "OP criada com sucesso!", description: `OP ${numeroOp} - Produto enviado para pintura. Estoque debitado.` });
-      setProdutoSelecionado(""); setProdutoDestinoSelecionado(""); setQuantidade(1); setCustoPintura(0);
+      setProdutoSelecionado(""); setProdutoDestinoSelecionado(""); setFornecedorSelecionado(""); setQuantidade(1); setCustoPintura(0); setPrecoKgPintura(0);
       setDataSaida(new Date().toISOString().split("T")[0]); setObservacoes(""); setDialogNovaOpAberto(false);
       await carregarDados();
     } catch (error: any) {
@@ -285,6 +349,143 @@ export default function OrdensProducao() {
     } finally { setProcessandoId(null); }
   };
 
+  const abrirEdicao = (op: OrdemProducao) => {
+    setOpEditando(op);
+    setEditDestino(op.produto_destino_id || "");
+    setEditQuantidade(op.quantidade);
+    setEditDataSaida((op.data_saida || "").split("T")[0]);
+    setEditDataRetorno((op.data_retorno || "").split("T")[0]);
+    setEditCusto(Number(op.custo_pintura) || 0);
+    const kgOp = pesoUnitario(op.produto) * op.quantidade;
+    setEditPrecoKg(kgOp > 0 ? Math.round(((Number(op.custo_pintura) || 0) / kgOp) * 100) / 100 : 0);
+    setEditObservacoes(op.observacoes || "");
+    setEditFornecedor(op.fornecedor_id || "");
+    setDialogEditarAberto(true);
+  };
+
+  // Em pintura: tudo editavel (quantidade ajusta o estoque da origem pela
+  // diferenca). Retornada: so datas, custo e observacoes, pois o estoque do
+  // destino ja recebeu a quantidade.
+  const handleSalvarEdicao = async () => {
+    const op = opEditando;
+    if (!op) return;
+    const emPintura = op.status === "em_pintura";
+    if (emPintura && editQuantidade <= 0) { toast({ title: "Quantidade deve ser maior que zero", variant: "destructive" }); return; }
+    try {
+      setProcessandoId(op.id);
+      const alteracoes: string[] = [];
+
+      if (emPintura && editQuantidade !== op.quantidade) {
+        const { data: prod, error: prodError } = await supabase.from("produtos").select("estoque, nome, unidade").eq("id", op.produto_id).single();
+        if (prodError) throw prodError;
+        const diferenca = editQuantidade - op.quantidade;
+        if (diferenca > 0 && (prod.estoque || 0) < diferenca) {
+          toast({ title: "Estoque insuficiente", description: `Para aumentar ${diferenca} ${prod.unidade || "un"} é preciso ter estoque. Atual: ${prod.estoque}`, variant: "destructive" });
+          return;
+        }
+        const novoEstoque = (prod.estoque || 0) - diferenca;
+        const { error: estoqueError } = await supabase.from("produtos").update({ estoque: novoEstoque }).eq("id", op.produto_id);
+        if (estoqueError) throw estoqueError;
+        await supabase.from("movimentacoes_estoque").insert({
+          produto_id: op.produto_id, tipo: diferenca > 0 ? "saida" : "entrada", quantidade: Math.abs(diferenca),
+          quantidade_anterior: prod.estoque || 0, quantidade_atual: novoEstoque,
+          origem: "ordem_producao", usuario_id: user?.id,
+          observacoes: `Edição da OP ${op.numero} - quantidade ${op.quantidade} → ${editQuantidade}`,
+        });
+        alteracoes.push(`quantidade ${op.quantidade} → ${editQuantidade}`);
+      }
+
+      const custoAnterior = Number(op.custo_pintura) || 0;
+      let avisoFinanceiro = "";
+      if (editCusto !== custoAnterior) {
+        const { data: transacoes } = await supabase.from("transacoes_financeiras").select("id, status")
+          .eq("origem_tipo", "ordem_producao").ilike("descricao", `%OP ${op.numero} (%`);
+        const pendente = (transacoes || []).find((t) => t.status === "pendente");
+        if (pendente) {
+          const { error: tError } = await supabase.from("transacoes_financeiras")
+            .update(editCusto > 0 ? { valor: editCusto } : { status: "cancelado" }).eq("id", pendente.id);
+          if (tError) throw tError;
+        } else if ((transacoes || []).some((t) => t.status === "pago")) {
+          avisoFinanceiro = " A despesa no financeiro já foi paga e não foi alterada.";
+        } else if (editCusto > 0) {
+          const produtoNome = op.produto?.nome || "";
+          const { error: tError } = await supabase.from("transacoes_financeiras").insert({
+            descricao: `Custo de Pintura - OP ${op.numero} (${produtoNome})`,
+            tipo: "despesa", valor: editCusto, data: editDataSaida || op.data_saida, status: "pendente",
+            categoria: "Pintura", origem_tipo: "ordem_producao",
+            observacoes: `OP ${op.numero} - ${emPintura ? editQuantidade : op.quantidade} un de ${produtoNome}`,
+            data_vencimento: editDataSaida || op.data_saida, created_by: user?.id,
+          });
+          if (tError) throw tError;
+        }
+        alteracoes.push(`custo ${formatCurrency(custoAnterior)} → ${formatCurrency(editCusto)}`);
+      }
+
+      const destinoNovo = editDestino || null;
+      if (emPintura && destinoNovo !== (op.produto_destino_id || null)) {
+        const nomeDestino = destinoNovo ? produtos.find((p) => p.id === destinoNovo)?.nome || "produto destino" : "sem transformação";
+        alteracoes.push(`destino → ${nomeDestino}`);
+      }
+      if (editDataSaida !== (op.data_saida || "").split("T")[0]) alteracoes.push(`saída → ${formatDate(editDataSaida)}`);
+      if (!emPintura && editDataRetorno !== (op.data_retorno || "").split("T")[0]) alteracoes.push(`retorno → ${formatDate(editDataRetorno)}`);
+      if ((editObservacoes || "") !== (op.observacoes || "")) alteracoes.push("observações");
+      const fornecedorNovo = editFornecedor || null;
+      if (fornecedorNovo !== (op.fornecedor_id || null)) {
+        alteracoes.push(`fornecedor → ${fornecedorNovo ? fornecedores.find((f) => f.id === fornecedorNovo)?.nome || "fornecedor" : "nenhum"}`);
+      }
+
+      if (alteracoes.length === 0) { setDialogEditarAberto(false); return; }
+
+      const { error: opError } = await supabase.from("ordens_producao").update({
+        ...(emPintura ? { quantidade: editQuantidade, produto_destino_id: destinoNovo } : { data_retorno: editDataRetorno || null }),
+        data_saida: editDataSaida, custo_pintura: editCusto, observacoes: editObservacoes || null,
+        fornecedor_id: fornecedorNovo,
+        updated_at: new Date().toISOString(),
+      }).eq("id", op.id);
+      if (opError) throw opError;
+
+      await supabase.from("ordens_producao_historico").insert({
+        op_id: op.id, status_anterior: op.status, status_novo: op.status,
+        observacoes: `OP editada: ${alteracoes.join("; ")}`, usuario_id: user?.id,
+      });
+
+      toast({ title: "OP atualizada!", description: `OP ${op.numero}: ${alteracoes.join("; ")}.${avisoFinanceiro}` });
+      setDialogEditarAberto(false); setOpEditando(null);
+      await carregarDados();
+    } catch (error: any) {
+      toast({ title: "Erro ao editar OP", description: error.message, variant: "destructive" });
+    } finally { setProcessandoId(null); }
+  };
+
+  const handleImprimirOp = async (op: OrdemProducao) => {
+    try {
+      setProcessandoId(`print-${op.id}`);
+      const { data: config, error: configError } = await supabase.from("configuracoes").select("*").limit(1).single();
+      if (configError) throw configError;
+      const kgUnit = pesoUnitario(op.produto);
+      const kgTotal = kgUnit * op.quantidade;
+      const custoKg = kgUnit > 0 && op.produto?.custo != null ? Number(op.produto.custo) / kgUnit : 0;
+      const pdfBlob = await gerarPDFOrdemProducao({
+        numero: op.numero,
+        status: getStatusInfo(op.status).label,
+        dataSaida: formatDate(op.data_saida),
+        dataRetorno: op.data_retorno ? formatDate(op.data_retorno) : null,
+        fornecedor: op.fornecedor?.nome || null,
+        produtoOrigem: { codigo: op.produto?.codigo || "-", nome: op.produto?.nome || "-", cor: op.produto?.cor, unidade: op.produto?.unidade || "un" },
+        produtoDestino: op.produto_destino ? { codigo: op.produto_destino.codigo, nome: op.produto_destino.nome, cor: op.produto_destino.cor } : null,
+        quantidade: op.quantidade,
+        pesoUnitarioKg: kgUnit,
+        pesoTotalKg: kgTotal,
+        valorMaterial: custoKg * kgTotal,
+        custoPintura: Number(op.custo_pintura) || 0,
+        observacoes: op.observacoes,
+      }, config);
+      downloadPDF(pdfBlob, `ordem_producao_${op.numero}.pdf`);
+    } catch (error: any) {
+      toast({ title: "Erro ao gerar impressão", description: error.message, variant: "destructive" });
+    } finally { setProcessandoId(null); }
+  };
+
   const handleVerHistorico = async (op: OrdemProducao) => {
     setOpHistorico(op); setDialogHistoricoAberto(true);
     try {
@@ -299,6 +500,27 @@ export default function OrdensProducao() {
 
   const produtoOrigem = produtos.find((p) => p.id === produtoSelecionado);
   const produtoDestino = produtos.find((p) => p.id === produtoDestinoSelecionado);
+
+  // Pintura cobrada por kg: o custo total da OP = kg total x R$/kg.
+  const kgNovaOp = pesoUnitario(produtoOrigem) * (quantidade || 0);
+  useEffect(() => {
+    if (kgNovaOp > 0) setCustoPintura(Math.round(kgNovaOp * precoKgPintura * 100) / 100);
+  }, [kgNovaOp, precoKgPintura]);
+
+  // Na edicao so recalcula quando a pessoa mexe no R$/kg ou na quantidade -
+  // abrir o modal nao pode alterar o custo ja gravado por arredondamento.
+  const kgUnitEdit = pesoUnitario(opEditando?.produto);
+  const kgEditOp = opEditando
+    ? kgUnitEdit * (opEditando.status === "em_pintura" ? editQuantidade : opEditando.quantidade)
+    : 0;
+  const alterarEditPrecoKg = (v: number) => {
+    setEditPrecoKg(v);
+    if (kgEditOp > 0) setEditCusto(Math.round(kgEditOp * v * 100) / 100);
+  };
+  const alterarEditQuantidade = (q: number) => {
+    setEditQuantidade(q);
+    if (kgUnitEdit > 0) setEditCusto(Math.round(kgUnitEdit * q * editPrecoKg * 100) / 100);
+  };
 
   const limparFiltros = () => {
     setSearchTerm("");
@@ -494,6 +716,7 @@ export default function OrdensProducao() {
                 <TableHead className="font-bold">Número</TableHead>
                 <TableHead className="font-bold">Produto Origem</TableHead>
                 <TableHead className="font-bold">Transforma em</TableHead>
+                <TableHead className="font-bold">Fornecedor</TableHead>
                 <TableHead className="font-bold text-right">Qtd</TableHead>
                 <TableHead className="font-bold">Saída</TableHead>
                 <TableHead className="font-bold">Retorno</TableHead>
@@ -503,7 +726,7 @@ export default function OrdensProducao() {
               </TableRow></TableHeader>
               <TableBody>
                 {ordensFiltradas.length === 0 ? (
-                  <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                  <TableRow><TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
                     {temFiltrosAtivos ? "Nenhuma OP encontrada com os filtros aplicados." : "Nenhuma OP cadastrada. Clique em 'Nova OP' para começar."}
                   </TableCell></TableRow>
                 ) : ordensFiltradas.map((op) => {
@@ -528,6 +751,7 @@ export default function OrdensProducao() {
                           </div>
                         ) : <span className="text-muted-foreground text-sm">Sem transformação</span>}
                       </TableCell>
+                      <TableCell>{op.fornecedor?.nome || <span className="text-muted-foreground text-sm">-</span>}</TableCell>
                       <TableCell className="text-right font-semibold">{op.quantidade} {op.produto?.unidade || "un"}</TableCell>
                       <TableCell>{formatDate(op.data_saida)}</TableCell>
                       <TableCell>{formatDate(op.data_retorno)}</TableCell>
@@ -537,6 +761,12 @@ export default function OrdensProducao() {
                         <div className="flex justify-end gap-1">
                           <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => { setOpDetalhes(op); setDialogDetalhesAberto(true); }} title="Detalhes"><Eye className="h-4 w-4" /></Button>
                           <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => handleVerHistorico(op)} title="Histórico"><History className="h-4 w-4" /></Button>
+                          <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => handleImprimirOp(op)} disabled={processandoId === `print-${op.id}`} title="Imprimir OP">
+                            {processandoId === `print-${op.id}` ? <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div> : <Printer className="h-4 w-4" />}
+                          </Button>
+                          {op.status !== "cancelada" && (
+                            <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-blue-600" onClick={() => abrirEdicao(op)} disabled={processandoId === op.id} title="Editar"><Pencil className="h-4 w-4" /></Button>
+                          )}
                           {op.status === "em_pintura" && (
                             <>
                               <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white h-8"
@@ -626,21 +856,132 @@ export default function OrdensProducao() {
                 </div>
               )}
             </div>
+            <div className="space-y-2">
+              <Label>Fornecedor (pintura)</Label>
+              <Select value={fornecedorSelecionado || "__nenhum__"} onValueChange={(v) => setFornecedorSelecionado(v === "__nenhum__" ? "" : v)}>
+                <SelectTrigger><SelectValue placeholder="Selecione o fornecedor..." /></SelectTrigger>
+                <SelectContent className="max-h-[300px]">
+                  <SelectItem value="__nenhum__">Não informado</SelectItem>
+                  {fornecedores.map((f) => <SelectItem key={f.id} value={f.id}>{f.nome}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2"><Label>Quantidade *</Label><Input type="number" min={1} value={quantidade} onChange={(e) => setQuantidade(parseInt(e.target.value) || 0)} /></div>
               <div className="space-y-2"><Label>Data de Saída</Label><Input type="date" value={dataSaida} onChange={(e) => setDataSaida(e.target.value)} /></div>
             </div>
             <div className="space-y-2">
-              <Label>Custo de Pintura (R$)</Label>
-              <Input type="number" min={0} step="0.01" value={custoPintura} onChange={(e) => setCustoPintura(parseFloat(e.target.value) || 0)} placeholder="0,00" />
-              <p className="text-xs text-muted-foreground">Será registrado como despesa no financeiro.</p>
+              {kgNovaOp > 0 ? (
+                <>
+                  <Label>Pintura - R$ por kg</Label>
+                  <Input type="number" min={0} step="0.01" value={precoKgPintura} onChange={(e) => setPrecoKgPintura(parseFloat(e.target.value) || 0)} placeholder="0,00" />
+                  <p className="text-xs text-muted-foreground">
+                    {formatKg(kgNovaOp)} × {formatCurrency(precoKgPintura)}/kg = <span className="font-medium">{formatCurrency(custoPintura)}</span> — registrado como despesa no financeiro.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <Label>Custo de Pintura (R$)</Label>
+                  <Input type="number" min={0} step="0.01" value={custoPintura} onChange={(e) => setCustoPintura(parseFloat(e.target.value) || 0)} placeholder="0,00" />
+                  <p className="text-xs text-muted-foreground">{produtoOrigem ? "Produto sem peso cadastrado - informe o custo total. " : ""}Será registrado como despesa no financeiro.</p>
+                </>
+              )}
             </div>
+            {produtoOrigem && <ResumoValorOp produto={produtoOrigem} quantidade={quantidade} custoPintura={custoPintura} />}
             <div className="space-y-2"><Label>Observações</Label><Textarea value={observacoes} onChange={(e) => setObservacoes(e.target.value)} placeholder="Observações opcionais..." rows={2} /></div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogNovaOpAberto(false)}>Cancelar</Button>
             <Button onClick={handleCriarOp} disabled={processandoId === "nova"} className="bg-primary">
               {processandoId === "nova" ? <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div> : <Plus className="h-4 w-4 mr-2" />}Criar OP
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* DIALOG EDITAR OP */}
+      <Dialog open={dialogEditarAberto} onOpenChange={setDialogEditarAberto}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><Pencil className="h-5 w-5 text-primary" />Editar OP {opEditando?.numero}</DialogTitle>
+            <DialogDescription>
+              {opEditando?.status === "em_pintura"
+                ? "Alterar a quantidade ajusta o estoque do produto de origem pela diferença."
+                : "OP já retornada: só datas, custo e observações podem ser alterados."}
+            </DialogDescription>
+          </DialogHeader>
+          {opEditando && (
+            <div className="space-y-4 py-4">
+              <div className="p-2 bg-muted/50 rounded-lg border text-sm">
+                <span className="text-muted-foreground">Produto de origem: </span>
+                <span className="font-medium">{opEditando.produto?.nome || "-"}</span>
+                {opEditando.produto?.cor ? <span className="text-muted-foreground"> ({opEditando.produto.cor})</span> : null}
+              </div>
+              {opEditando.status === "em_pintura" && (
+                <>
+                  <div className="space-y-2">
+                    <Label>Produto Destino (após pintura - opcional)</Label>
+                    <Select value={editDestino || "__nenhum__"} onValueChange={(v) => setEditDestino(v === "__nenhum__" ? "" : v)}>
+                      <SelectTrigger><SelectValue placeholder="Sem transformação" /></SelectTrigger>
+                      <SelectContent className="max-h-[300px]">
+                        <SelectItem value="__nenhum__">Sem transformação (mesmo produto)</SelectItem>
+                        {produtos.filter((p) => p.id !== opEditando.produto_id).map((p) => (
+                          <SelectItem key={p.id} value={p.id}>{p.codigo} - {p.nome} {p.cor ? `(${p.cor})` : ""}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Quantidade *</Label>
+                    <Input type="number" min={1} value={editQuantidade} onChange={(e) => alterarEditQuantidade(parseInt(e.target.value) || 0)} />
+                  </div>
+                </>
+              )}
+              <div className="space-y-2">
+                <Label>Fornecedor (pintura)</Label>
+                <Select value={editFornecedor || "__nenhum__"} onValueChange={(v) => setEditFornecedor(v === "__nenhum__" ? "" : v)}>
+                  <SelectTrigger><SelectValue placeholder="Selecione o fornecedor..." /></SelectTrigger>
+                  <SelectContent className="max-h-[300px]">
+                    <SelectItem value="__nenhum__">Não informado</SelectItem>
+                    {fornecedores.map((f) => <SelectItem key={f.id} value={f.id}>{f.nome}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2"><Label>Data de Saída</Label><Input type="date" value={editDataSaida} onChange={(e) => setEditDataSaida(e.target.value)} /></div>
+                {opEditando.status === "retornado" && (
+                  <div className="space-y-2"><Label>Data de Retorno</Label><Input type="date" value={editDataRetorno} onChange={(e) => setEditDataRetorno(e.target.value)} /></div>
+                )}
+              </div>
+              <div className="space-y-2">
+                {kgEditOp > 0 ? (
+                  <>
+                    <Label>Pintura - R$ por kg</Label>
+                    <Input type="number" min={0} step="0.01" value={editPrecoKg} onChange={(e) => alterarEditPrecoKg(parseFloat(e.target.value) || 0)} />
+                    <p className="text-xs text-muted-foreground">
+                      {formatKg(kgEditOp)} × {formatCurrency(editPrecoKg)}/kg = <span className="font-medium">{formatCurrency(editCusto)}</span> — a despesa pendente no financeiro é atualizada junto.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <Label>Custo de Pintura (R$)</Label>
+                    <Input type="number" min={0} step="0.01" value={editCusto} onChange={(e) => setEditCusto(parseFloat(e.target.value) || 0)} />
+                    <p className="text-xs text-muted-foreground">A despesa pendente no financeiro é atualizada junto.</p>
+                  </>
+                )}
+              </div>
+              <ResumoValorOp
+                produto={opEditando.produto}
+                quantidade={opEditando.status === "em_pintura" ? editQuantidade : opEditando.quantidade}
+                custoPintura={editCusto}
+              />
+              <div className="space-y-2"><Label>Observações</Label><Textarea value={editObservacoes} onChange={(e) => setEditObservacoes(e.target.value)} rows={2} /></div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDialogEditarAberto(false)}>Cancelar</Button>
+            <Button onClick={handleSalvarEdicao} disabled={processandoId !== null} className="bg-primary">
+              {processandoId ? <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div> : null}Salvar
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -668,6 +1009,7 @@ export default function OrdensProducao() {
                 </div>
               </div>
             )}
+            {opParaRetornar && <ResumoValorOp produto={opParaRetornar.produto} quantidade={opParaRetornar.quantidade} custoPintura={opParaRetornar.custo_pintura} />}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogRetornoAberto(false)}>Cancelar</Button>
@@ -739,11 +1081,19 @@ export default function OrdensProducao() {
                 <div><p className="text-sm text-muted-foreground">Data de Saída</p><p className="font-medium">{formatDate(opDetalhes.data_saida)}</p></div>
                 <div><p className="text-sm text-muted-foreground">Data de Retorno</p><p className="font-medium">{formatDate(opDetalhes.data_retorno)}</p></div>
               </div>
-              <div><p className="text-sm text-muted-foreground">Custo de Pintura</p><p className="font-bold text-primary text-lg">{formatCurrency(opDetalhes.custo_pintura)}</p></div>
+              <div><p className="text-sm text-muted-foreground">Fornecedor</p><p className="font-medium">{opDetalhes.fornecedor?.nome || "Não informado"}</p></div>
+              <ResumoValorOp produto={opDetalhes.produto} quantidade={opDetalhes.quantidade} custoPintura={opDetalhes.custo_pintura} />
               {opDetalhes.observacoes && <div><p className="text-sm text-muted-foreground">Observações</p><p className="text-sm bg-muted/50 p-3 rounded">{opDetalhes.observacoes}</p></div>}
             </div>
           )}
-          <DialogFooter><Button variant="outline" onClick={() => setDialogDetalhesAberto(false)}>Fechar</Button></DialogFooter>
+          <DialogFooter>
+            {opDetalhes && (
+              <Button variant="outline" onClick={() => handleImprimirOp(opDetalhes)} disabled={processandoId === `print-${opDetalhes.id}`}>
+                {processandoId === `print-${opDetalhes.id}` ? <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div> : <Printer className="h-4 w-4 mr-2" />}Imprimir
+              </Button>
+            )}
+            <Button variant="outline" onClick={() => setDialogDetalhesAberto(false)}>Fechar</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

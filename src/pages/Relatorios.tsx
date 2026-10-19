@@ -1,5 +1,5 @@
 // @ts-nocheck - Relatórios completos e funcionais
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { 
@@ -21,17 +21,245 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 import { format, subDays, startOfMonth, endOfMonth, eachMonthOfInterval } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+
+// ================ EXPORTACAO EM EXCEL ================
+// Camada que troca a saida de PDF (jsPDF) por uma planilha Excel (.xlsx)
+// formatada, sem reescrever a logica dos relatorios. Cada doc.text(...) vira
+// uma linha na aba "Resumo"; cada tabela (autoTable) vira uma aba propria com
+// cabecalho destacado + congelado, autofiltro, zebra, colunas dimensionadas e
+// valores de moeda/percentual/numero reconhecidos e formatados como numero.
+
+const COR_HEADER = "FF1F3A5F";
+const COR_TITULO = "FF2E4A6B";
+const COR_ZEBRA = "FFF3F6FA";
+const COR_DESTAQUE = "FFE8EEF6";
+
+type LinhaResumo = { texto: string; destaque: boolean };
+type AbaTabela = { nome: string; cabecalho: string[]; corpo: any[][] };
+
+const sanitizarNomeAba = (nome: string, usados: Set<string>) => {
+  const base = (nome || "Dados").replace(/[[\]:*?/\\]/g, "").trim().substring(0, 28) || "Dados";
+  let nomeaba = base;
+  let i = 2;
+  while (usados.has(nomeaba.toLowerCase())) nomeaba = `${base} ${i++}`.substring(0, 31);
+  usados.add(nomeaba.toLowerCase());
+  return nomeaba;
+};
+
+// Reconhece "R$ 1234,56", "12,3%", "1.5", "42" -> { valor, formato Excel }.
+const analisarNumero = (raw: any): { valor: number; fmt: string } | null => {
+  if (typeof raw === "number" && isFinite(raw)) {
+    return { valor: raw, fmt: Number.isInteger(raw) ? "#,##0" : "#,##0.00" };
+  }
+  if (typeof raw !== "string") return null;
+  const s = raw.trim();
+  let m = s.match(/^R\$\s*(-?\d+),(\d{2})$/);
+  if (m) return { valor: Number(`${m[1]}.${m[2]}`), fmt: '"R$" #,##0.00' };
+  m = s.match(/^(-?\d+(?:[.,]\d+)?)\s*%$/);
+  if (m) return { valor: parseFloat(m[1].replace(",", ".")) / 100, fmt: "0.0%" };
+  if (/^-?\d+$/.test(s)) return { valor: parseInt(s, 10), fmt: "#,##0" };
+  if (/^-?\d+[.,]\d+$/.test(s)) return { valor: parseFloat(s.replace(",", ".")), fmt: "#,##0.00" };
+  return null;
+};
+
+class ReportBuilder {
+  private resumo: LinhaResumo[] = [];
+  private abas: AbaTabela[] = [];
+  private fontSize = 11;
+  private tituloPendente = "";
+  lastAutoTable = { finalY: 0 };
+
+  setFontSize(n: number) { this.fontSize = n; }
+  setTextColor() {}
+  setFont() {}
+  addPage() { this.resumo.push({ texto: "", destaque: false }); }
+
+  text(txt: any) {
+    const linha = String(txt ?? "").trim();
+    const destaque = this.fontSize >= 14 && !!linha;
+    this.resumo.push({ texto: linha, destaque });
+    if (destaque) this.tituloPendente = linha;
+  }
+
+  _tabela(head: any[], body: any[]) {
+    const cabecalho = (Array.isArray(head?.[0]) ? head[0] : head || []).map((c: any) => String(c ?? ""));
+    this.abas.push({
+      nome: this.tituloPendente || "Dados",
+      cabecalho,
+      corpo: (body || []).map((r: any) => [...r]),
+    });
+    this.tituloPendente = "";
+    this.lastAutoTable = { finalY: 0 };
+  }
+
+  private montarAbaResumo(wb: any, usados: Set<string>) {
+    if (this.resumo.length === 0) return;
+    const ws = wb.addWorksheet(sanitizarNomeAba("Resumo", usados), { views: [{ showGridLines: false }] });
+    ws.getColumn(1).width = 48;
+    ws.getColumn(2).width = 26;
+
+    const titulo = this.resumo.find((l) => l.texto)?.texto || "Relatorio";
+    ws.mergeCells(1, 1, 1, 2);
+    const cTitulo = ws.getCell(1, 1);
+    cTitulo.value = titulo;
+    cTitulo.font = { bold: true, size: 14, color: { argb: "FFFFFFFF" } };
+    cTitulo.fill = { type: "pattern", pattern: "solid", fgColor: { argb: COR_TITULO } };
+    cTitulo.alignment = { vertical: "middle" };
+    ws.getRow(1).height = 22;
+
+    let tituloPulado = false;
+    for (const linha of this.resumo) {
+      if (!tituloPulado && linha.texto === titulo) { tituloPulado = true; continue; }
+      const m = linha.texto.match(/^(\s*-?\s*[^:]+?):\s+(.+)$/);
+      const row = m ? ws.addRow([m[1].trim(), m[2].trim()]) : ws.addRow([linha.texto]);
+      if (linha.destaque) {
+        row.font = { bold: true, size: 12 };
+        row.eachCell((c: any) => {
+          c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: COR_DESTAQUE } };
+        });
+      }
+      if (m) {
+        const vCell = row.getCell(2);
+        const num = analisarNumero(m[2].trim());
+        if (num) { vCell.value = num.valor; vCell.numFmt = num.fmt; }
+        vCell.alignment = { horizontal: "right" };
+      }
+    }
+  }
+
+  private montarAbaTabela(wb: any, aba: AbaTabela, usados: Set<string>) {
+    const ws = wb.addWorksheet(sanitizarNomeAba(aba.nome, usados), {
+      views: [{ state: "frozen", ySplit: 1, showGridLines: false }],
+    });
+    const nCols = Math.max(aba.cabecalho.length, 1);
+
+    // Colunas numericas: >= 60% dos valores nao vazios sao numero reconhecido.
+    const colFmt: (string | null)[] = new Array(nCols).fill(null);
+    for (let c = 0; c < nCols; c++) {
+      let naoVazios = 0, numericos = 0;
+      const fmts: Record<string, number> = {};
+      for (const r of aba.corpo) {
+        const txt = r[c] == null ? "" : String(r[c]).trim();
+        if (!txt || txt === "-") continue;
+        naoVazios++;
+        const n = analisarNumero(r[c]);
+        if (n) { numericos++; fmts[n.fmt] = (fmts[n.fmt] || 0) + 1; }
+      }
+      if (naoVazios > 0 && numericos / naoVazios >= 0.6) {
+        colFmt[c] = Object.entries(fmts).sort((a, b) => b[1] - a[1])[0][0];
+      }
+    }
+
+    const header = ws.addRow(aba.cabecalho);
+    header.height = 26;
+    header.font = { bold: true, color: { argb: "FFFFFFFF" } };
+    header.alignment = { vertical: "middle", horizontal: "center", wrapText: true };
+    header.eachCell((c: any) => {
+      c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: COR_HEADER } };
+      c.border = { bottom: { style: "thin", color: { argb: "FFBFC9D4" } } };
+    });
+
+    aba.corpo.forEach((r, idx) => {
+      const valores = r.map((v, c) => {
+        if (colFmt[c]) {
+          const n = analisarNumero(v);
+          if (n) return n.valor;
+        }
+        return v == null ? "" : v;
+      });
+      const row = ws.addRow(valores);
+      const zebra = idx % 2 === 1;
+      row.eachCell({ includeEmpty: true }, (c: any, colNumber: number) => {
+        if (colNumber > nCols) return;
+        if (colFmt[colNumber - 1]) {
+          c.numFmt = colFmt[colNumber - 1] as string;
+          c.alignment = { horizontal: "right" };
+        }
+        if (zebra) c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: COR_ZEBRA } };
+        c.border = { bottom: { style: "hair", color: { argb: "FFE2E8F0" } } };
+      });
+    });
+
+    for (let i = 1; i <= nCols; i++) {
+      let max = (aba.cabecalho[i - 1] || "").length || 10;
+      for (const r of aba.corpo) {
+        const len = r[i - 1] == null ? 0 : String(r[i - 1]).length;
+        if (len > max) max = len;
+      }
+      ws.getColumn(i).width = Math.min(Math.max(max + 2, 12), 55);
+    }
+
+    ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: nCols } };
+  }
+
+  async save(nomeArquivo: string) {
+    // Carrega o ExcelJS sob demanda (chunk separado, fora do bundle inicial).
+    const ExcelJS = (await import("exceljs")).default;
+    const wb = new ExcelJS.Workbook();
+    wb.creator = "Kits do Brasil";
+    wb.created = new Date();
+    const usados = new Set<string>();
+
+    this.montarAbaResumo(wb, usados);
+    for (const aba of this.abas) this.montarAbaTabela(wb, aba, usados);
+    if (wb.worksheets.length === 0) wb.addWorksheet("Sem dados");
+
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buffer], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = nomeArquivo.replace(/\.pdf$/i, ".xlsx");
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1500);
+  }
+}
+
+const autoTable = (doc: ReportBuilder, opts: { head: any[]; body: any[] }) => doc._tabela(opts.head, opts.body);
 
 export default function Relatorios() {
   const [loading, setLoading] = useState<string | null>(null);
   const [dataInicio, setDataInicio] = useState(format(subDays(new Date(), 30), 'yyyy-MM-dd'));
   const [dataFim, setDataFim] = useState(format(new Date(), 'yyyy-MM-dd'));
+
+  // Filtro por Matriz / filial. "todas" = base da Matriz (visao global);
+  // "matriz" = registros sem filial vinculada; um id = a filial escolhida.
+  const [filiais, setFiliais] = useState<{ id: string; nome: string }[]>([]);
+  const [filialFiltro, setFilialFiltro] = useState<string>("todas");
+
+  useEffect(() => {
+    supabase
+      .from("filiais")
+      .select("id, nome")
+      .eq("ativo", true)
+      .order("nome")
+      .then(({ data }) => setFiliais(data || []));
+  }, []);
+
+  const nomeFilialFiltro =
+    filialFiltro === "todas"
+      ? "Todas (base Matriz)"
+      : filialFiltro === "matriz"
+      ? "Matriz"
+      : filiais.find((f) => f.id === filialFiltro)?.nome || "Filial";
+
+  // Aplica o filtro de filial numa query supabase que tenha a coluna filial_id.
+  const aplicarFiltroFilial = (query: any) => {
+    if (filialFiltro === "matriz") return query.is("filial_id", null);
+    if (filialFiltro !== "todas") return query.eq("filial_id", filialFiltro);
+    return query;
+  };
 
   // ================ FUNCOES AUXILIARES ================
   const formatarData = (data: string | null) => {
@@ -117,12 +345,13 @@ export default function Relatorios() {
 
   const buscarPedidos = async (dataInicio: string, dataFim: string) => {
     // Buscar pedidos
-    const { data: pedidos, error } = await supabase
-      .from('pedidos')
-      .select('*')
-      .gte('data_pedido', dataInicio)
-      .lte('data_pedido', dataFim)
-      .order('data_pedido', { ascending: false });
+    const { data: pedidos, error } = await aplicarFiltroFilial(
+      supabase
+        .from('pedidos')
+        .select('*')
+        .gte('data_pedido', dataInicio)
+        .lte('data_pedido', dataFim)
+    ).order('data_pedido', { ascending: false });
 
     if (error) throw error;
     if (!pedidos || pedidos.length === 0) return [];
@@ -185,17 +414,32 @@ export default function Relatorios() {
       .order('nome', { ascending: true });
 
     if (error) throw error;
-    return produtos || [];
+    let lista = produtos || [];
+
+    // Quando uma filial especifica esta selecionada, o "estoque" de cada produto
+    // passa a ser o saldo daquela filial (estoque_filial); produtos sem linha na
+    // filial ficam com 0. Para "Matriz"/"Todas" mantemos o estoque global.
+    if (filialFiltro !== "todas" && filialFiltro !== "matriz") {
+      const { data: ef } = await supabase
+        .from('estoque_filial')
+        .select('produto_id, quantidade')
+        .eq('filial_id', filialFiltro);
+      const mapa = new Map((ef || []).map((r: any) => [r.produto_id, Number(r.quantidade) || 0]));
+      lista = lista.map((p: any) => ({ ...p, estoque: mapa.has(p.id) ? mapa.get(p.id) : 0 }));
+    }
+
+    return lista;
   };
 
   const buscarOrcamentos = async (dataInicio: string, dataFim: string) => {
     // Buscar orçamentos
-    const { data: orcamentos, error } = await supabase
-      .from('orcamentos')
-      .select('*')
-      .gte('created_at', `${dataInicio}T00:00:00`)
-      .lte('created_at', `${dataFim}T23:59:59`)
-      .order('created_at', { ascending: false });
+    const { data: orcamentos, error } = await aplicarFiltroFilial(
+      supabase
+        .from('orcamentos')
+        .select('*')
+        .gte('created_at', `${dataInicio}T00:00:00`)
+        .lte('created_at', `${dataFim}T23:59:59`)
+    ).order('created_at', { ascending: false });
 
     if (error) throw error;
     if (!orcamentos || orcamentos.length === 0) return [];
@@ -376,7 +620,7 @@ export default function Relatorios() {
         return;
       }
 
-      const doc = new jsPDF({ orientation: 'landscape' });
+      const doc = new ReportBuilder();
       
       // Título
       doc.setFontSize(20);
@@ -669,7 +913,7 @@ export default function Relatorios() {
         doc.text(`  ${index + 1}. ${v.nome.substring(0, 25)}: ${formatarMoeda(v.total_comissoes)} (${v.qtd_orcamentos} orçamentos)`, 14, statsY + (index * 7));
       });
 
-      doc.save(`comissoes-${format(new Date(), 'dd-MM-yyyy-HHmm')}.pdf`);
+      await doc.save(`comissoes-${format(new Date(), 'dd-MM-yyyy-HHmm')}.pdf`);
       toast({ title: "Relatorio de comissoes gerado com sucesso!" });
       
     } catch (error: any) {
@@ -709,7 +953,7 @@ export default function Relatorios() {
         return;
       }
 
-      const doc = new jsPDF({ orientation: 'landscape' });
+      const doc = new ReportBuilder();
       
       // Título
       doc.setFontSize(20);
@@ -719,6 +963,7 @@ export default function Relatorios() {
       doc.setFontSize(11);
       doc.text(`Periodo: ${formatarData(dataInicio)} a ${formatarData(dataFim)}`, 14, 30);
       doc.text(`Gerado em: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`, 14, 37);
+      doc.text(`Filial: ${nomeFilialFiltro}`, 14, 44);
       doc.text(`Total de pedidos: ${pedidos.length}`, 14, 44);
 
       // Estatísticas gerais
@@ -950,7 +1195,7 @@ export default function Relatorios() {
         headStyles: { fillColor: [52, 73, 94], textColor: 255 }
       });
 
-      doc.save(`vendas-${format(new Date(), 'dd-MM-yyyy-HHmm')}.pdf`);
+      await doc.save(`vendas-${format(new Date(), 'dd-MM-yyyy-HHmm')}.pdf`);
       toast({ title: "Relatorio de vendas gerado com sucesso!" });
       
     } catch (error: any) {
@@ -991,7 +1236,7 @@ export default function Relatorios() {
         return;
       }
 
-      const doc = new jsPDF({ orientation: 'landscape' });
+      const doc = new ReportBuilder();
       
       doc.setFontSize(20);
       doc.setTextColor(46, 204, 113);
@@ -999,6 +1244,7 @@ export default function Relatorios() {
       doc.setTextColor(0, 0, 0);
       doc.setFontSize(11);
       doc.text(`Gerado em: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`, 14, 30);
+      doc.text(`Estoque referente a: ${nomeFilialFiltro}`, 14, 37);
       doc.text(`Total de produtos com estoque: ${produtosComEstoque.length}`, 14, 37);
       doc.text(`Total de produtos cadastrados: ${produtos.length}`, 14, 44);
 
@@ -1274,7 +1520,7 @@ export default function Relatorios() {
         });
       }
 
-      doc.save(`estoque-${format(new Date(), 'dd-MM-yyyy-HHmm')}.pdf`);
+      await doc.save(`estoque-${format(new Date(), 'dd-MM-yyyy-HHmm')}.pdf`);
       toast({ title: "Relatorio de estoque gerado com sucesso!" });
       
     } catch (error: any) {
@@ -1313,7 +1559,7 @@ export default function Relatorios() {
         return;
       }
 
-      const doc = new jsPDF({ orientation: 'landscape' });
+      const doc = new ReportBuilder();
       
       doc.setFontSize(20);
       doc.setTextColor(142, 68, 173);
@@ -1322,6 +1568,7 @@ export default function Relatorios() {
       doc.setFontSize(11);
       doc.text(`Periodo: ${formatarData(dataInicio)} a ${formatarData(dataFim)}`, 14, 30);
       doc.text(`Gerado em: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`, 14, 37);
+      doc.text(`Filial: ${nomeFilialFiltro}`, 14, 44);
       doc.text(`Total de orcamentos: ${orcamentos.length}`, 14, 44);
 
       const total = orcamentos.length;
@@ -1407,7 +1654,7 @@ export default function Relatorios() {
         headStyles: { fillColor: [142, 68, 173], textColor: 255 }
       });
 
-      doc.save(`orcamentos-${format(new Date(), 'dd-MM-yyyy-HHmm')}.pdf`);
+      await doc.save(`orcamentos-${format(new Date(), 'dd-MM-yyyy-HHmm')}.pdf`);
       toast({ title: "Relatorio de orcamentos gerado com sucesso!" });
     } catch (error: any) {
       console.error('Erro:', error);
@@ -1445,7 +1692,7 @@ export default function Relatorios() {
         return;
       }
 
-      const doc = new jsPDF({ orientation: 'landscape' });
+      const doc = new ReportBuilder();
       
       doc.setFontSize(20);
       doc.setTextColor(155, 89, 182);
@@ -1737,7 +1984,7 @@ export default function Relatorios() {
         doc.text(`  ${index + 1}. ${desc}: ${formatarMoeda(Number(t.valor))}`, 14, resumoY + 10 + (index * 7));
       });
 
-      doc.save(`financeiro-${format(new Date(), 'dd-MM-yyyy-HHmm')}.pdf`);
+      await doc.save(`financeiro-${format(new Date(), 'dd-MM-yyyy-HHmm')}.pdf`);
       toast({ title: "Relatorio financeiro gerado com sucesso!" });
       
     } catch (error: any) {
@@ -1767,7 +2014,7 @@ export default function Relatorios() {
         return;
       }
 
-      const doc = new jsPDF({ orientation: 'landscape' });
+      const doc = new ReportBuilder();
       
       doc.setFontSize(20);
       doc.setTextColor(230, 126, 34);
@@ -2005,7 +2252,7 @@ export default function Relatorios() {
           doc.text(`  ${index + 1}. ${cidade}: ${count} clientes`, 14, statsY + (index * 7));
         });
 
-      doc.save(`clientes-${format(new Date(), 'dd-MM-yyyy-HHmm')}.pdf`);
+      await doc.save(`clientes-${format(new Date(), 'dd-MM-yyyy-HHmm')}.pdf`);
       toast({ title: "Relatorio de clientes gerado com sucesso!" });
       
     } catch (error: any) {
@@ -2044,7 +2291,7 @@ export default function Relatorios() {
         return;
       }
 
-      const doc = new jsPDF({ orientation: 'landscape' });
+      const doc = new ReportBuilder();
       
       doc.setFontSize(20);
       doc.setTextColor(41, 128, 185);
@@ -2479,7 +2726,7 @@ export default function Relatorios() {
         doc.text(`  ${index + 1}. ${nome.substring(0, 30)}: ${formatarMoeda(f.valor_total)}`, 14, statsY + (index * 7));
       });
 
-      doc.save(`compras-${format(new Date(), 'dd-MM-yyyy-HHmm')}.pdf`);
+      await doc.save(`compras-${format(new Date(), 'dd-MM-yyyy-HHmm')}.pdf`);
       toast({ title: "Relatorio de compras gerado com sucesso!" });
       
     } catch (error: any) {
@@ -2500,7 +2747,7 @@ export default function Relatorios() {
       <div>
         <h2 className="text-3xl font-bold text-foreground">Relatorios Gerenciais</h2>
         <p className="text-muted-foreground">
-          Relatorios completos e 100% funcionais baseados na estrutura do banco de dados
+          Relatorios completos exportados em Excel (.xlsx), com filtro por Matriz / filial
         </p>
       </div>
 
@@ -2512,7 +2759,7 @@ export default function Relatorios() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="space-y-2">
               <Label htmlFor="dataInicio" className="font-medium">Data Inicial</Label>
               <Input
@@ -2533,10 +2780,29 @@ export default function Relatorios() {
                 className="w-full bg-white dark:bg-gray-900"
               />
             </div>
+            <div className="space-y-2">
+              <Label className="font-medium">Matriz / Filial</Label>
+              <Select value={filialFiltro} onValueChange={setFilialFiltro}>
+                <SelectTrigger className="w-full bg-white dark:bg-gray-900">
+                  <SelectValue placeholder="Selecione..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todas">Todas (base Matriz)</SelectItem>
+                  <SelectItem value="matriz">Somente Matriz</SelectItem>
+                  {filiais.map((f) => (
+                    <SelectItem key={f.id} value={f.id}>{f.nome}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           <p className="text-sm text-muted-foreground mt-3 flex items-center gap-1">
             <Calendar className="h-4 w-4" />
-            Periodo selecionado: {formatarData(dataInicio)} ate {formatarData(dataFim)}
+            Periodo: {formatarData(dataInicio)} ate {formatarData(dataFim)} · Filial: {nomeFilialFiltro}
+          </p>
+          <p className="text-xs text-muted-foreground mt-1">
+            O filtro de filial vale para os relatorios de Vendas, Orcamentos e Estoque. Clientes, Financeiro,
+            Compras e Comissoes nao possuem vinculo de filial e saem sempre consolidados.
           </p>
         </CardContent>
       </Card>
@@ -2562,7 +2828,7 @@ export default function Relatorios() {
               disabled={loading !== null}
             >
               <FileDown className="h-4 w-4" />
-              {loading === 'vendas' ? 'GERANDO...' : 'GERAR PDF'}
+              {loading === 'vendas' ? 'GERANDO...' : 'GERAR EXCEL'}
             </Button>
           </CardContent>
         </Card>
@@ -2586,7 +2852,7 @@ export default function Relatorios() {
               disabled={loading !== null}
             >
               <FileDown className="h-4 w-4" />
-              {loading === 'estoque' ? 'GERANDO...' : 'GERAR PDF'}
+              {loading === 'estoque' ? 'GERANDO...' : 'GERAR EXCEL'}
             </Button>
           </CardContent>
         </Card>
@@ -2610,7 +2876,7 @@ export default function Relatorios() {
               disabled={loading !== null}
             >
               <FileDown className="h-4 w-4" />
-              {loading === 'orcamentos' ? 'GERANDO...' : 'GERAR PDF'}
+              {loading === 'orcamentos' ? 'GERANDO...' : 'GERAR EXCEL'}
             </Button>
           </CardContent>
         </Card>
@@ -2634,7 +2900,7 @@ export default function Relatorios() {
               disabled={loading !== null}
             >
               <FileDown className="h-4 w-4" />
-              {loading === 'financeiro' ? 'GERANDO...' : 'GERAR PDF'}
+              {loading === 'financeiro' ? 'GERANDO...' : 'GERAR EXCEL'}
             </Button>
           </CardContent>
         </Card>
@@ -2658,7 +2924,7 @@ export default function Relatorios() {
               disabled={loading !== null}
             >
               <FileDown className="h-4 w-4" />
-              {loading === 'clientes' ? 'GERANDO...' : 'GERAR PDF'}
+              {loading === 'clientes' ? 'GERANDO...' : 'GERAR EXCEL'}
             </Button>
           </CardContent>
         </Card>
@@ -2682,7 +2948,7 @@ export default function Relatorios() {
               disabled={loading !== null}
             >
               <FileDown className="h-4 w-4" />
-              {loading === 'compras' ? 'GERANDO...' : 'GERAR PDF'}
+              {loading === 'compras' ? 'GERANDO...' : 'GERAR EXCEL'}
             </Button>
           </CardContent>
         </Card>
@@ -2707,15 +2973,15 @@ export default function Relatorios() {
               disabled={loading !== null}
             >
               <FileDown className="h-4 w-4" />
-              {loading === 'comissoes' ? 'GERANDO...' : 'GERAR PDF'}
+              {loading === 'comissoes' ? 'GERANDO...' : 'GERAR EXCEL'}
             </Button>
           </CardContent>
         </Card>
       </div>
 
       <div className="text-center text-xs text-muted-foreground mt-8 pt-4 border-t">
-        <p>Sistema de Relatorios - Baseado na estrutura completa do banco de dados</p>
-        <p className="mt-1">Todos os 7 relatorios estao 100% funcionais e prontos para uso</p>
+        <p>Sistema de Relatorios - exportacao em Excel (.xlsx), uma aba por analise</p>
+        <p className="mt-1">Filtro por Matriz / filial aplicado a Vendas, Orcamentos e Estoque</p>
         <p className="mt-1 font-semibold">Vendas (apenas pedidos) | Estoque | Orcamentos | Financeiro | Clientes | Compras | Comissoes</p>
       </div>
     </div>
