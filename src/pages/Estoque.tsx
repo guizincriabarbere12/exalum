@@ -35,6 +35,7 @@ interface ProdutoEstoque {
   nome: string;
   descricao: string | null;
   categoria: string | null;
+  cor: string | null;
   localizacao: string | null;
   unidade: string | null;
   peso: number | null;
@@ -95,7 +96,7 @@ export default function Estoque() {
       setLoading(true);
       const [{ data: filiaisData, error: filiaisError }, { data: produtosData, error: produtosError }, { data: kitsData, error: kitsError }] = await Promise.all([
         supabase.from("filiais").select("id, nome, codigo").eq("ativo", true).order("nome"),
-        supabase.from("produtos").select("id, codigo, nome, descricao, estoque, estoque_minimo, peso, preco, categoria, localizacao, unidade, ativo").eq("ativo", true).order("nome"),
+        supabase.from("produtos").select("id, codigo, nome, descricao, estoque, estoque_minimo, peso, preco, categoria, cor, localizacao, unidade, ativo").eq("ativo", true).order("nome"),
         supabase.from("kits").select("id, codigo, nome, descricao, preco_total, ativo").eq("ativo", true).order("nome"),
       ]);
       if (filiaisError) throw filiaisError;
@@ -114,7 +115,7 @@ export default function Estoque() {
       // Map produtos
       const produtosMapeados: ProdutoEstoque[] = (produtosData || []).map((p: any) => ({
         id: p.id, codigo: p.codigo, nome: p.nome, descricao: p.descricao,
-        categoria: p.categoria, localizacao: p.localizacao, unidade: p.unidade,
+        categoria: p.categoria, cor: p.cor, localizacao: p.localizacao, unidade: p.unidade,
         peso: p.peso, preco: p.preco,
         estoque: p.estoque, estoque_minimo: p.estoque_minimo,
         estoque_filial: filialSel === MATRIZ_ID ? p.estoque : (estoqueFilialMap[p.id] || 0),
@@ -188,6 +189,7 @@ export default function Estoque() {
     const termo = searchTerm.toLowerCase();
     const matchSearch = (item.descricao || item.nome || "").toLowerCase().includes(termo) ||
                        item.codigo.toLowerCase().includes(termo) ||
+                       (item.cor || "").toLowerCase().includes(termo) ||
                        (!!termo.trim() && boxesDoItem(item.localizacao).some((b) => normalizarBox(b).includes(normalizarBox(termo))));
     const matchTipo = filtroTipo === "todos" || item.categoria === filtroTipo;
     const matchBox = filtroBox === "todos" || boxesDoItem(item.localizacao).includes(filtroBox);
@@ -422,7 +424,7 @@ export default function Estoque() {
               <div className="mb-4 flex flex-wrap gap-4">
                 <div className="relative flex-1 min-w-[200px]">
                   <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input placeholder="Buscar por produto, código ou box..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10" />
+                  <Input placeholder="Buscar por produto, código, cor ou box..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10" />
                 </div>
                 <Select value={filtroTipo} onValueChange={setFiltroTipo}>
                   <SelectTrigger className="w-[200px]"><SelectValue placeholder="Categoria" /></SelectTrigger>
@@ -444,6 +446,7 @@ export default function Estoque() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Produto</TableHead>
+                      <TableHead>Cor</TableHead>
                       <TableHead>Categoria</TableHead>
                       <TableHead>Localização</TableHead>
                       <TableHead className="text-right">Quantidade</TableHead>
@@ -455,10 +458,11 @@ export default function Estoque() {
                   </TableHeader>
                   <TableBody>
                     {estoquesFiltrados.length === 0 ? (
-                      <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Nenhum produto encontrado.</TableCell></TableRow>
+                      <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Nenhum produto encontrado.</TableCell></TableRow>
                     ) : estoquesFiltrados.map((item) => (
                       <TableRow key={item.id}>
                         <TableCell>{item.descricao || item.nome || '-'}</TableCell>
+                        <TableCell>{item.cor?.trim() || '-'}</TableCell>
                         <TableCell><Badge variant="outline">{item.categoria || 'Outros'}</Badge></TableCell>
                         <TableCell>{item.localizacao || '-'}</TableCell>
                         <TableCell className="text-right font-semibold">{item.estoque_filial} {item.unidade || "un"}</TableCell>
