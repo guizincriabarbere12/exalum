@@ -1320,7 +1320,6 @@ export default function OrcamentosPage() {
           forma_pagamento_restante: pagamento.formaPagamentoRestante,
           condicao_pagamento_restante: pagamento.condicaoPagamentoRestante || null,
           parcelas_restante: pagamento.parcelasRestante || 1,
-          observacoes: `${orcamentoParaAprovar.orcamento.observacoes || ''}\n\n💰 PAGAMENTO MISTO NA APROVAÇÃO:\n- Crédito utilizado: R$ ${pagamento.valorCredito.toFixed(2)}\n- Restante: R$ ${valorRestante.toFixed(2)} com ${getFormaPagamentoLabel(pagamento.formaPagamentoRestante)}${pagamento.parcelasRestante && pagamento.parcelasRestante > 1 ? ` em ${pagamento.parcelasRestante}x` : ''}`
         })
         .eq('id', orcamentoParaAprovar.id);
 
@@ -3004,9 +3003,9 @@ const AddOrcamentoContent = ({ onClose }: { onClose: () => void }) => {
         }
       }
 
-      const observacoesCompletas = observacoes 
-        ? `${obsPagamento}\n\n${observacoes}`
-        : obsPagamento;
+      // Observacoes ficam so com o que a pessoa digitou - forma/condicao/
+      // parcelas ja tem campos proprios no orcamento.
+      const observacoesCompletas = observacoes;
 
       const { data: orcamento, error: orcError } = await supabase
         .from('orcamentos')
@@ -4667,9 +4666,9 @@ const EditOrcamentoContent = ({ orcamento, onClose }: { orcamento: OrcamentoComI
         }
       }
 
-      const observacoesCompletas = observacoes 
-        ? `${obsPagamento}\n\n${observacoes}`
-        : obsPagamento;
+      // Observacoes ficam so com o que a pessoa digitou - forma/condicao/
+      // parcelas ja tem campos proprios no orcamento.
+      const observacoesCompletas = observacoes;
 
       const { error: orcError } = await supabase
         .from('orcamentos')
