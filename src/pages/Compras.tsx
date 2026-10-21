@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { PlusCircle, Package, FileText, CheckCircle, ShoppingBag, List, Search, RefreshCw, Receipt, Truck, XCircle, Clock, DollarSign, Eye, Printer, Pencil } from 'lucide-react';
+import { PlusCircle, Package, FileText, CheckCircle, ShoppingBag, List, Search, RefreshCw, Receipt, Truck, XCircle, Clock, DollarSign, Eye, Printer, Pencil, HardHat } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import NovaCompra from '@/components/compras/NovaCompra';
+import ComprasUsoInterno from '@/components/compras/ComprasUsoInterno';
 import EditarCompraDialog from '@/components/compras/EditarCompraDialog';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
@@ -672,7 +673,7 @@ export default function Compras() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="lista">
             <List className="mr-2 h-4 w-4" />
             Lista de Compras
@@ -680,6 +681,10 @@ export default function Compras() {
           <TabsTrigger value="nova">
             <ShoppingBag className="mr-2 h-4 w-4" />
             Nova Compra
+          </TabsTrigger>
+          <TabsTrigger value="uso-interno">
+            <HardHat className="mr-2 h-4 w-4" />
+            Uso interno / Obras
           </TabsTrigger>
         </TabsList>
         
@@ -928,6 +933,10 @@ export default function Compras() {
               </CardContent>
             </Card>
           )}
+        </TabsContent>
+
+        <TabsContent value="uso-interno">
+          <ComprasUsoInterno fornecedores={fornecedores} />
         </TabsContent>
       </Tabs>
 
