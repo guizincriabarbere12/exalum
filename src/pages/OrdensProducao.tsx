@@ -852,10 +852,10 @@ export default function OrdensProducao() {
         {loading ? (
           <div className="text-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div><p className="mt-4 text-muted-foreground">Carregando ordens de produção...</p></div>
         ) : (
-          {/* Altura limitada com rolagem propria: a barra horizontal fica sempre
-              na tela (nao so no fim da lista), o cabecalho fica no topo e a
-              coluna Acoes fica fixa a direita. */}
           <div className="mt-4 max-h-[70vh] overflow-auto rounded-md border">
+            {/* Altura limitada com rolagem propria: a barra horizontal fica sempre
+                na tela (nao so no fim da lista), o cabecalho fica no topo e a
+                coluna Acoes fica fixa a direita. */}
             <table className="w-full caption-bottom text-sm">
               <TableHeader className="sticky top-0 z-20 bg-background shadow-sm"><TableRow>
                 <TableHead className="font-bold">Número</TableHead>
