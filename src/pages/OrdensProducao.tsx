@@ -852,9 +852,12 @@ export default function OrdensProducao() {
         {loading ? (
           <div className="text-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div><p className="mt-4 text-muted-foreground">Carregando ordens de produção...</p></div>
         ) : (
-          <div className="overflow-x-auto mt-4">
-            <Table>
-              <TableHeader><TableRow>
+          {/* Altura limitada com rolagem propria: a barra horizontal fica sempre
+              na tela (nao so no fim da lista), o cabecalho fica no topo e a
+              coluna Acoes fica fixa a direita. */}
+          <div className="mt-4 max-h-[70vh] overflow-auto rounded-md border">
+            <table className="w-full caption-bottom text-sm">
+              <TableHeader className="sticky top-0 z-20 bg-background shadow-sm"><TableRow>
                 <TableHead className="font-bold">Número</TableHead>
                 <TableHead className="font-bold">Itens</TableHead>
                 <TableHead className="font-bold">Pintar para</TableHead>
@@ -864,7 +867,7 @@ export default function OrdensProducao() {
                 <TableHead className="font-bold">Retorno</TableHead>
                 <TableHead className="font-bold text-right">Custo</TableHead>
                 <TableHead className="font-bold">Status</TableHead>
-                <TableHead className="font-bold text-right">Ações</TableHead>
+                <TableHead className="font-bold text-right sticky right-0 z-30 bg-background border-l">Ações</TableHead>
               </TableRow></TableHeader>
               <TableBody>
                 {ordensFiltradas.length === 0 ? (
@@ -876,7 +879,7 @@ export default function OrdensProducao() {
                   const qtdTotal = op.itens.reduce((s, i) => s + (Number(i.quantidade) || 0), 0);
                   const unicoDestino = op.itens.length === 1 ? op.itens[0].produto_destino : null;
                   return (
-                    <TableRow key={op.id} className="hover:bg-muted/50">
+                    <TableRow key={op.id} className="group hover:bg-muted/50">
                       <TableCell className="font-mono font-medium">{op.numero}</TableCell>
                       <TableCell>
                         <div className="flex flex-col">
@@ -907,7 +910,7 @@ export default function OrdensProducao() {
                       <TableCell>{formatDate(op.data_retorno)}</TableCell>
                       <TableCell className="text-right font-bold text-primary">{formatCurrency(op.custo_pintura)}</TableCell>
                       <TableCell><Badge variant="outline" className={si.className}><SIcon className="h-3 w-3 mr-1" />{si.label}</Badge></TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="text-right sticky right-0 z-10 bg-background group-hover:bg-muted border-l">
                         <div className="flex justify-end gap-1">
                           <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => { setOpDetalhes(op); setDialogDetalhesAberto(true); }} title="Detalhes"><Eye className="h-4 w-4" /></Button>
                           <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => handleVerHistorico(op)} title="Histórico"><History className="h-4 w-4" /></Button>
@@ -935,7 +938,7 @@ export default function OrdensProducao() {
                   );
                 })}
               </TableBody>
-            </Table>
+            </table>
           </div>
         )}
       </CardContent></Card>
