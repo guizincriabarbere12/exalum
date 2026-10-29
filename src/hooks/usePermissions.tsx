@@ -14,6 +14,7 @@ export const MODULOS = [
   { key: "kits-montados", label: "Kits Montados" },
   { key: "estoque", label: "Estoque" },
   { key: "ordens-producao", label: "Ordens de Produção" },
+  { key: "alumia", label: "AlumIA Esquadrias" },
   { key: "filiais", label: "Filiais" },
   { key: "transferencias-estoque", label: "Transferências" },
   { key: "clientes", label: "Clientes" },

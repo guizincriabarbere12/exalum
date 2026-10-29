@@ -31,6 +31,7 @@ import Compras from "./pages/Compras";
 import SaldoClientes from "./pages/SaldoClientes";
 import Vendedores from "./pages/Vendedores";
 import OrdensProducao from "./pages/OrdensProducao";
+import AlumiaEsquadria from "./pages/AlumiaEsquadria";
 import Filiais from "./pages/Filiais";
 import TransferenciasEstoque from "./pages/TransferenciasEstoque";
 import FinanceiroSub from "./pages/FinanceiroSub";
@@ -333,6 +334,16 @@ const App = () => (
             }
           />
           
+          <Route
+            path="/alumia"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <AlumiaEsquadria />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
           <Route
             path="/ordens-producao"
             element={

@@ -6,7 +6,7 @@ import {
   Boxes, ShoppingBag, Wallet, UserCheck, PaintBucket, Building2, ArrowLeftRight,
   ChevronDown, ChevronRight, Landmark, CreditCard, ArrowDownCircle, ArrowUpCircle,
   Send, FileSpreadsheet, Percent, Receipt, ClipboardCheck, BarChart3 as BarChartIcon,
-  Hammer, ShieldCheck, PackageCheck, FileCheck, MessageCircle, Smartphone,
+  Hammer, Ruler, ShieldCheck, PackageCheck, FileCheck, MessageCircle, Smartphone,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useCompanyConfig } from "@/hooks/useCompanyConfig";
@@ -35,6 +35,7 @@ const menuItems = [
   { title: "Kits Montados", url: "/kits-montados", icon: Package, modulo: "kits-montados" },
   { title: "Estoque", url: "/estoque", icon: Warehouse, modulo: "estoque" },
   { title: "Ord. Produção", url: "/ordens-producao", icon: PaintBucket, modulo: "ordens-producao" },
+  { title: "AlumIA Esquadrias", url: "/alumia", icon: Ruler, modulo: "alumia" },
   { title: "Filiais", url: "/filiais", icon: Building2, modulo: "filiais" },
   { title: "Transferências", url: "/transferencias-estoque", icon: ArrowLeftRight, modulo: "transferencias-estoque" },
   { title: "Clientes", url: "/clientes", icon: Users, modulo: "clientes" },

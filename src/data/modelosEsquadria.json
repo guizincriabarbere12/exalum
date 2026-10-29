@@ -1,0 +1,6167 @@
+[
+ {
+  "id": "hydro-nova-gold-256",
+  "nome": "Janela de correr 2 folhas com reforço interno – Contact (I-01)",
+  "sistema": "Nova Gold",
+  "folhas": 2,
+  "referencia": {
+   "arquivo": "Catalogos/catalogo_nova_gold-r47.pdf",
+   "pagina": 256
+  },
+  "itens": [
+   {
+    "tipo": "perfil",
+    "codigo": "GN003",
+    "descricao": "Marco travessa superior",
+    "formula": "L",
+    "qtd": "1",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "GN001",
+    "descricao": "Marco travessa inferior",
+    "formula": "L",
+    "qtd": "1",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "GN004",
+    "descricao": "Marco montante lateral",
+    "formula": "H",
+    "qtd": "2",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "GN007",
+    "descricao": "Folha travessa (sup./inf.)",
+    "formula": "(L-147)/2",
+    "qtd": "2*F",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "GN012",
+    "descricao": "Folha montante lateral",
+    "formula": "H-59,6",
+    "qtd": "F",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "GN010",
+    "descricao": "Folha montante mão de amigo",
+    "formula": "H-59,6",
+    "qtd": "1",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "GN011",
+    "descricao": "Folha montante mão de amigo com reforço",
+    "formula": "H-59,6",
+    "qtd": "1",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "GN013",
+    "descricao": "Baguete horizontal",
+    "formula": "(L-243)/2",
+    "qtd": "2*F",
+    "origem": "cat",
+    "corte": "90",
+    "baguete": "com"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "GN009",
+    "descricao": "Baguete vertical",
+    "formula": "H-165",
+    "qtd": "2*F",
+    "origem": "cat",
+    "corte": "90",
+    "baguete": "com"
+   },
+   {
+    "tipo": "vidro",
+    "codigo": "VIDRO",
+    "descricao": "Vidro da folha",
+    "formula": "(L-195)/2",
+    "formula2": "H-169,6",
+    "qtd": "F",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "FEC1205",
+    "descricao": "Fecho",
+    "formula": "",
+    "qtd": "1",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "BAT950",
+    "descricao": "Batedor",
+    "formula": "",
+    "qtd": "2",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "KITGN07",
+    "descricao": "Kit de vedação superior",
+    "formula": "",
+    "qtd": "1",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "KITGN03",
+    "descricao": "Kit de vedação",
+    "formula": "",
+    "qtd": "1",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "NYL546",
+    "descricao": "Roldana",
+    "formula": "",
+    "qtd": "2*F",
+    "origem": "inf"
+   }
+  ],
+  "observacoes": "Altura da folha deduzida: H − 2×29,8 (folga marco/folha). Marco = vão L × H; comprimento do trilho e dos montantes da folha deduzidos das cotas verticais/horizontais.",
+  "oficial": true,
+  "variaveis": []
+ },
+ {
+  "id": "hydro-nova-gold-280",
+  "nome": "Porta de correr 2 folhas – Tradicional (I-25)",
+  "sistema": "Nova Gold",
+  "folhas": 2,
+  "referencia": {
+   "arquivo": "Catalogos/catalogo_nova_gold-r47.pdf",
+   "pagina": 280
+  },
+  "itens": [
+   {
+    "tipo": "perfil",
+    "codigo": "GN003",
+    "descricao": "Marco travessa superior",
+    "formula": "L",
+    "qtd": "1",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "GN001",
+    "descricao": "Marco travessa inferior",
+    "formula": "L",
+    "qtd": "1",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "GN004",
+    "descricao": "Marco montante lateral",
+    "formula": "H",
+    "qtd": "2",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "GN007",
+    "descricao": "Folha travessa superior",
+    "formula": "(L-141)/2",
+    "qtd": "F",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "GN015",
+    "descricao": "Folha travessa intermediária",
+    "formula": "(L-141)/2",
+    "qtd": "F",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "GN014",
+    "descricao": "Folha travessa inferior (porta)",
+    "formula": "(L-141)/2",
+    "qtd": "F",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "GN016",
+    "descricao": "Folha montante lateral com reforço",
+    "formula": "H-59,6",
+    "qtd": "F",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "GN017",
+    "descricao": "Folha montante mão de amigo com reforço",
+    "formula": "H-59,6",
+    "qtd": "F",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "GN013",
+    "descricao": "Baguete horizontal",
+    "formula": "(L-249)/2",
+    "qtd": "4*F",
+    "origem": "cat",
+    "corte": "90",
+    "baguete": "com"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "GN009",
+    "descricao": "Baguete vertical – vidro superior",
+    "formula": "H-HT-102",
+    "qtd": "2*F",
+    "origem": "cat",
+    "corte": "90",
+    "baguete": "com"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "GN009",
+    "descricao": "Baguete vertical – vidro inferior",
+    "formula": "HT-133,6",
+    "qtd": "2*F",
+    "origem": "cat",
+    "corte": "90",
+    "baguete": "com"
+   },
+   {
+    "tipo": "vidro",
+    "codigo": "VIDRO",
+    "descricao": "Vidro superior",
+    "formula": "(L-201)/2",
+    "formula2": "H-HT-107",
+    "qtd": "F",
+    "origem": "cat"
+   },
+   {
+    "tipo": "vidro",
+    "codigo": "VIDRO",
+    "descricao": "Vidro inferior",
+    "formula": "(L-201)/2",
+    "formula2": "HT-138,6",
+    "qtd": "F",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "FEC1106",
+    "descricao": "Fecho",
+    "formula": "",
+    "qtd": "1",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "CON536",
+    "descricao": "Contra-fecho",
+    "formula": "",
+    "qtd": "1",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "TRA044",
+    "descricao": "Trava",
+    "formula": "",
+    "qtd": "1",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "BAT950",
+    "descricao": "Batedor",
+    "formula": "",
+    "qtd": "2",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "KITGN08",
+    "descricao": "Kit de vedação superior",
+    "formula": "",
+    "qtd": "1",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "NYL546",
+    "descricao": "Roldana",
+    "formula": "",
+    "qtd": "2*F",
+    "origem": "inf"
+   }
+  ],
+  "observacoes": "Altura da folha deduzida: H − 2×29,8. Marco = vão L × H; comprimento do trilho e dos montantes da folha deduzidos das cotas verticais/horizontais.",
+  "oficial": true,
+  "variaveis": [
+   {
+    "nome": "HT",
+    "descricao": "Altura da travessa intermediária (do piso ao eixo)",
+    "padrao": 1000
+   }
+  ]
+ },
+ {
+  "id": "hydro-nova-gold-288",
+  "nome": "Porta de correr 4 folhas (2 fixas + 2 móveis) – Tradicional (I-33)",
+  "sistema": "Nova Gold",
+  "folhas": 4,
+  "referencia": {
+   "arquivo": "Catalogos/catalogo_nova_gold-r47.pdf",
+   "pagina": 288
+  },
+  "itens": [
+   {
+    "tipo": "perfil",
+    "codigo": "GN003",
+    "descricao": "Marco travessa superior",
+    "formula": "L",
+    "qtd": "1",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "GN001",
+    "descricao": "Marco travessa inferior",
+    "formula": "L",
+    "qtd": "1",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "GN004",
+    "descricao": "Marco montante lateral",
+    "formula": "H",
+    "qtd": "2",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "GN007",
+    "descricao": "Folha travessa superior",
+    "formula": "(L-238)/4",
+    "qtd": "F",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "GN015",
+    "descricao": "Folha travessa intermediária",
+    "formula": "(L-238)/4",
+    "qtd": "F",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "GN014",
+    "descricao": "Folha travessa inferior (porta)",
+    "formula": "(L-238)/4",
+    "qtd": "F",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "GN016",
+    "descricao": "Folha montante lateral com reforço",
+    "formula": "H-59,6",
+    "qtd": "F",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "GN017",
+    "descricao": "Folha montante mão de amigo com reforço",
+    "formula": "H-59,6",
+    "qtd": "F",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "GN051",
+    "descricao": "Mata-junta central",
+    "formula": "H-59,6",
+    "qtd": "1",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "GN013",
+    "descricao": "Baguete horizontal",
+    "formula": "(L-454)/4",
+    "qtd": "4*F",
+    "origem": "cat",
+    "corte": "90",
+    "baguete": "com"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "GN009",
+    "descricao": "Baguete vertical – vidro superior",
+    "formula": "H-HT-102",
+    "qtd": "2*F",
+    "origem": "cat",
+    "corte": "90",
+    "baguete": "com"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "GN009",
+    "descricao": "Baguete vertical – vidro inferior",
+    "formula": "HT-133,6",
+    "qtd": "2*F",
+    "origem": "cat",
+    "corte": "90",
+    "baguete": "com"
+   },
+   {
+    "tipo": "vidro",
+    "codigo": "VIDRO",
+    "descricao": "Vidro superior",
+    "formula": "(L-358)/4",
+    "formula2": "H-HT-107",
+    "qtd": "F",
+    "origem": "cat"
+   },
+   {
+    "tipo": "vidro",
+    "codigo": "VIDRO",
+    "descricao": "Vidro inferior",
+    "formula": "(L-358)/4",
+    "formula2": "HT-138,6",
+    "qtd": "F",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "FEC1106",
+    "descricao": "Fecho",
+    "formula": "",
+    "qtd": "1",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "FEC1208",
+    "descricao": "Fecho central",
+    "formula": "",
+    "qtd": "1",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "CON536",
+    "descricao": "Contra-fecho",
+    "formula": "",
+    "qtd": "1",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "TRA044",
+    "descricao": "Trava",
+    "formula": "",
+    "qtd": "2",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "BAT950",
+    "descricao": "Batedor",
+    "formula": "",
+    "qtd": "2",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "KITGN08",
+    "descricao": "Kit de vedação superior",
+    "formula": "",
+    "qtd": "2",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "NYL546",
+    "descricao": "Roldana",
+    "formula": "",
+    "qtd": "2*F",
+    "origem": "inf"
+   }
+  ],
+  "observacoes": "Altura da folha deduzida: H − 2×29,8. Contramarco CM174 opcional. Marco = vão L × H; comprimento do trilho e dos montantes da folha deduzidos das cotas verticais/horizontais.",
+  "oficial": true,
+  "variaveis": [
+   {
+    "nome": "HT",
+    "descricao": "Altura da travessa intermediária (do piso ao eixo)",
+    "padrao": 1000
+   }
+  ]
+ },
+ {
+  "id": "hydro-nova-gold-263",
+  "nome": "Janela de correr 4 folhas com reforço interno – Tradicional (I-08)",
+  "sistema": "Nova Gold",
+  "folhas": 4,
+  "referencia": {
+   "arquivo": "Catalogos/catalogo_nova_gold-r47.pdf",
+   "pagina": 263
+  },
+  "itens": [
+   {
+    "tipo": "perfil",
+    "codigo": "GN003",
+    "descricao": "Marco travessa superior",
+    "formula": "L",
+    "qtd": "1",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "GN001",
+    "descricao": "Marco travessa inferior",
+    "formula": "L",
+    "qtd": "1",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "GN004",
+    "descricao": "Marco montante lateral",
+    "formula": "H",
+    "qtd": "2",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "GN007",
+    "descricao": "Folha travessa (sup./inf.)",
+    "formula": "(L-250)/4",
+    "qtd": "2*F",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "GN012",
+    "descricao": "Folha montante lateral",
+    "formula": "H-59,6",
+    "qtd": "4",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "GN010",
+    "descricao": "Folha montante mão de amigo",
+    "formula": "H-59,6",
+    "qtd": "2",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "GN011",
+    "descricao": "Folha montante mão de amigo com reforço",
+    "formula": "H-59,6",
+    "qtd": "2",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "GN051",
+    "descricao": "Mata-junta central",
+    "formula": "H-59,6",
+    "qtd": "1",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "GN013",
+    "descricao": "Baguete horizontal",
+    "formula": "(L-442)/4",
+    "qtd": "2*F",
+    "origem": "cat",
+    "corte": "90",
+    "baguete": "com"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "GN009",
+    "descricao": "Baguete vertical",
+    "formula": "H-165",
+    "qtd": "2*F",
+    "origem": "cat",
+    "corte": "90",
+    "baguete": "com"
+   },
+   {
+    "tipo": "vidro",
+    "codigo": "VIDRO",
+    "descricao": "Vidro da folha",
+    "formula": "(L-346)/4",
+    "formula2": "H-169,6",
+    "qtd": "F",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "FEC1106",
+    "descricao": "Fecho",
+    "formula": "",
+    "qtd": "1",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "FEC1208",
+    "descricao": "Fecho central",
+    "formula": "",
+    "qtd": "1",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "CON536",
+    "descricao": "Contra-fecho",
+    "formula": "",
+    "qtd": "1",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "TRA044",
+    "descricao": "Trava",
+    "formula": "",
+    "qtd": "2",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "BAT950",
+    "descricao": "Batedor",
+    "formula": "",
+    "qtd": "2",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "KITGN08",
+    "descricao": "Kit de vedação superior",
+    "formula": "",
+    "qtd": "2",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "KITGN04",
+    "descricao": "Kit de vedação lateral",
+    "formula": "",
+    "qtd": "2",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "NYL546",
+    "descricao": "Roldana",
+    "formula": "",
+    "qtd": "2*F",
+    "origem": "inf"
+   }
+  ],
+  "observacoes": "Altura da folha deduzida: H − 2×29,8. Contramarco CM060 opcional. Marco = vão L × H; comprimento do trilho e dos montantes da folha deduzidos das cotas verticais/horizontais.",
+  "oficial": true,
+  "variaveis": []
+ },
+ {
+  "id": "hydro-nova-gold-299",
+  "nome": "Janela maxim-ar 1 folha com baguete (I-44)",
+  "sistema": "Nova Gold",
+  "folhas": 1,
+  "referencia": {
+   "arquivo": "Catalogos/catalogo_nova_gold-r47.pdf",
+   "pagina": 299
+  },
+  "itens": [
+   {
+    "tipo": "perfil",
+    "codigo": "GN020",
+    "descricao": "Marco (montante e travessa) – horizontal",
+    "formula": "L",
+    "qtd": "2",
+    "origem": "inf",
+    "corte": "45"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "GN020",
+    "descricao": "Marco (montante e travessa) – vertical",
+    "formula": "H",
+    "qtd": "2",
+    "origem": "inf",
+    "corte": "45"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "GN018",
+    "descricao": "Folha maxim-ar – horizontal",
+    "formula": "L-106,4",
+    "qtd": "2",
+    "origem": "inf",
+    "corte": "45"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "GN018",
+    "descricao": "Folha maxim-ar – vertical",
+    "formula": "H-105,4",
+    "qtd": "2",
+    "origem": "inf",
+    "corte": "45"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "GN019",
+    "descricao": "Baguete horizontal",
+    "formula": "L-147,6",
+    "qtd": "2",
+    "origem": "cat",
+    "corte": "90",
+    "baguete": "com"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "GN019",
+    "descricao": "Baguete vertical",
+    "formula": "H-184",
+    "qtd": "2",
+    "origem": "cat",
+    "corte": "90",
+    "baguete": "com"
+   },
+   {
+    "tipo": "vidro",
+    "codigo": "VIDRO",
+    "descricao": "Vidro",
+    "formula": "L-153,6",
+    "formula2": "H-152,6",
+    "qtd": "1",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "FEC1213",
+    "descricao": "Fecho",
+    "formula": "",
+    "qtd": "1",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "CON540",
+    "descricao": "Contra-fecho",
+    "formula": "",
+    "qtd": "1",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "CON547",
+    "descricao": "Contra-fecho lateral",
+    "formula": "",
+    "qtd": "2",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "KITGN20",
+    "descricao": "Kit de vedação",
+    "formula": "",
+    "qtd": "1",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "BRACO",
+    "descricao": "Braço maxim-ar (consultar catálogo)",
+    "formula": "",
+    "qtd": "2",
+    "origem": "inf"
+   }
+  ],
+  "observacoes": "Folha deduzida como vidro + 2×(3 folga + 20,6 face da folha); conferir. Usar limitador de abertura para folhas acima de 1200 mm. Contramarco CM200 opcional.",
+  "oficial": true,
+  "variaveis": []
+ },
+ {
+  "id": "hydro-gold-slim-165",
+  "nome": "Janela de correr 2 folhas vidro com baguetes (I-01)",
+  "sistema": "Gold Slim",
+  "folhas": 2,
+  "referencia": {
+   "arquivo": "Catalogos/catalogo_goldslim-r25.pdf",
+   "pagina": 165
+  },
+  "itens": [
+   {
+    "tipo": "perfil",
+    "codigo": "LG044",
+    "descricao": "Marco travessa superior",
+    "formula": "L",
+    "qtd": "1",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "LG245",
+    "descricao": "Marco travessa inferior",
+    "formula": "L",
+    "qtd": "1",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "LG111",
+    "descricao": "Click trilho",
+    "formula": "L-48",
+    "qtd": "1",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "LG124",
+    "descricao": "Marco montante lateral",
+    "formula": "H",
+    "qtd": "2",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "LG006",
+    "descricao": "Folha travessa (sup./inf.)",
+    "formula": "(L-162,4)/2+6",
+    "qtd": "2*F",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "LG263",
+    "descricao": "Folha montante lateral",
+    "formula": "H-52",
+    "qtd": "F",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "LG248",
+    "descricao": "Folha mão de amigo",
+    "formula": "H-52",
+    "qtd": "1",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "LG249",
+    "descricao": "Folha mão de amigo",
+    "formula": "H-52",
+    "qtd": "1",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "vidro",
+    "codigo": "VIDRO",
+    "descricao": "Vidro da folha",
+    "formula": "(L-162,4)/2",
+    "formula2": "H-140",
+    "qtd": "F",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "CON381",
+    "descricao": "Contra-fecho superior",
+    "formula": "",
+    "qtd": "1",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "CON383",
+    "descricao": "Contra-fecho",
+    "formula": "",
+    "qtd": "1",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "BAT952",
+    "descricao": "Batedor",
+    "formula": "",
+    "qtd": "1",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "NYL587",
+    "descricao": "Roldana (ver tabela de roldanas)",
+    "formula": "",
+    "qtd": "2*F",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "NYL590",
+    "descricao": "Conjunto de vedação mão de amigo",
+    "formula": "",
+    "qtd": "2",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "NYL621",
+    "descricao": "Conjunto de vedação montante lateral",
+    "formula": "",
+    "qtd": "2",
+    "origem": "inf"
+   }
+  ],
+  "observacoes": "Cotas do catálogo referem-se ao vidro (com 3 mm de folga em cada lado). Travessa = vidro + 2×3; altura da folha = H − 25 − 3 − 24. Contramarco CM060 opcional.",
+  "oficial": true,
+  "variaveis": []
+ },
+ {
+  "id": "hydro-gold-slim-177",
+  "nome": "Porta de correr 2 folhas vidro com baguetes (I-13)",
+  "sistema": "Gold Slim",
+  "folhas": 2,
+  "referencia": {
+   "arquivo": "Catalogos/catalogo_goldslim-r25.pdf",
+   "pagina": 177
+  },
+  "itens": [
+   {
+    "tipo": "perfil",
+    "codigo": "LG044",
+    "descricao": "Marco travessa superior",
+    "formula": "L",
+    "qtd": "1",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "LG245",
+    "descricao": "Marco travessa inferior",
+    "formula": "L",
+    "qtd": "1",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "LG111",
+    "descricao": "Click trilho",
+    "formula": "L-48",
+    "qtd": "1",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "LG124",
+    "descricao": "Marco montante lateral",
+    "formula": "H",
+    "qtd": "2",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "LG006",
+    "descricao": "Folha travessa superior",
+    "formula": "(L-162,4)/2+6",
+    "qtd": "F",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "LG055",
+    "descricao": "Folha travessa intermediária",
+    "formula": "(L-162,4)/2+6",
+    "qtd": "F",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "LG007",
+    "descricao": "Folha travessa inferior (porta)",
+    "formula": "(L-162,4)/2+6",
+    "qtd": "F",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "LG259",
+    "descricao": "Folha montante lateral com reforço",
+    "formula": "H-53",
+    "qtd": "F",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "LG250",
+    "descricao": "Folha mão de amigo com reforço",
+    "formula": "H-53",
+    "qtd": "1",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "LG251",
+    "descricao": "Folha mão de amigo com reforço",
+    "formula": "H-53",
+    "qtd": "1",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "vidro",
+    "codigo": "VIDRO",
+    "descricao": "Vidro (2 por folha)",
+    "formula": "(L-162,4)/2",
+    "formula2": "(H-225)/2",
+    "qtd": "2*F",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "CON381",
+    "descricao": "Contra-fecho superior",
+    "formula": "",
+    "qtd": "1",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "CON383",
+    "descricao": "Contra-fecho",
+    "formula": "",
+    "qtd": "1",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "BAT952",
+    "descricao": "Batedor",
+    "formula": "",
+    "qtd": "1",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "NYL587",
+    "descricao": "Roldana (ver tabela de roldanas)",
+    "formula": "",
+    "qtd": "2*F",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "NYL590",
+    "descricao": "Conjunto de vedação mão de amigo",
+    "formula": "",
+    "qtd": "2",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "NYL621",
+    "descricao": "Conjunto de vedação montante lateral",
+    "formula": "",
+    "qtd": "2",
+    "origem": "inf"
+   }
+  ],
+  "observacoes": "Cotas do catálogo referem-se aos vidros. Travessas = vidro + 2×3; altura da folha = H − 25 − 3 − 25. Travessa intermediária centralizada (vidros iguais). Contramarco CM173/CM174 opcional.",
+  "oficial": true,
+  "variaveis": []
+ },
+ {
+  "id": "hydro-gold-iv-195",
+  "nome": "Janela de correr 2 folhas com baguetes (I-01)",
+  "sistema": "Gold IV",
+  "folhas": 2,
+  "referencia": {
+   "arquivo": "Catalogos/catalogo_ivgold-r12.pdf",
+   "pagina": 195
+  },
+  "itens": [
+   {
+    "tipo": "perfil",
+    "codigo": "LG044",
+    "descricao": "Marco travessa superior",
+    "formula": "L",
+    "qtd": "1",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "LG115",
+    "descricao": "Marco travessa inferior",
+    "formula": "L",
+    "qtd": "1",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "LG111",
+    "descricao": "Click trilho",
+    "formula": "L-48",
+    "qtd": "1",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "LG124",
+    "descricao": "Marco montante lateral",
+    "formula": "H",
+    "qtd": "2",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "LG006",
+    "descricao": "Folha travessa (sup./inf.)",
+    "formula": "(L-196)/2+6",
+    "qtd": "2*F",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "LG050",
+    "descricao": "Folha montante lateral",
+    "formula": "H-54",
+    "qtd": "F",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "LG048",
+    "descricao": "Folha mão de amigo",
+    "formula": "H-54",
+    "qtd": "1",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "LG049",
+    "descricao": "Folha mão de amigo",
+    "formula": "H-54",
+    "qtd": "1",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "vidro",
+    "codigo": "VIDRO",
+    "descricao": "Vidro da folha",
+    "formula": "(L-196)/2",
+    "formula2": "H-142,6",
+    "qtd": "F",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "FRA996",
+    "descricao": "Fecho (ver tabela de fechos)",
+    "formula": "",
+    "qtd": "1",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "CON381",
+    "descricao": "Contra-fecho superior",
+    "formula": "",
+    "qtd": "1",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "CON382",
+    "descricao": "Contra-fecho",
+    "formula": "",
+    "qtd": "1",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "BAT952",
+    "descricao": "Batedor",
+    "formula": "",
+    "qtd": "1",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "NYL395",
+    "descricao": "Roldana (ver tabela de roldanas)",
+    "formula": "",
+    "qtd": "2*F",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "NYL396",
+    "descricao": "Vedação",
+    "formula": "",
+    "qtd": "2",
+    "origem": "inf"
+   }
+  ],
+  "observacoes": "Cotas do catálogo referem-se ao vidro. Travessa = vidro + 2×3; altura da folha = H − 27 − 3 − 24. Contramarco CM060 opcional.",
+  "oficial": true,
+  "variaveis": []
+ },
+ {
+  "id": "hydro-master-139",
+  "nome": "Janela de correr 2 folhas (I-03)",
+  "sistema": "Master",
+  "folhas": 2,
+  "referencia": {
+   "arquivo": "Catalogos/catalogo_master-r16.pdf",
+   "pagina": 139
+  },
+  "itens": [
+   {
+    "tipo": "perfil",
+    "codigo": "MH023",
+    "descricao": "Marco travessa superior",
+    "formula": "L",
+    "qtd": "1",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "MH028",
+    "descricao": "Marco travessa inferior",
+    "formula": "L",
+    "qtd": "1",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "MH024",
+    "descricao": "Marco montante lateral",
+    "formula": "H",
+    "qtd": "2",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "MH013",
+    "descricao": "Folha travessa (sup./inf.)",
+    "formula": "(L-154,6)/2+6",
+    "qtd": "2*F",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "MH010",
+    "descricao": "Folha montante lateral",
+    "formula": "H-50",
+    "qtd": "F",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "MH011",
+    "descricao": "Folha montante mão de amigo",
+    "formula": "H-50",
+    "qtd": "1",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "MH012",
+    "descricao": "Folha montante mão de amigo",
+    "formula": "H-50",
+    "qtd": "1",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "MH014",
+    "descricao": "Baguete horizontal (vidro 3 e 4 mm)",
+    "formula": "(L-154,6)/2+6",
+    "qtd": "2*F",
+    "origem": "inf",
+    "corte": "90",
+    "baguete": "com"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "MH015",
+    "descricao": "Baguete vertical (vidro 3 e 4 mm)",
+    "formula": "H-147,6",
+    "qtd": "2*F",
+    "origem": "cat",
+    "corte": "90",
+    "baguete": "com"
+   },
+   {
+    "tipo": "vidro",
+    "codigo": "VIDRO",
+    "descricao": "Vidro da folha",
+    "formula": "(L-154,6)/2",
+    "formula2": "H-129,6",
+    "qtd": "F",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "CON370",
+    "descricao": "Contra-fecho",
+    "formula": "",
+    "qtd": "1",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "BAT952",
+    "descricao": "Batedor",
+    "formula": "",
+    "qtd": "1",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "NYL412",
+    "descricao": "Roldana (ver tabela de roldanas)",
+    "formula": "",
+    "qtd": "2*F",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "NYL413",
+    "descricao": "Guia superior",
+    "formula": "",
+    "qtd": "2*F",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "NYL444",
+    "descricao": "Vedação mão de amigo",
+    "formula": "",
+    "qtd": "2",
+    "origem": "inf"
+   }
+  ],
+  "observacoes": "Vidro (L−154,6)/2 × (H−129,6) e baguete vertical H−147,6 do catálogo. Travessa e baguete horizontal = vidro + 2×3; altura da folha = H − 2×25. Contramarco CM060 opcional.",
+  "oficial": true,
+  "variaveis": []
+ },
+ {
+  "id": "hydro-master-152",
+  "nome": "Porta de correr 2 folhas (I-16)",
+  "sistema": "Master",
+  "folhas": 2,
+  "referencia": {
+   "arquivo": "Catalogos/catalogo_master-r16.pdf",
+   "pagina": 152
+  },
+  "itens": [
+   {
+    "tipo": "perfil",
+    "codigo": "MH023",
+    "descricao": "Marco travessa superior",
+    "formula": "L",
+    "qtd": "1",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "MH031",
+    "descricao": "Marco travessa inferior (porta)",
+    "formula": "L",
+    "qtd": "1",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "MH024",
+    "descricao": "Marco montante lateral",
+    "formula": "H",
+    "qtd": "2",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "MH013",
+    "descricao": "Folha travessa superior",
+    "formula": "(L-154,6)/2+6",
+    "qtd": "F",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "MH025",
+    "descricao": "Folha travessa intermediária",
+    "formula": "(L-154,6)/2+6",
+    "qtd": "F",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "MH027",
+    "descricao": "Folha travessa inferior",
+    "formula": "(L-154,6)/2+6",
+    "qtd": "F",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "MH032",
+    "descricao": "Folha montante lateral com reforço",
+    "formula": "H-60",
+    "qtd": "F",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "MH026",
+    "descricao": "Folha montante mão de amigo com reforço",
+    "formula": "H-60",
+    "qtd": "1",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "MH030",
+    "descricao": "Folha montante mão de amigo com reforço",
+    "formula": "H-60",
+    "qtd": "1",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "MH014",
+    "descricao": "Baguete horizontal",
+    "formula": "(L-154,6)/2+6",
+    "qtd": "4*F",
+    "origem": "inf",
+    "corte": "90",
+    "baguete": "com"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "MH015",
+    "descricao": "Baguete vertical",
+    "formula": "(H-203,3)/2-12",
+    "qtd": "4*F",
+    "origem": "inf",
+    "corte": "90",
+    "baguete": "com"
+   },
+   {
+    "tipo": "vidro",
+    "codigo": "VIDRO",
+    "descricao": "Vidro (2 por folha)",
+    "formula": "(L-154,6)/2",
+    "formula2": "(H-203,3)/2",
+    "qtd": "2*F",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "BAT952",
+    "descricao": "Batedor",
+    "formula": "",
+    "qtd": "1",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "NYL412",
+    "descricao": "Roldana (ver tabela de roldanas)",
+    "formula": "",
+    "qtd": "2*F",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "NYL444",
+    "descricao": "Vedação mão de amigo",
+    "formula": "",
+    "qtd": "2",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "TAR001",
+    "descricao": "Tarugo",
+    "formula": "",
+    "qtd": "2",
+    "origem": "inf"
+   }
+  ],
+  "observacoes": "Largura do vidro (L−154,6)/2 do catálogo. Alturas dos vidros deduzidas da soma das cotas verticais (15+10+35,3+3 | 3+28+3 | 3+68+35) com travessa centralizada – conferir posição da travessa. Contramarco CM060/CM098 opcional.",
+  "oficial": true,
+  "variaveis": []
+ },
+ {
+  "id": "hydro-inova-153",
+  "nome": "Janela de correr 2 folhas com baguetes (I-02)",
+  "sistema": "Inova",
+  "folhas": 2,
+  "referencia": {
+   "arquivo": "Catalogos/catalogo_inova-r13.pdf",
+   "pagina": 153
+  },
+  "itens": [
+   {
+    "tipo": "perfil",
+    "codigo": "IN012",
+    "descricao": "Marco travessa superior",
+    "formula": "L",
+    "qtd": "1",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "IN013",
+    "descricao": "Marco travessa inferior",
+    "formula": "L",
+    "qtd": "1",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "IN003",
+    "descricao": "Marco montante lateral",
+    "formula": "H",
+    "qtd": "2",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "IN004",
+    "descricao": "Folha travessa (sup./inf.)",
+    "formula": "(L-160,1)/2+6",
+    "qtd": "2*F",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "IN006",
+    "descricao": "Folha montante lateral",
+    "formula": "H-48,5",
+    "qtd": "F",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "IN007",
+    "descricao": "Folha montante mão de amigo",
+    "formula": "H-48,5",
+    "qtd": "1",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "IN008",
+    "descricao": "Folha montante mão de amigo",
+    "formula": "H-48,5",
+    "qtd": "1",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "vidro",
+    "codigo": "VIDRO",
+    "descricao": "Vidro da folha",
+    "formula": "(L-160,1)/2",
+    "formula2": "H-134,5",
+    "qtd": "F",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "CON370",
+    "descricao": "Contra-fecho",
+    "formula": "",
+    "qtd": "1",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "BAT952",
+    "descricao": "Batedor",
+    "formula": "",
+    "qtd": "1",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "NYL452",
+    "descricao": "Roldana (ver tabela de roldanas)",
+    "formula": "",
+    "qtd": "2*F",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "NYL453",
+    "descricao": "Guia superior",
+    "formula": "",
+    "qtd": "2*F",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "NYL454",
+    "descricao": "Vedação mão de amigo",
+    "formula": "",
+    "qtd": "2",
+    "origem": "inf"
+   }
+  ],
+  "observacoes": "Vidro do catálogo; baguetes conforme tabela de alternativas (vão entre travessas H−152,5). Travessa = vidro + 2×3; altura da folha = H − 24 − 24,5. Contramarco CM060 opcional.",
+  "oficial": true,
+  "variaveis": []
+ },
+ {
+  "id": "hydro-inova-169",
+  "nome": "Porta de correr 2 folhas com baguetes (I-18)",
+  "sistema": "Inova",
+  "folhas": 2,
+  "referencia": {
+   "arquivo": "Catalogos/catalogo_inova-r13.pdf",
+   "pagina": 169
+  },
+  "itens": [
+   {
+    "tipo": "perfil",
+    "codigo": "IN012",
+    "descricao": "Marco travessa superior",
+    "formula": "L",
+    "qtd": "1",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "IN175",
+    "descricao": "Marco travessa inferior (porta)",
+    "formula": "L",
+    "qtd": "1",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "IN003",
+    "descricao": "Marco montante lateral",
+    "formula": "H",
+    "qtd": "2",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "IN004",
+    "descricao": "Folha travessa superior",
+    "formula": "(L-180,1)/2+6",
+    "qtd": "F",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "IN015",
+    "descricao": "Folha travessa intermediária",
+    "formula": "(L-180,1)/2+6",
+    "qtd": "F",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "IN005",
+    "descricao": "Folha travessa inferior",
+    "formula": "(L-180,1)/2+6",
+    "qtd": "F",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "IN011",
+    "descricao": "Folha montante lateral com reforço",
+    "formula": "H-46,8",
+    "qtd": "F",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "IN009",
+    "descricao": "Folha montante mão de amigo com reforço",
+    "formula": "H-46,8",
+    "qtd": "1",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "IN010",
+    "descricao": "Folha montante mão de amigo com reforço",
+    "formula": "H-46,8",
+    "qtd": "1",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "vidro",
+    "codigo": "VIDRO",
+    "descricao": "Vidro (2 por folha)",
+    "formula": "(L-180,1)/2",
+    "formula2": "(H-265)/2",
+    "qtd": "2*F",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "FRA820",
+    "descricao": "Fecho (ver tabela)",
+    "formula": "",
+    "qtd": "1",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "CON409",
+    "descricao": "Contra-fecho",
+    "formula": "",
+    "qtd": "1",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "BAT952",
+    "descricao": "Batedor",
+    "formula": "",
+    "qtd": "1",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "NYL452",
+    "descricao": "Roldana (ver tabela de roldanas)",
+    "formula": "",
+    "qtd": "2*F",
+    "origem": "inf"
+   }
+  ],
+  "observacoes": "Largura do vidro do catálogo; alturas dos vidros deduzidas das cotas verticais (24+50,6+3 | 3+55,7+3 | 3+99,7+22,8) com travessa centralizada – conferir. Altura da folha = H − 24 − 22,8. Contramarco CM060/CM098 opcional.",
+  "oficial": true,
+  "variaveis": []
+ },
+ {
+  "id": "hydro-produtiva-25-204",
+  "nome": "Janela de correr 2 folhas (I-01)",
+  "sistema": "Produtiva 25",
+  "folhas": 2,
+  "referencia": {
+   "arquivo": "Catalogos/catalogo_produtiva25-r29.pdf",
+   "pagina": 204
+  },
+  "itens": [
+   {
+    "tipo": "perfil",
+    "codigo": "KP001",
+    "descricao": "Marco travessa superior",
+    "formula": "L",
+    "qtd": "1",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "KP004",
+    "descricao": "Marco travessa inferior (trilho clicado)",
+    "formula": "L",
+    "qtd": "1",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "KP009",
+    "descricao": "Marco montante lateral",
+    "formula": "H",
+    "qtd": "2",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "KP036",
+    "descricao": "Folha travessa (sup./inf.)",
+    "formula": "(L-106,7)/2",
+    "qtd": "2*F",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "KP029",
+    "descricao": "Folha montante lateral",
+    "formula": "H-55,5",
+    "qtd": "F",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "KP030",
+    "descricao": "Folha montante mão de amigo",
+    "formula": "H-55,5",
+    "qtd": "F",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "vidro",
+    "codigo": "VIDRO",
+    "descricao": "Vidro da folha",
+    "formula": "(L-148,7)/2",
+    "formula2": "H-138,5",
+    "qtd": "F",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "ROL020",
+    "descricao": "Roldana",
+    "formula": "",
+    "qtd": "2*F",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "FEC1225",
+    "descricao": "Fecho",
+    "formula": "",
+    "qtd": "1",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "BAT952",
+    "descricao": "Batedor",
+    "formula": "",
+    "qtd": "1",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "CON556",
+    "descricao": "Contra-fecho",
+    "formula": "",
+    "qtd": "1",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "TRA061",
+    "descricao": "Trava",
+    "formula": "",
+    "qtd": "1",
+    "origem": "inf"
+   }
+  ],
+  "observacoes": "Altura da folha deduzida: H − 3 − 24 − 28,5 (soma confere com o vidro H−138,5). Contramarco CM060 opcional (2×L + 2×H). Marco = vão L × H; comprimento do trilho e dos montantes da folha deduzidos das cotas verticais/horizontais.",
+  "oficial": true,
+  "variaveis": []
+ },
+ {
+  "id": "hydro-produtiva-25-226",
+  "nome": "Porta de correr 2 folhas sem baguete (I-23)",
+  "sistema": "Produtiva 25",
+  "folhas": 2,
+  "referencia": {
+   "arquivo": "Catalogos/catalogo_produtiva25-r29.pdf",
+   "pagina": 226
+  },
+  "itens": [
+   {
+    "tipo": "perfil",
+    "codigo": "KP001",
+    "descricao": "Marco travessa superior",
+    "formula": "L",
+    "qtd": "1",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "KP006",
+    "descricao": "Marco travessa inferior clicado (porta)",
+    "formula": "L",
+    "qtd": "1",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "KP009",
+    "descricao": "Marco montante lateral",
+    "formula": "H",
+    "qtd": "2",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "KP116",
+    "descricao": "Pista para trilho clicado",
+    "formula": "L-34",
+    "qtd": "1",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "KP090",
+    "descricao": "Folha travessa superior",
+    "formula": "(L-120,7)/2",
+    "qtd": "F",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "KP092",
+    "descricao": "Folha travessa intermediária",
+    "formula": "(L-120,7)/2",
+    "qtd": "F",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "KP091",
+    "descricao": "Folha travessa inferior",
+    "formula": "(L-120,7)/2",
+    "qtd": "F",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "KP086",
+    "descricao": "Folha montante lateral com reforço",
+    "formula": "H-55,4",
+    "qtd": "F",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "KP089",
+    "descricao": "Folha montante mão de amigo com reforço",
+    "formula": "H-55,4",
+    "qtd": "F",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "vidro",
+    "codigo": "VIDRO",
+    "descricao": "Vidro (2 por folha)",
+    "formula": "(L-160,7)/2",
+    "formula2": "(H-224,8)/2",
+    "qtd": "2*F",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "ROL021",
+    "descricao": "Roldana",
+    "formula": "",
+    "qtd": "2*F",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "FEC1225",
+    "descricao": "Fecho",
+    "formula": "",
+    "qtd": "1",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "TRA061",
+    "descricao": "Trava",
+    "formula": "",
+    "qtd": "1",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "BAT952",
+    "descricao": "Batedor",
+    "formula": "",
+    "qtd": "1",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "CON554",
+    "descricao": "Contra-fecho",
+    "formula": "",
+    "qtd": "1",
+    "origem": "inf"
+   }
+  ],
+  "observacoes": "Altura da folha deduzida: H − 3 − 24 − 28,4 (soma confere com os vidros). Pista KP116 = vão interno do marco (L − 2×17) – conferir. Contramarco CM060/CM098 opcional.",
+  "oficial": true,
+  "variaveis": []
+ },
+ {
+  "id": "hydro-nica-214",
+  "nome": "Janela de correr 2 folhas (K-17)",
+  "sistema": "Única",
+  "folhas": 2,
+  "referencia": {
+   "arquivo": "Catalogos/catalogo_unica-r16.pdf",
+   "pagina": 214
+  },
+  "itens": [
+   {
+    "tipo": "perfil",
+    "codigo": "RO048",
+    "descricao": "Marco – horizontal",
+    "formula": "L",
+    "qtd": "2",
+    "origem": "inf",
+    "corte": "45"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "RO048",
+    "descricao": "Marco – vertical",
+    "formula": "H",
+    "qtd": "2",
+    "origem": "inf",
+    "corte": "45"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "RO049",
+    "descricao": "Folha – travessa",
+    "formula": "(L-17,5)/2",
+    "qtd": "2*F",
+    "origem": "inf",
+    "corte": "45"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "RO049",
+    "descricao": "Folha – montante",
+    "formula": "H-78",
+    "qtd": "2*F",
+    "origem": "inf",
+    "corte": "45"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "RO064",
+    "descricao": "Montante de encontro (mão de amigo)",
+    "formula": "H-78",
+    "qtd": "1",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "vidro",
+    "codigo": "VIDRO",
+    "descricao": "Vidro da folha",
+    "formula": "(L-221,5)/2",
+    "formula2": "H-180",
+    "qtd": "F",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "FEC1101",
+    "descricao": "Fecho",
+    "formula": "",
+    "qtd": "1",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "FEC1106",
+    "descricao": "Fecho",
+    "formula": "",
+    "qtd": "1",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "TRA019",
+    "descricao": "Trava",
+    "formula": "",
+    "qtd": "1",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "CON479",
+    "descricao": "Contra-fecho",
+    "formula": "",
+    "qtd": "1",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "ROL486",
+    "descricao": "Roldana",
+    "formula": "",
+    "qtd": "2*F",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "KIT626",
+    "descricao": "Kit",
+    "formula": "",
+    "qtd": "1",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "KIT627",
+    "descricao": "Kit",
+    "formula": "",
+    "qtd": "2",
+    "origem": "inf"
+   }
+  ],
+  "observacoes": "Catálogo Única traz apenas cotas absolutas (marco 39, folha 58, encaixe do vidro 7, transpasse central 46,5). Todas as medidas foram deduzidas: folha = (L − 2×39 + 7 + 46,5 + 7)/2; vidro = folha − 2×(58 − 7). Conferir no desenho K-17 antes de produzir.",
+  "oficial": true,
+  "variaveis": []
+ },
+ {
+  "id": "hydro-suprema-linha-25-113",
+  "nome": "Janela de correr 2 folhas (SUP JCR 200)",
+  "sistema": "Suprema (Linha 25)",
+  "folhas": 2,
+  "referencia": {
+   "arquivo": "Outros_Fabricantes/suprema_catalogo_tecnico_gmpe.pdf",
+   "pagina": 113
+  },
+  "itens": [
+   {
+    "tipo": "perfil",
+    "codigo": "SU-001",
+    "descricao": "Marco superior",
+    "formula": "L-26",
+    "qtd": "1",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "SU-002",
+    "descricao": "Marco inferior",
+    "formula": "L-26",
+    "qtd": "1",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "SU-003",
+    "descricao": "Marco lateral",
+    "formula": "H",
+    "qtd": "2",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "SU-053",
+    "descricao": "Travessa da folha (sup./inf.)",
+    "formula": "(L-131,2)/2",
+    "qtd": "2*F",
+    "origem": "cat",
+    "corte": "90",
+    "baguete": "com"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "SU-039",
+    "descricao": "Montante lateral da folha",
+    "formula": "H-50",
+    "qtd": "F",
+    "origem": "cat",
+    "corte": "90",
+    "baguete": "com"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "SU-040",
+    "descricao": "Montante mão de amigo",
+    "formula": "H-50",
+    "qtd": "1",
+    "origem": "cat",
+    "corte": "90",
+    "baguete": "com"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "SU-041",
+    "descricao": "Montante mão de amigo",
+    "formula": "H-50",
+    "qtd": "1",
+    "origem": "cat",
+    "corte": "90",
+    "baguete": "com"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "SU-102",
+    "descricao": "Baguete horizontal",
+    "formula": "(L-131,2)/2",
+    "qtd": "2*F",
+    "origem": "inf",
+    "corte": "90",
+    "baguete": "com"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "SU-102",
+    "descricao": "Baguete vertical",
+    "formula": "H-128",
+    "qtd": "2*F",
+    "origem": "inf",
+    "corte": "90",
+    "baguete": "com"
+   },
+   {
+    "tipo": "vidro",
+    "codigo": "VIDRO",
+    "descricao": "Vidro da folha",
+    "formula": "(L-143,2)/2",
+    "formula2": "H-134",
+    "qtd": "F",
+    "origem": "cat",
+    "baguete": "com"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "SU-186",
+    "descricao": "Travessa da folha (sup./inf.)",
+    "formula": "(L-121)/2",
+    "qtd": "2*F",
+    "origem": "cat",
+    "corte": "90",
+    "baguete": "sem"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "SU-055",
+    "descricao": "Montante lateral da folha",
+    "formula": "H-50",
+    "qtd": "F",
+    "origem": "cat",
+    "corte": "90",
+    "baguete": "sem"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "SU-056",
+    "descricao": "Montante mão de amigo",
+    "formula": "H-50",
+    "qtd": "F",
+    "origem": "cat",
+    "corte": "90",
+    "baguete": "sem"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "SU-107",
+    "descricao": "Veda montante",
+    "formula": "21",
+    "qtd": "4*F",
+    "origem": "cat",
+    "corte": "90",
+    "baguete": "sem"
+   },
+   {
+    "tipo": "vidro",
+    "codigo": "VIDRO",
+    "descricao": "Vidro da folha",
+    "formula": "(L-149)/2",
+    "formula2": "H-135",
+    "qtd": "F",
+    "origem": "cat",
+    "baguete": "sem"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "SIL-NEUTRO",
+    "descricao": "Silicone neutro – vedação marco/alvenaria (obra)",
+    "formula": "",
+    "qtd": "2*(VL+VH)/1000",
+    "origem": "cat",
+    "baguete": "sem",
+    "unidade": "m"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "FEC-1038",
+    "descricao": "Fecho concha sem chave, fixação aparente, sem trava",
+    "formula": "",
+    "qtd": "2",
+    "origem": "cat",
+    "baguete": "sem"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "TRA-009",
+    "descricao": "Trava para fecho lateral (lingueta)",
+    "formula": "",
+    "qtd": "2",
+    "origem": "cat",
+    "baguete": "sem"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "CON-370",
+    "descricao": "Contra-fecho lateral",
+    "formula": "",
+    "qtd": "2",
+    "origem": "cat",
+    "baguete": "sem"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "ROL-426",
+    "descricao": "Roldana com regulagem, sem rolamento – 15 kg por folha",
+    "formula": "",
+    "qtd": "2*F",
+    "origem": "cat",
+    "baguete": "sem"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "NYL-332",
+    "descricao": "Guia deslizante com placa",
+    "formula": "",
+    "qtd": "4*F",
+    "origem": "cat",
+    "baguete": "sem"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "NYL-329",
+    "descricao": "Caixa de dreno janela",
+    "formula": "",
+    "qtd": "1",
+    "origem": "cat",
+    "baguete": "sem"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "NYL-335",
+    "descricao": "Vedação superior 30 mm marco/correr",
+    "formula": "",
+    "qtd": "1",
+    "origem": "cat",
+    "baguete": "sem"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "NYL-414",
+    "descricao": "Batedeira",
+    "formula": "",
+    "qtd": "2*F",
+    "origem": "cat",
+    "baguete": "sem"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "GUA-284",
+    "descricao": "Guarnição EPDM 4 mm – vidro (obra)",
+    "formula": "",
+    "qtd": "2*F*((L-121)/2+H-50)/1000",
+    "origem": "cat",
+    "baguete": "sem",
+    "unidade": "m"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "FIT-206",
+    "descricao": "Fita vedadora 5×6 mm – mão de amigo",
+    "formula": "",
+    "qtd": "2*(H-50)/1000",
+    "origem": "cat",
+    "baguete": "sem",
+    "unidade": "m"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "FIT-246",
+    "descricao": "Fita vedadora 7,6×6 mm – folha",
+    "formula": "",
+    "qtd": "2*F*(H-50)/1000",
+    "origem": "cat",
+    "baguete": "sem",
+    "unidade": "m"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "PAR-4850",
+    "descricao": "Parafuso inox 4,8×50 cabeça panela Philips – montar folha",
+    "formula": "",
+    "qtd": "4*F",
+    "origem": "cat",
+    "baguete": "sem"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "PAR-4832",
+    "descricao": "Parafuso inox 4,8×32 cabeça panela Philips – montar marco",
+    "formula": "",
+    "qtd": "8",
+    "origem": "cat",
+    "baguete": "sem"
+   }
+  ],
+  "observacoes": "O catálogo Suprema imprime o vão entre montantes (travessa), a altura da folha e o vidro. Marco a 90°: laterais inteiros (H) e superior/inferior entre eles (L − 26). L e H = medidas do marco (vão − folga). Conferido com o SmartCEM (JCR200). Baguete horizontal com o mesmo comprimento da travessa – conferir. Sem baguete: perfis de folha SU-186/055/056 e vidro com guarnição, conferidos no SmartCEM em um tamanho (1500×1800).",
+  "oficial": true,
+  "variaveis": []
+ },
+ {
+  "id": "hydro-suprema-linha-25-115",
+  "nome": "Janela de correr 3 folhas – 1 fixa (SUP JCR 300)",
+  "sistema": "Suprema (Linha 25)",
+  "folhas": 3,
+  "referencia": {
+   "arquivo": "Outros_Fabricantes/suprema_catalogo_tecnico_gmpe.pdf",
+   "pagina": 115
+  },
+  "itens": [
+   {
+    "tipo": "perfil",
+    "codigo": "SU-010",
+    "descricao": "Marco superior 3 trilhos",
+    "formula": "L-26",
+    "qtd": "1",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "SU-011",
+    "descricao": "Marco inferior 3 trilhos",
+    "formula": "L-26",
+    "qtd": "1",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "SU-012",
+    "descricao": "Marco lateral 3 trilhos",
+    "formula": "H",
+    "qtd": "2",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "SU-291",
+    "descricao": "Complemento do marco lateral",
+    "formula": "H",
+    "qtd": "1",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "SU-053",
+    "descricao": "Travessa da folha (sup./inf.)",
+    "formula": "(L-156)/3",
+    "qtd": "2*F",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "SU-039",
+    "descricao": "Montante lateral da folha",
+    "formula": "H-50",
+    "qtd": "2",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "SU-040",
+    "descricao": "Montante mão de amigo",
+    "formula": "H-50",
+    "qtd": "2",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "SU-041",
+    "descricao": "Montante mão de amigo",
+    "formula": "H-50",
+    "qtd": "2",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "SU-102",
+    "descricao": "Baguete horizontal",
+    "formula": "(L-156)/3",
+    "qtd": "2*F",
+    "origem": "inf",
+    "corte": "90",
+    "baguete": "com"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "SU-102",
+    "descricao": "Baguete vertical",
+    "formula": "H-128",
+    "qtd": "2*F",
+    "origem": "inf",
+    "corte": "90",
+    "baguete": "com"
+   },
+   {
+    "tipo": "vidro",
+    "codigo": "VIDRO",
+    "descricao": "Vidro da folha",
+    "formula": "(L-174)/3",
+    "formula2": "H-134",
+    "qtd": "F",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "FEC-055",
+    "descricao": "Fecho",
+    "formula": "",
+    "qtd": "1",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "CON-370",
+    "descricao": "Contra-fecho",
+    "formula": "",
+    "qtd": "1",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "ROL-426",
+    "descricao": "Roldana",
+    "formula": "",
+    "qtd": "2*F",
+    "origem": "inf"
+   }
+  ],
+  "observacoes": "O catálogo Suprema imprime o vão entre montantes (travessa), a altura da folha e o vidro. Marco a 90°: laterais inteiros (H) e superior/inferior entre eles (L − 26). L e H = medidas do marco (vão − folga). Conferido com o SmartCEM (JCR200). Distribuição dos montantes (2 laterais + 2 encontros) deduzida do corte horizontal.",
+  "oficial": true,
+  "variaveis": []
+ },
+ {
+  "id": "hydro-suprema-linha-25-116",
+  "nome": "Janela de correr 4 folhas – 2 fixas (SUP JCR 400)",
+  "sistema": "Suprema (Linha 25)",
+  "folhas": 4,
+  "referencia": {
+   "arquivo": "Outros_Fabricantes/suprema_catalogo_tecnico_gmpe.pdf",
+   "pagina": 116
+  },
+  "itens": [
+   {
+    "tipo": "perfil",
+    "codigo": "SU-026",
+    "descricao": "Marco superior",
+    "formula": "L-57,8",
+    "qtd": "1",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "SU-251",
+    "descricao": "Marco inferior",
+    "formula": "L-57,8",
+    "qtd": "1",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "SU-028",
+    "descricao": "Marco lateral",
+    "formula": "H",
+    "qtd": "2",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "SU-291",
+    "descricao": "Complemento do marco lateral / central",
+    "formula": "H",
+    "qtd": "3",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "SU-053",
+    "descricao": "Travessa da folha (sup./inf.)",
+    "formula": "(L-271,7)/4",
+    "qtd": "2*F",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "SU-039",
+    "descricao": "Montante lateral da folha",
+    "formula": "H-83",
+    "qtd": "4",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "SU-040",
+    "descricao": "Montante mão de amigo",
+    "formula": "H-83",
+    "qtd": "2",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "SU-041",
+    "descricao": "Montante mão de amigo",
+    "formula": "H-83",
+    "qtd": "2",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "SU-102",
+    "descricao": "Baguete horizontal",
+    "formula": "(L-271,7)/4",
+    "qtd": "2*F",
+    "origem": "inf",
+    "corte": "90",
+    "baguete": "com"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "SU-102",
+    "descricao": "Baguete vertical",
+    "formula": "H-161",
+    "qtd": "2*F",
+    "origem": "inf",
+    "corte": "90",
+    "baguete": "com"
+   },
+   {
+    "tipo": "vidro",
+    "codigo": "VIDRO",
+    "descricao": "Vidro da folha",
+    "formula": "(L-295,7)/4",
+    "formula2": "H-167",
+    "qtd": "F",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "FEC-636",
+    "descricao": "Fecho central",
+    "formula": "",
+    "qtd": "1",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "FEC-055",
+    "descricao": "Fecho",
+    "formula": "",
+    "qtd": "2",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "CON-370",
+    "descricao": "Contra-fecho",
+    "formula": "",
+    "qtd": "2",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "CON-280",
+    "descricao": "Contra-fecho central",
+    "formula": "",
+    "qtd": "1",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "NYL-414",
+    "descricao": "Roldana",
+    "formula": "",
+    "qtd": "2*F",
+    "origem": "inf"
+   }
+  ],
+  "observacoes": "O catálogo Suprema imprime o vão entre montantes (travessa), a altura da folha e o vidro. Marco a 90°: laterais inteiros (H) e superior/inferior entre eles (L − 26). L e H = medidas do marco (vão − folga). Conferido com o SmartCEM (JCR200). ",
+  "oficial": true,
+  "variaveis": []
+ },
+ {
+  "id": "hydro-suprema-linha-25-126",
+  "nome": "Porta de correr 2 folhas (SUP PCR 200)",
+  "sistema": "Suprema (Linha 25)",
+  "folhas": 2,
+  "referencia": {
+   "arquivo": "Outros_Fabricantes/suprema_catalogo_tecnico_gmpe.pdf",
+   "pagina": 126
+  },
+  "itens": [
+   {
+    "tipo": "perfil",
+    "codigo": "SU-001",
+    "descricao": "Marco superior",
+    "formula": "L-26",
+    "qtd": "1",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "SU-228",
+    "descricao": "Marco inferior (porta)",
+    "formula": "L-26",
+    "qtd": "1",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "SU-003",
+    "descricao": "Marco lateral",
+    "formula": "H",
+    "qtd": "2",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "RM-018",
+    "descricao": "Arremate de soleira",
+    "formula": "L",
+    "qtd": "1",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "SU-053",
+    "descricao": "Travessa superior da folha",
+    "formula": "(L-178)/2",
+    "qtd": "F",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "SU-225",
+    "descricao": "Travessa inferior da folha",
+    "formula": "(L-178)/2",
+    "qtd": "F",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "SU-245",
+    "descricao": "Montante lateral da folha (folha larga)",
+    "formula": "H-40",
+    "qtd": "F",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "SU-289",
+    "descricao": "Montante mão de amigo (reforço)",
+    "formula": "H-40",
+    "qtd": "1",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "SU-290",
+    "descricao": "Montante mão de amigo (reforço)",
+    "formula": "H-40",
+    "qtd": "1",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "SU-102",
+    "descricao": "Baguete vertical",
+    "formula": "H-191",
+    "qtd": "2*F",
+    "origem": "cat",
+    "corte": "90",
+    "baguete": "com"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "SU-102",
+    "descricao": "Baguete horizontal",
+    "formula": "(L-178)/2",
+    "qtd": "2*F",
+    "origem": "cat",
+    "corte": "90",
+    "baguete": "com"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "SU-107",
+    "descricao": "Veda montante lateral",
+    "formula": "32",
+    "qtd": "2*F",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "SU-107",
+    "descricao": "Veda montante mão de amigo",
+    "formula": "43",
+    "qtd": "2*F",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "vidro",
+    "codigo": "VIDRO",
+    "descricao": "Vidro da folha",
+    "formula": "(L-190)/2",
+    "formula2": "H-197",
+    "qtd": "F",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "FEC-1030",
+    "descricao": "Fecho concha sem chave",
+    "formula": "",
+    "qtd": "1",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "ROL-439",
+    "descricao": "Roldana 40 kg",
+    "formula": "",
+    "qtd": "2*F",
+    "origem": "inf"
+   }
+  ],
+  "observacoes": "O catálogo Suprema imprime o vão entre montantes (travessa), a altura da folha e o vidro. Marco a 90°: laterais inteiros (H) e superior/inferior entre eles (L − 26). L e H = medidas do marco (vão − folga). Conferido com o SmartCEM (JCR200). Perfis conferidos no SmartCEM (folha larga, sem travessa). Vidro estimado pela baguete – conferir.",
+  "oficial": true,
+  "variaveis": []
+ },
+ {
+  "id": "hydro-suprema-linha-25-130",
+  "nome": "Porta de correr 3 folhas – 1 fixa (SUP PCR 300)",
+  "sistema": "Suprema (Linha 25)",
+  "folhas": 3,
+  "referencia": {
+   "arquivo": "Outros_Fabricantes/suprema_catalogo_tecnico_gmpe.pdf",
+   "pagina": 130
+  },
+  "itens": [
+   {
+    "tipo": "perfil",
+    "codigo": "SU-010",
+    "descricao": "Marco superior 3 trilhos",
+    "formula": "L-26",
+    "qtd": "1",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "SU-230",
+    "descricao": "Marco inferior 3 trilhos (porta)",
+    "formula": "L-26",
+    "qtd": "1",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "SU-012",
+    "descricao": "Marco lateral 3 trilhos",
+    "formula": "H",
+    "qtd": "2",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "SU-291",
+    "descricao": "Complemento do marco lateral",
+    "formula": "H",
+    "qtd": "1",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "SU-053",
+    "descricao": "Travessa superior da folha",
+    "formula": "(L-156)/3",
+    "qtd": "F",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "SU-227",
+    "descricao": "Travessa central da folha",
+    "formula": "(L-156)/3",
+    "qtd": "F",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "SU-225",
+    "descricao": "Travessa inferior da folha",
+    "formula": "(L-156)/3",
+    "qtd": "F",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "SU-039",
+    "descricao": "Montante lateral da folha",
+    "formula": "H-40",
+    "qtd": "1",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "SU-044",
+    "descricao": "Montante lateral da folha (reforçado)",
+    "formula": "H-40",
+    "qtd": "1",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "SU-047",
+    "descricao": "Montante mão de amigo",
+    "formula": "H-40",
+    "qtd": "2",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "SU-049",
+    "descricao": "Montante mão de amigo",
+    "formula": "H-40",
+    "qtd": "2",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "SU-102",
+    "descricao": "Baguete horizontal",
+    "formula": "(L-156)/3",
+    "qtd": "4*F",
+    "origem": "inf",
+    "corte": "90",
+    "baguete": "com"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "SU-102",
+    "descricao": "Baguete vertical",
+    "formula": "(H-200)/2",
+    "qtd": "4*F",
+    "origem": "inf",
+    "corte": "90",
+    "baguete": "com"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "ME-013",
+    "descricao": "Remate de piso",
+    "formula": "L",
+    "qtd": "1",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "vidro",
+    "codigo": "VIDRO",
+    "descricao": "Vidro (2 por folha)",
+    "formula": "(L-174)/3",
+    "formula2": "(H-212)/2",
+    "qtd": "2*F",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "FEC-055",
+    "descricao": "Fecho",
+    "formula": "",
+    "qtd": "1",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "CON-370",
+    "descricao": "Contra-fecho",
+    "formula": "",
+    "qtd": "1",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "ROL-439",
+    "descricao": "Roldana",
+    "formula": "",
+    "qtd": "2*F",
+    "origem": "inf"
+   }
+  ],
+  "observacoes": "O catálogo Suprema imprime o vão entre montantes (travessa), a altura da folha e o vidro. Marco a 90°: laterais inteiros (H) e superior/inferior entre eles (L − 26). L e H = medidas do marco (vão − folga). Conferido com o SmartCEM (JCR200). Distribuição dos montantes deduzida (2 laterais + 2 encontros).",
+  "oficial": true,
+  "variaveis": []
+ },
+ {
+  "id": "hydro-suprema-linha-25-128",
+  "nome": "Porta de correr 4 folhas – 2 fixas (SUP PCR 400)",
+  "sistema": "Suprema (Linha 25)",
+  "folhas": 4,
+  "referencia": {
+   "arquivo": "Outros_Fabricantes/suprema_catalogo_tecnico_gmpe.pdf",
+   "pagina": 128
+  },
+  "itens": [
+   {
+    "tipo": "perfil",
+    "codigo": "SU-001",
+    "descricao": "Marco superior",
+    "formula": "L-26",
+    "qtd": "1",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "SU-228",
+    "descricao": "Marco inferior (porta)",
+    "formula": "L-26",
+    "qtd": "1",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "SU-003",
+    "descricao": "Marco lateral",
+    "formula": "H",
+    "qtd": "2",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "SU-291",
+    "descricao": "Complemento central",
+    "formula": "H",
+    "qtd": "1",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "SU-053",
+    "descricao": "Travessa superior da folha",
+    "formula": "(L-233,5)/4",
+    "qtd": "F",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "SU-227",
+    "descricao": "Travessa central da folha",
+    "formula": "(L-233,5)/4",
+    "qtd": "F",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "SU-225",
+    "descricao": "Travessa inferior da folha",
+    "formula": "(L-233,5)/4",
+    "qtd": "F",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "SU-039",
+    "descricao": "Montante lateral da folha",
+    "formula": "H-40",
+    "qtd": "2",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "SU-044",
+    "descricao": "Montante central da folha",
+    "formula": "H-40",
+    "qtd": "2",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "SU-047",
+    "descricao": "Montante mão de amigo",
+    "formula": "H-40",
+    "qtd": "2",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "SU-049",
+    "descricao": "Montante mão de amigo",
+    "formula": "H-40",
+    "qtd": "2",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "SU-102",
+    "descricao": "Baguete horizontal",
+    "formula": "(L-233,5)/4",
+    "qtd": "4*F",
+    "origem": "inf",
+    "corte": "90",
+    "baguete": "com"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "SU-102",
+    "descricao": "Baguete vertical",
+    "formula": "(H-200)/2",
+    "qtd": "4*F",
+    "origem": "inf",
+    "corte": "90",
+    "baguete": "com"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "ME-013",
+    "descricao": "Remate de piso",
+    "formula": "L",
+    "qtd": "1",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "vidro",
+    "codigo": "VIDRO",
+    "descricao": "Vidro (2 por folha)",
+    "formula": "(L-257,5)/4",
+    "formula2": "(H-212)/2",
+    "qtd": "2*F",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "FEC-645",
+    "descricao": "Fecho central",
+    "formula": "",
+    "qtd": "1",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "FEC-055",
+    "descricao": "Fecho",
+    "formula": "",
+    "qtd": "2",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "CON-370",
+    "descricao": "Contra-fecho",
+    "formula": "",
+    "qtd": "2",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "CON-280",
+    "descricao": "Contra-fecho central",
+    "formula": "",
+    "qtd": "1",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "ROL-439",
+    "descricao": "Roldana",
+    "formula": "",
+    "qtd": "2*F",
+    "origem": "inf"
+   }
+  ],
+  "observacoes": "O catálogo Suprema imprime o vão entre montantes (travessa), a altura da folha e o vidro. Marco a 90°: laterais inteiros (H) e superior/inferior entre eles (L − 26). L e H = medidas do marco (vão − folga). Conferido com o SmartCEM (JCR200). Contramarco CM-060/CM-098 opcional.",
+  "oficial": true,
+  "variaveis": []
+ },
+ {
+  "id": "hydro-suprema-linha-25-131",
+  "nome": "Porta de giro 1 folha (SUP PGR 100)",
+  "sistema": "Suprema (Linha 25)",
+  "folhas": 1,
+  "referencia": {
+   "arquivo": "Outros_Fabricantes/suprema_catalogo_tecnico_gmpe.pdf",
+   "pagina": 131
+  },
+  "itens": [
+   {
+    "tipo": "perfil",
+    "codigo": "SU-279",
+    "descricao": "Marco lateral",
+    "formula": "H",
+    "qtd": "2",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "SU-279",
+    "descricao": "Marco superior",
+    "formula": "L-53",
+    "qtd": "1",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "SU-111",
+    "descricao": "Montante da folha",
+    "formula": "H-40,5",
+    "qtd": "2",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "SU-110",
+    "descricao": "Travessa superior da folha",
+    "formula": "L-166,5",
+    "qtd": "1",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "SU-050",
+    "descricao": "Travessa central da folha",
+    "formula": "L-166,5",
+    "qtd": "1",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "SU-225",
+    "descricao": "Travessa inferior da folha",
+    "formula": "L-166,5",
+    "qtd": "1",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "SU-102",
+    "descricao": "Baguete horizontal",
+    "formula": "L-166,5",
+    "qtd": "4",
+    "origem": "inf",
+    "corte": "90",
+    "baguete": "com"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "SU-102",
+    "descricao": "Baguete vertical",
+    "formula": "(H-243,5)/2",
+    "qtd": "4",
+    "origem": "cat",
+    "corte": "90",
+    "baguete": "com"
+   },
+   {
+    "tipo": "vidro",
+    "codigo": "VIDRO",
+    "descricao": "Vidro (2 por folha)",
+    "formula": "L-172,5",
+    "formula2": "(H-255,5)/2",
+    "qtd": "2",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "FRA-822",
+    "descricao": "Fechadura",
+    "formula": "",
+    "qtd": "1",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "MAC-927",
+    "descricao": "Maçaneta",
+    "formula": "",
+    "qtd": "1",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "DOB-840",
+    "descricao": "Dobradiça",
+    "formula": "",
+    "qtd": "3",
+    "origem": "inf"
+   }
+  ],
+  "observacoes": "Vão entre montantes L−166,5, altura da folha H−40,5 e vidros do catálogo. Marco superior com o mesmo perfil do lateral – conferir.",
+  "oficial": true,
+  "variaveis": []
+ },
+ {
+  "id": "hydro-suprema-linha-25-133",
+  "nome": "Janela maxim-ar 1 folha (SUP MAX 800)",
+  "sistema": "Suprema (Linha 25)",
+  "folhas": 1,
+  "referencia": {
+   "arquivo": "Outros_Fabricantes/suprema_catalogo_tecnico_gmpe.pdf",
+   "pagina": 133
+  },
+  "itens": [
+   {
+    "tipo": "perfil",
+    "codigo": "SU-079",
+    "descricao": "Marco – horizontal",
+    "formula": "L",
+    "qtd": "2",
+    "origem": "inf",
+    "corte": "45"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "SU-079",
+    "descricao": "Marco – vertical",
+    "formula": "H",
+    "qtd": "2",
+    "origem": "inf",
+    "corte": "45"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "SU-080",
+    "descricao": "Travessa superior da folha 45°",
+    "formula": "L-25",
+    "qtd": "1",
+    "origem": "cat",
+    "corte": "45"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "SU-200",
+    "descricao": "Travessa inferior da folha 45°",
+    "formula": "L-25",
+    "qtd": "1",
+    "origem": "cat",
+    "corte": "45"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "SU-200",
+    "descricao": "Montante da folha 45°",
+    "formula": "H-25",
+    "qtd": "2",
+    "origem": "inf",
+    "corte": "45"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "SU-102",
+    "descricao": "Baguete horizontal",
+    "formula": "L-92,4",
+    "qtd": "2",
+    "origem": "cat",
+    "corte": "90",
+    "baguete": "com"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "SU-102",
+    "descricao": "Baguete vertical",
+    "formula": "H-92,4",
+    "qtd": "2",
+    "origem": "inf",
+    "corte": "90",
+    "baguete": "com"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "SU-276",
+    "descricao": "Pingadeira",
+    "formula": "L-25",
+    "qtd": "1",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "vidro",
+    "codigo": "VIDRO",
+    "descricao": "Vidro",
+    "formula": "L-98,4",
+    "formula2": "H-98,4",
+    "qtd": "1",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "FEC-009",
+    "descricao": "Fecho",
+    "formula": "",
+    "qtd": "1",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "BRA-702",
+    "descricao": "Braço maxim-ar (escolher pela altura da folha: BRA-705/702/703/725)",
+    "formula": "",
+    "qtd": "2",
+    "origem": "inf"
+   }
+  ],
+  "observacoes": "Folha L−25, vidro L−98,4 × H−98,4 e baguete L−92,4 do catálogo; altura da folha H−25 deduzida por simetria. Braço: BRA-705 (folha 270–500), BRA-702 (510–760), BRA-703 (770–900), BRA-725 reforçado (900–1200).",
+  "oficial": true,
+  "variaveis": []
+ },
+ {
+  "id": "hydro-suprema-linha-25-134",
+  "nome": "Módulo fixo 1 vidro (quadro fixo SU-079)",
+  "sistema": "Suprema (Linha 25)",
+  "folhas": 1,
+  "referencia": {
+   "arquivo": "Outros_Fabricantes/suprema_catalogo_tecnico_gmpe.pdf",
+   "pagina": 134
+  },
+  "itens": [
+   {
+    "tipo": "perfil",
+    "codigo": "SU-079",
+    "descricao": "Marco – horizontal",
+    "formula": "L",
+    "qtd": "2",
+    "origem": "cat",
+    "corte": "45"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "SU-079",
+    "descricao": "Marco – vertical",
+    "formula": "H",
+    "qtd": "2",
+    "origem": "cat",
+    "corte": "45"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "SU-292",
+    "descricao": "Inversor (fixação do vidro) – horizontal",
+    "formula": "L-70",
+    "qtd": "2",
+    "origem": "cat",
+    "corte": "45"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "SU-292",
+    "descricao": "Inversor (fixação do vidro) – vertical",
+    "formula": "H-70",
+    "qtd": "2",
+    "origem": "cat",
+    "corte": "45"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "SU-102",
+    "descricao": "Fixação do vidro SU-102 – horizontal",
+    "formula": "L-70",
+    "qtd": "2",
+    "origem": "cat",
+    "corte": "45"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "SU-102",
+    "descricao": "Fixação do vidro SU-102 – vertical",
+    "formula": "H-70",
+    "qtd": "2",
+    "origem": "cat",
+    "corte": "45"
+   },
+   {
+    "tipo": "vidro",
+    "codigo": "VIDRO",
+    "descricao": "Vidro",
+    "formula": "L-76",
+    "formula2": "H-76",
+    "qtd": "1",
+    "origem": "cat"
+   }
+  ],
+  "observacoes": "Quadro fixo no marco SU-079 (o mesmo da maxim-ar), montado como o peitoril fixo da SUP MAX 801: 35 mm da borda do marco até o rebaixo e 3 mm de folga do vidro em cada lado – vidro (L − 76) × (H − 76). Inversor SU-292 e baguete SU-102 = vidro + 6 (L − 70 / H − 70), cortados a 45° (confirmado pelo usuário). L e H = medidas do marco.",
+  "oficial": true,
+  "variaveis": []
+ },
+ {
+  "id": "hydro-silent-sl-105",
+  "nome": "Porta de correr 4 folhas – 4 planos, trilho embutido (PC400)",
+  "sistema": "Silent SL",
+  "folhas": 4,
+  "referencia": {
+   "arquivo": "Outros_Fabricantes/silent_sl_catalogo_tecnico.pdf",
+   "pagina": 105
+  },
+  "itens": [
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0149",
+    "descricao": "Marco lateral 4 planos",
+    "formula": "H",
+    "qtd": "2",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0148",
+    "descricao": "Trilho superior 4 planos",
+    "formula": "L-30",
+    "qtd": "1",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0289",
+    "descricao": "Trilho inferior 4 planos",
+    "formula": "L-30",
+    "qtd": "1",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0288",
+    "descricao": "Calha 4 planos (embutida no piso)",
+    "formula": "L-30",
+    "qtd": "1",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0285",
+    "descricao": "Arremate interno do trilho embutido",
+    "formula": "L-30",
+    "qtd": "1",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0144",
+    "descricao": "Arremate externo do trilho embutido",
+    "formula": "L-30",
+    "qtd": "1",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0178",
+    "descricao": "Montante lateral da folha com reforço (folhas das pontas)",
+    "formula": "H-55,5",
+    "qtd": "2",
+    "origem": "cat",
+    "corte": "45"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0180",
+    "descricao": "Montante mão de amigo reforçado",
+    "formula": "H-55,5",
+    "qtd": "3",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0181",
+    "descricao": "Montante mão de amigo",
+    "formula": "H-55,5",
+    "qtd": "3",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0179",
+    "descricao": "Travessa das folhas das pontas",
+    "formula": "(L+68,6)/4",
+    "qtd": "4",
+    "origem": "cat",
+    "corte": "45/90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0179",
+    "descricao": "Travessa das folhas do meio (entre mãos de amigo)",
+    "formula": "(L-131,4)/4",
+    "qtd": "4",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0117",
+    "descricao": "Mata-junta lateral",
+    "formula": "H-69,5",
+    "qtd": "2",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0118",
+    "descricao": "Tampa do mata-junta lateral",
+    "formula": "H-69,5",
+    "qtd": "2",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "vidro",
+    "codigo": "VIDRO",
+    "descricao": "Vidro da folha",
+    "formula": "(L-155,4)/4",
+    "formula2": "H-161,5",
+    "qtd": "F",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "MCX-0013",
+    "descricao": "Macho de conexão 10×26,2 – cantos 45° da lateral",
+    "formula": "",
+    "qtd": "4",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "MCX-0012",
+    "descricao": "Macho de conexão 10×26,2 – encontro 90° com a mão de amigo",
+    "formula": "",
+    "qtd": "12",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "CON-0002",
+    "descricao": "Conexão de alinhamento",
+    "formula": "",
+    "qtd": "4*F",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "CVD-0006",
+    "descricao": "Kit de guias e vedação da mão de amigo",
+    "formula": "",
+    "qtd": "6",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "CVD-0007",
+    "descricao": "Kit vedação e acabamento Slide (um por encontro)",
+    "formula": "",
+    "qtd": "3",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "BTE-0005",
+    "descricao": "Batedeira da folha (mini)",
+    "formula": "",
+    "qtd": "6",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "CMN-3406",
+    "descricao": "Cremona simples porta 180°",
+    "formula": "",
+    "qtd": "2",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "TMT-0030",
+    "descricao": "Tampa do montante FZ-0178",
+    "formula": "",
+    "qtd": "4",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "TMT-0031",
+    "descricao": "Tampa do montante FZ-0180",
+    "formula": "",
+    "qtd": "6",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "RLD-0013",
+    "descricao": "Roldana dupla Slide – até 80 kg por folha",
+    "formula": "",
+    "qtd": "2*F",
+    "origem": "cat"
+   }
+  ],
+  "observacoes": "Cotas do catálogo: altura da folha H − 55,5 (trilho superior 32,5 + inferior 23); vidro = L VD × H VD (encaixe de 12 mm no perfil). Marco lateral inteiro (H) e trilhos/calha/arremates entre os laterais (L − 30), corte a 90°. Padrão da linha: lateral da folha a 45° e encontro a 90°. Montante lateral = altura da folha (45°/45°); montantes de mão de amigo inteiros (90°); travessa da folha da ponta = L VD + 56 (45° na lateral, 90° no encontro, com espigão de 15 mm); travessa entre duas mãos de amigo = L VD + 6 (espigão nas duas pontas). Mata-junta e tampa = altura da folha − 14 (usinagem 6.32). Roldana RLD-0013 (80 kg/folha) – para folhas mais pesadas use RLD-0014 (200 kg) ou RLD-0022 Lift (120 kg). Aplicar silicone estrutural nas alturas das folhas.",
+  "oficial": true,
+  "variaveis": [],
+  "arredondamento": "baixo"
+ },
+ {
+  "id": "hydro-silent-sl-83",
+  "nome": "Janela de correr 2 folhas (JC200)",
+  "sistema": "Silent SL",
+  "folhas": 2,
+  "referencia": {
+   "arquivo": "Outros_Fabricantes/silent_sl_catalogo_tecnico.pdf",
+   "pagina": 83
+  },
+  "itens": [
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0093",
+    "descricao": "Marco lateral",
+    "formula": "H",
+    "qtd": "2",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0094",
+    "descricao": "Trilho superior",
+    "formula": "L-30",
+    "qtd": "1",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0096",
+    "descricao": "Trilho inferior",
+    "formula": "L-30",
+    "qtd": "1",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0116",
+    "descricao": "Tampa do trilho (uma por pista do trilho inferior)",
+    "formula": "L-30",
+    "qtd": "2",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0179",
+    "descricao": "Montante lateral da folha",
+    "formula": "H-55,5",
+    "qtd": "2",
+    "origem": "cat",
+    "corte": "45"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0181",
+    "descricao": "Montante mão de amigo",
+    "formula": "H-55,5",
+    "qtd": "2",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0179",
+    "descricao": "Travessa da folha (sup./inf.)",
+    "formula": "(L-41)/2",
+    "qtd": "2*F",
+    "origem": "cat",
+    "corte": "45/90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0117",
+    "descricao": "Mata-junta lateral",
+    "formula": "H-69,5",
+    "qtd": "2",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0118",
+    "descricao": "Tampa do mata-junta lateral",
+    "formula": "H-69,5",
+    "qtd": "2",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "vidro",
+    "codigo": "VIDRO",
+    "descricao": "Vidro da folha",
+    "formula": "(L-153)/2",
+    "formula2": "H-161,5",
+    "qtd": "F",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "MCX-0013",
+    "descricao": "Macho de conexão 10×26,2 – cantos 45° da lateral",
+    "formula": "",
+    "qtd": "4",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "MCX-0012",
+    "descricao": "Macho de conexão 10×26,2 – encontro 90° com a mão de amigo",
+    "formula": "",
+    "qtd": "4",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "CON-0002",
+    "descricao": "Conexão de alinhamento",
+    "formula": "",
+    "qtd": "4*F",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "CVD-0006",
+    "descricao": "Kit de guias e vedação da mão de amigo",
+    "formula": "",
+    "qtd": "2",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "CVD-0007",
+    "descricao": "Kit vedação e acabamento Slide (um por encontro)",
+    "formula": "",
+    "qtd": "1",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "BTE-0005",
+    "descricao": "Batedeira da folha (mini)",
+    "formula": "",
+    "qtd": "2",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "CMN-3405",
+    "descricao": "Cremona simples janela 180°",
+    "formula": "",
+    "qtd": "1",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "MPC-3407",
+    "descricao": "Kit movimento sem falsa manobra",
+    "formula": "",
+    "qtd": "1",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "MPC-3408",
+    "descricao": "Ponto de fecho com contrafecho",
+    "formula": "",
+    "qtd": "1",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "TRL-0002",
+    "descricao": "Haste de poliamida",
+    "formula": "",
+    "qtd": "1",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "DRN-22002",
+    "descricao": "Dreno flap de saída de água",
+    "formula": "",
+    "qtd": "2",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "RLD-0012",
+    "descricao": "Roldana simples Slide – até 40 kg por folha",
+    "formula": "",
+    "qtd": "2*F",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "CVD-0005",
+    "descricao": "Kit anti elevação da folha 45°",
+    "formula": "",
+    "qtd": "2",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "ECV-0506B",
+    "descricao": "Escova de vedação 5×6 com barreira – mão de amigo",
+    "formula": "",
+    "qtd": "2*(H-56)/1000",
+    "origem": "cat",
+    "unidade": "m"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "GXT-1168",
+    "descricao": "Guarnição central EPDM – canal da mão de amigo",
+    "formula": "",
+    "qtd": "2*(H-56)/1000",
+    "origem": "cat",
+    "unidade": "m"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "CAL-2003",
+    "descricao": "Calço do vidro EPDM 3×20×20 (obra)",
+    "formula": "",
+    "qtd": "8*F",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "JTV-0034",
+    "descricao": "Junta de vedação EVA – trilho superior FZ-0094",
+    "formula": "",
+    "qtd": "2",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "JTV-0035",
+    "descricao": "Junta de vedação EVA – trilho inferior FZ-0096",
+    "formula": "",
+    "qtd": "2",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "PCP-4832PL",
+    "descricao": "Parafuso cabeça panela 4,8×32 PL inox – montar o marco",
+    "formula": "",
+    "qtd": "8",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "PCP-4213",
+    "descricao": "Parafuso cabeça panela 4,2×13 inox – fixar a mata-junta",
+    "formula": "",
+    "qtd": "8",
+    "origem": "cat"
+   }
+  ],
+  "observacoes": "Marco lateral inteiro (H), trilhos entre os laterais (L − 30). Padrão da linha: lateral da folha a 45° e encontro a 90°. Montante lateral = altura da folha (45°/45°); montantes de mão de amigo inteiros (90°); travessa da folha da ponta = L VD + 56 (45° na lateral, 90° no encontro, com espigão de 15 mm); travessa entre duas mãos de amigo = L VD + 6 (espigão nas duas pontas). Vidro = L VD × H VD do catálogo (encaixe de 12 mm), mata-junta = altura da folha − 14. Folha da janela com FZ-0179 na lateral e nas travessas e FZ-0181 no encontro.",
+  "oficial": true,
+  "variaveis": [],
+  "arredondamento": "baixo"
+ },
+ {
+  "id": "hydro-silent-sl-83-45",
+  "nome": "Janela de correr 2 folhas (JC200) – folha a 45°, mão de amigo FZ-0198",
+  "sistema": "Silent SL",
+  "folhas": 2,
+  "referencia": {
+   "arquivo": "Outros_Fabricantes/silent_sl_catalogo_tecnico.pdf",
+   "pagina": 83
+  },
+  "itens": [
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0093",
+    "descricao": "Marco lateral",
+    "formula": "H",
+    "qtd": "2",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0094",
+    "descricao": "Trilho superior",
+    "formula": "L-30",
+    "qtd": "1",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0096",
+    "descricao": "Trilho inferior",
+    "formula": "L-30",
+    "qtd": "1",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0116",
+    "descricao": "Tampa do trilho",
+    "formula": "L-30",
+    "qtd": "2",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0179",
+    "descricao": "Folha sup./inf. 45°",
+    "formula": "(L+17)/2",
+    "qtd": "2*F",
+    "origem": "cat",
+    "corte": "45"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0179",
+    "descricao": "Folha lateral 45°",
+    "formula": "H-56",
+    "qtd": "1*F",
+    "origem": "cat",
+    "corte": "45"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0179",
+    "descricao": "Mão de amigo 45°",
+    "formula": "H-56",
+    "qtd": "1*F",
+    "origem": "cat",
+    "corte": "45"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0198",
+    "descricao": "Mão de amigo",
+    "formula": "H-56",
+    "qtd": "1*F",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0117",
+    "descricao": "Mata-junta lateral",
+    "formula": "H-70",
+    "qtd": "2",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0118",
+    "descricao": "Tampa do mata-junta lateral",
+    "formula": "H-70",
+    "qtd": "2",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "vidro",
+    "codigo": "VIDRO",
+    "descricao": "Vidro da folha",
+    "formula": "(L-195)/2",
+    "formula2": "H-162",
+    "qtd": "F",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "CON-0002",
+    "descricao": "Conexão de alinhamento",
+    "formula": "",
+    "qtd": "8*F",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "MCX-0013",
+    "descricao": "Macho de conexão (cantos 45° da folha)",
+    "formula": "",
+    "qtd": "4*F",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "CVD-0005",
+    "descricao": "Kit anti elevação",
+    "formula": "",
+    "qtd": "F",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "BTE-0005",
+    "descricao": "Batedeira da folha (mini)",
+    "formula": "",
+    "qtd": "2",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "CVD-0007",
+    "descricao": "Kit vedação e acabamento Slide / Lift",
+    "formula": "",
+    "qtd": "1",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "DRN-22002",
+    "descricao": "Dreno flap de saída de água",
+    "formula": "",
+    "qtd": "2",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "CVD-0006",
+    "descricao": "Kit de guias e vedação da mão de amigo 90°",
+    "formula": "",
+    "qtd": "2",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "PCP-4213",
+    "descricao": "Parafuso cabeça panela 4,2×13 – fixar mão de amigo",
+    "formula": "",
+    "qtd": "4*F",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "ECV-0506",
+    "descricao": "Escova de vedação 5×6 – folha",
+    "formula": "",
+    "qtd": "(4*(L+17)+4*(H-56))/1000",
+    "origem": "cat",
+    "unidade": "m"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "ECV-0506B",
+    "descricao": "Escova de vedação 5×6 com barreira – mão de amigo",
+    "formula": "",
+    "qtd": "2*(H-56)/1000",
+    "origem": "cat",
+    "unidade": "m"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "GXT-1167",
+    "descricao": "Guarnição perimetral EPDM – mão de amigo",
+    "formula": "",
+    "qtd": "2*(H-56)/1000",
+    "origem": "cat",
+    "unidade": "m"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "GXT-1175",
+    "descricao": "Guarnição cunha EPDM – vidro (obra)",
+    "formula": "",
+    "qtd": "(2*(L+17)+4*(H-56))/1000",
+    "origem": "cat",
+    "unidade": "m"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "GXT-1174",
+    "descricao": "Guarnição cunha EPDM – vidro (obra)",
+    "formula": "",
+    "qtd": "(2*(L+17)+4*(H-56))/1000",
+    "origem": "cat",
+    "unidade": "m"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "CAL-2003",
+    "descricao": "Gaxeta EPDM – calço do vidro",
+    "formula": "",
+    "qtd": "8*F",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "RLD-0012",
+    "descricao": "Roldana simples Slide – até 40 kg por folha",
+    "formula": "",
+    "qtd": "2*F",
+    "origem": "cat"
+   }
+  ],
+  "observacoes": "Montagem igual à do software de cálculo: folha em quadro a 45° com FZ-0179 nos quatro lados e mão de amigo FZ-0179 + FZ-0198. Medidas e componentes tirados de um relatório real (vão 1500×1300, folga 5×3): folha (L+17)/2 × (H−56), mata-junta H−70, tampa do trilho L−30. O vidro (L−195)/2 × (H−162) = folha − 2×53 (perfil FZ-0179 de 65 com encaixe de 12 mm, medido no desenho do catálogo) – a página de vidros do relatório não foi enviada.",
+  "oficial": true,
+  "variaveis": [],
+  "arredondamento": "baixo"
+ },
+ {
+  "id": "hydro-silent-sl-93",
+  "nome": "Porta de correr 2 folhas (PC200)",
+  "sistema": "Silent SL",
+  "folhas": 2,
+  "referencia": {
+   "arquivo": "Outros_Fabricantes/silent_sl_catalogo_tecnico.pdf",
+   "pagina": 93
+  },
+  "itens": [
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0093",
+    "descricao": "Marco lateral",
+    "formula": "H",
+    "qtd": "2",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0094",
+    "descricao": "Trilho superior",
+    "formula": "L-30",
+    "qtd": "1",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0096",
+    "descricao": "Trilho inferior",
+    "formula": "L-30",
+    "qtd": "1",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0144",
+    "descricao": "Arremate da soleira",
+    "formula": "L-30",
+    "qtd": "1",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0116",
+    "descricao": "Tampa do trilho (uma por pista do trilho inferior)",
+    "formula": "L-30",
+    "qtd": "2",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0178",
+    "descricao": "Montante lateral da folha com reforço",
+    "formula": "H-55,8",
+    "qtd": "2",
+    "origem": "cat",
+    "corte": "45"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0180",
+    "descricao": "Montante mão de amigo reforçado",
+    "formula": "H-55,8",
+    "qtd": "2",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0179",
+    "descricao": "Travessa da folha (sup./inf.)",
+    "formula": "(L-41)/2",
+    "qtd": "2*F",
+    "origem": "cat",
+    "corte": "45/90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0117",
+    "descricao": "Mata-junta lateral",
+    "formula": "H-69,8",
+    "qtd": "2",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0118",
+    "descricao": "Tampa do mata-junta lateral",
+    "formula": "H-69,8",
+    "qtd": "2",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "vidro",
+    "codigo": "VIDRO",
+    "descricao": "Vidro da folha",
+    "formula": "(L-153)/2",
+    "formula2": "H-161,8",
+    "qtd": "F",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "MCX-0013",
+    "descricao": "Macho de conexão 10×26,2 – cantos 45° da lateral",
+    "formula": "",
+    "qtd": "4",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "MCX-0012",
+    "descricao": "Macho de conexão 10×26,2 – encontro 90° com a mão de amigo",
+    "formula": "",
+    "qtd": "4",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "CON-0002",
+    "descricao": "Conexão de alinhamento",
+    "formula": "",
+    "qtd": "4*F",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "CVD-0006",
+    "descricao": "Kit de guias e vedação da mão de amigo",
+    "formula": "",
+    "qtd": "2",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "CVD-0007",
+    "descricao": "Kit vedação e acabamento Slide (um por encontro)",
+    "formula": "",
+    "qtd": "1",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "BTE-0005",
+    "descricao": "Batedeira da folha (mini)",
+    "formula": "",
+    "qtd": "2",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "CMN-3406",
+    "descricao": "Cremona simples porta 180°",
+    "formula": "",
+    "qtd": "1",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "MPC-3407",
+    "descricao": "Kit movimento sem falsa manobra",
+    "formula": "",
+    "qtd": "1",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "MPC-3408",
+    "descricao": "Ponto de fecho com contrafecho",
+    "formula": "",
+    "qtd": "1",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "TRL-0002",
+    "descricao": "Haste de poliamida",
+    "formula": "",
+    "qtd": "1",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "TMT-0030",
+    "descricao": "Tampa do montante FZ-0178",
+    "formula": "",
+    "qtd": "4",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "TMT-0031",
+    "descricao": "Tampa do montante FZ-0180",
+    "formula": "",
+    "qtd": "4",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "RLD-0013",
+    "descricao": "Roldana dupla Slide – até 80 kg por folha",
+    "formula": "",
+    "qtd": "2*F",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "DRN-22002",
+    "descricao": "Dreno flap de saída de água",
+    "formula": "",
+    "qtd": "2",
+    "origem": "cat"
+   }
+  ],
+  "observacoes": "Marco lateral inteiro (H), trilhos entre os laterais (L − 30). Padrão da linha: lateral da folha a 45° e encontro a 90°. Montante lateral = altura da folha (45°/45°); montantes de mão de amigo inteiros (90°); travessa da folha da ponta = L VD + 56 (45° na lateral, 90° no encontro, com espigão de 15 mm); travessa entre duas mãos de amigo = L VD + 6 (espigão nas duas pontas). Vidro = L VD × H VD do catálogo (encaixe de 12 mm), mata-junta = altura da folha − 14. Altura da folha H − 55,8 (trilho inferior FZ-0096 com 23,3 na porta). Aplicar silicone estrutural nas alturas das folhas.",
+  "oficial": true,
+  "variaveis": [],
+  "arredondamento": "baixo"
+ },
+ {
+  "id": "hydro-silent-sl-95",
+  "nome": "Porta de correr 2 folhas – trilho embutido (PC200)",
+  "sistema": "Silent SL",
+  "folhas": 2,
+  "referencia": {
+   "arquivo": "Outros_Fabricantes/silent_sl_catalogo_tecnico.pdf",
+   "pagina": 95
+  },
+  "itens": [
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0093",
+    "descricao": "Marco lateral",
+    "formula": "H",
+    "qtd": "2",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0094",
+    "descricao": "Trilho superior",
+    "formula": "L-30",
+    "qtd": "1",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0096",
+    "descricao": "Trilho inferior",
+    "formula": "L-30",
+    "qtd": "1",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0287",
+    "descricao": "Calha 2 planos (embutida no piso)",
+    "formula": "L-30",
+    "qtd": "1",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0116",
+    "descricao": "Tampa do trilho (uma por pista do trilho inferior)",
+    "formula": "L-30",
+    "qtd": "2",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0285",
+    "descricao": "Arremate interno do trilho embutido",
+    "formula": "L-30",
+    "qtd": "1",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0144",
+    "descricao": "Arremate externo do trilho embutido",
+    "formula": "L-30",
+    "qtd": "1",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0178",
+    "descricao": "Montante lateral da folha com reforço",
+    "formula": "H-55,5",
+    "qtd": "2",
+    "origem": "cat",
+    "corte": "45"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0180",
+    "descricao": "Montante mão de amigo reforçado",
+    "formula": "H-55,5",
+    "qtd": "2",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0179",
+    "descricao": "Travessa da folha (sup./inf.)",
+    "formula": "(L-41)/2",
+    "qtd": "2*F",
+    "origem": "cat",
+    "corte": "45/90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0117",
+    "descricao": "Mata-junta lateral",
+    "formula": "H-69,5",
+    "qtd": "2",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0118",
+    "descricao": "Tampa do mata-junta lateral",
+    "formula": "H-69,5",
+    "qtd": "2",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "vidro",
+    "codigo": "VIDRO",
+    "descricao": "Vidro da folha",
+    "formula": "(L-153)/2",
+    "formula2": "H-161,5",
+    "qtd": "F",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "MCX-0013",
+    "descricao": "Macho de conexão 10×26,2 – cantos 45° da lateral",
+    "formula": "",
+    "qtd": "4",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "MCX-0012",
+    "descricao": "Macho de conexão 10×26,2 – encontro 90° com a mão de amigo",
+    "formula": "",
+    "qtd": "4",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "CON-0002",
+    "descricao": "Conexão de alinhamento",
+    "formula": "",
+    "qtd": "4*F",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "CVD-0006",
+    "descricao": "Kit de guias e vedação da mão de amigo",
+    "formula": "",
+    "qtd": "2",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "CVD-0007",
+    "descricao": "Kit vedação e acabamento Slide (um por encontro)",
+    "formula": "",
+    "qtd": "1",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "BTE-0005",
+    "descricao": "Batedeira da folha (mini)",
+    "formula": "",
+    "qtd": "2",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "CMN-3406",
+    "descricao": "Cremona simples porta 180°",
+    "formula": "",
+    "qtd": "1",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "MPC-3407",
+    "descricao": "Kit movimento sem falsa manobra",
+    "formula": "",
+    "qtd": "1",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "MPC-3408",
+    "descricao": "Ponto de fecho com contrafecho",
+    "formula": "",
+    "qtd": "1",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "TRL-0002",
+    "descricao": "Haste de poliamida",
+    "formula": "",
+    "qtd": "1",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "TMT-0030",
+    "descricao": "Tampa do montante FZ-0178",
+    "formula": "",
+    "qtd": "4",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "TMT-0031",
+    "descricao": "Tampa do montante FZ-0180",
+    "formula": "",
+    "qtd": "4",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "RLD-0013",
+    "descricao": "Roldana dupla Slide – até 80 kg por folha",
+    "formula": "",
+    "qtd": "2*F",
+    "origem": "cat"
+   }
+  ],
+  "observacoes": "Marco lateral inteiro (H), trilhos entre os laterais (L − 30). Padrão da linha: lateral da folha a 45° e encontro a 90°. Montante lateral = altura da folha (45°/45°); montantes de mão de amigo inteiros (90°); travessa da folha da ponta = L VD + 56 (45° na lateral, 90° no encontro, com espigão de 15 mm); travessa entre duas mãos de amigo = L VD + 6 (espigão nas duas pontas). Vidro = L VD × H VD do catálogo (encaixe de 12 mm), mata-junta = altura da folha − 14. Aplicar silicone estrutural nas alturas das folhas.",
+  "oficial": true,
+  "variaveis": [],
+  "arredondamento": "baixo"
+ },
+ {
+  "id": "hydro-silent-sl-99",
+  "nome": "Porta de correr 3 folhas – 3 planos (PC300)",
+  "sistema": "Silent SL",
+  "folhas": 3,
+  "referencia": {
+   "arquivo": "Outros_Fabricantes/silent_sl_catalogo_tecnico.pdf",
+   "pagina": 99
+  },
+  "itens": [
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0101",
+    "descricao": "Marco lateral",
+    "formula": "H",
+    "qtd": "2",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0100",
+    "descricao": "Trilho superior",
+    "formula": "L-30",
+    "qtd": "1",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0102",
+    "descricao": "Trilho inferior",
+    "formula": "L-30",
+    "qtd": "1",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0144",
+    "descricao": "Arremate da soleira",
+    "formula": "L-30",
+    "qtd": "1",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0116",
+    "descricao": "Tampa do trilho (uma por pista do trilho inferior)",
+    "formula": "L-30",
+    "qtd": "3",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0178",
+    "descricao": "Montante lateral da folha com reforço",
+    "formula": "H-55,5",
+    "qtd": "2",
+    "origem": "cat",
+    "corte": "45"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0180",
+    "descricao": "Montante mão de amigo reforçado",
+    "formula": "H-55,5",
+    "qtd": "2",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0181",
+    "descricao": "Montante mão de amigo",
+    "formula": "H-55,5",
+    "qtd": "2",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0179",
+    "descricao": "Travessa das folhas das pontas",
+    "formula": "(L+13,6)/3",
+    "qtd": "4",
+    "origem": "cat",
+    "corte": "45/90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0179",
+    "descricao": "Travessa da folha do meio (entre mãos de amigo)",
+    "formula": "(L-136,4)/3",
+    "qtd": "2",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0117",
+    "descricao": "Mata-junta lateral",
+    "formula": "H-69,5",
+    "qtd": "2",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0118",
+    "descricao": "Tampa do mata-junta lateral",
+    "formula": "H-69,5",
+    "qtd": "2",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "vidro",
+    "codigo": "VIDRO",
+    "descricao": "Vidro da folha",
+    "formula": "(L-154,4)/3",
+    "formula2": "H-161,5",
+    "qtd": "F",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "MCX-0013",
+    "descricao": "Macho de conexão 10×26,2 – cantos 45° da lateral",
+    "formula": "",
+    "qtd": "4",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "MCX-0012",
+    "descricao": "Macho de conexão 10×26,2 – encontro 90° com a mão de amigo",
+    "formula": "",
+    "qtd": "8",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "CON-0002",
+    "descricao": "Conexão de alinhamento",
+    "formula": "",
+    "qtd": "4*F",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "CVD-0006",
+    "descricao": "Kit de guias e vedação da mão de amigo",
+    "formula": "",
+    "qtd": "4",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "CVD-0007",
+    "descricao": "Kit vedação e acabamento Slide (um por encontro)",
+    "formula": "",
+    "qtd": "2",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "BTE-0005",
+    "descricao": "Batedeira da folha (mini)",
+    "formula": "",
+    "qtd": "4",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "CMN-3406",
+    "descricao": "Cremona simples porta 180°",
+    "formula": "",
+    "qtd": "1",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "MPC-3407",
+    "descricao": "Kit movimento sem falsa manobra",
+    "formula": "",
+    "qtd": "1",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "MPC-3408",
+    "descricao": "Ponto de fecho com contrafecho",
+    "formula": "",
+    "qtd": "1",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "TRL-0002",
+    "descricao": "Haste de poliamida",
+    "formula": "",
+    "qtd": "1",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "TMT-0030",
+    "descricao": "Tampa do montante FZ-0178",
+    "formula": "",
+    "qtd": "4",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "TMT-0031",
+    "descricao": "Tampa do montante FZ-0180",
+    "formula": "",
+    "qtd": "4",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "RLD-0013",
+    "descricao": "Roldana dupla Slide – até 80 kg por folha",
+    "formula": "",
+    "qtd": "2*F",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "DRN-22002",
+    "descricao": "Dreno flap de saída de água",
+    "formula": "",
+    "qtd": "2",
+    "origem": "cat"
+   }
+  ],
+  "observacoes": "Marco lateral inteiro (H), trilhos entre os laterais (L − 30). Padrão da linha: lateral da folha a 45° e encontro a 90°. Montante lateral = altura da folha (45°/45°); montantes de mão de amigo inteiros (90°); travessa da folha da ponta = L VD + 56 (45° na lateral, 90° no encontro, com espigão de 15 mm); travessa entre duas mãos de amigo = L VD + 6 (espigão nas duas pontas). Vidro = L VD × H VD do catálogo (encaixe de 12 mm), mata-junta = altura da folha − 14. Aplicar silicone estrutural nas alturas das folhas.",
+  "oficial": true,
+  "variaveis": [],
+  "arredondamento": "baixo"
+ },
+ {
+  "id": "hydro-silent-sl-101",
+  "nome": "Porta de correr 3 folhas – 3 planos, trilho embutido (PC300)",
+  "sistema": "Silent SL",
+  "folhas": 3,
+  "referencia": {
+   "arquivo": "Outros_Fabricantes/silent_sl_catalogo_tecnico.pdf",
+   "pagina": 101
+  },
+  "itens": [
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0101",
+    "descricao": "Marco lateral",
+    "formula": "H",
+    "qtd": "2",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0100",
+    "descricao": "Trilho superior",
+    "formula": "L-30",
+    "qtd": "1",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0102",
+    "descricao": "Trilho inferior",
+    "formula": "L-30",
+    "qtd": "1",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0286",
+    "descricao": "Calha 3 planos (embutida no piso)",
+    "formula": "L-30",
+    "qtd": "1",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0285",
+    "descricao": "Arremate interno do trilho embutido",
+    "formula": "L-30",
+    "qtd": "1",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0144",
+    "descricao": "Arremate externo do trilho embutido",
+    "formula": "L-30",
+    "qtd": "1",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0178",
+    "descricao": "Montante lateral da folha com reforço",
+    "formula": "H-62,9",
+    "qtd": "2",
+    "origem": "cat",
+    "corte": "45"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0180",
+    "descricao": "Montante mão de amigo reforçado",
+    "formula": "H-62,9",
+    "qtd": "2",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0181",
+    "descricao": "Montante mão de amigo",
+    "formula": "H-62,9",
+    "qtd": "2",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0179",
+    "descricao": "Travessa das folhas das pontas",
+    "formula": "(L+13,6)/3",
+    "qtd": "4",
+    "origem": "cat",
+    "corte": "45/90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0179",
+    "descricao": "Travessa da folha do meio (entre mãos de amigo)",
+    "formula": "(L-136,4)/3",
+    "qtd": "2",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0117",
+    "descricao": "Mata-junta lateral",
+    "formula": "H-76,9",
+    "qtd": "2",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0118",
+    "descricao": "Tampa do mata-junta lateral",
+    "formula": "H-76,9",
+    "qtd": "2",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "vidro",
+    "codigo": "VIDRO",
+    "descricao": "Vidro da folha",
+    "formula": "(L-154,4)/3",
+    "formula2": "H-168,9",
+    "qtd": "F",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "MCX-0013",
+    "descricao": "Macho de conexão 10×26,2 – cantos 45° da lateral",
+    "formula": "",
+    "qtd": "4",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "MCX-0012",
+    "descricao": "Macho de conexão 10×26,2 – encontro 90° com a mão de amigo",
+    "formula": "",
+    "qtd": "8",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "CON-0002",
+    "descricao": "Conexão de alinhamento",
+    "formula": "",
+    "qtd": "4*F",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "CVD-0006",
+    "descricao": "Kit de guias e vedação da mão de amigo",
+    "formula": "",
+    "qtd": "4",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "CVD-0007",
+    "descricao": "Kit vedação e acabamento Slide (um por encontro)",
+    "formula": "",
+    "qtd": "2",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "BTE-0005",
+    "descricao": "Batedeira da folha (mini)",
+    "formula": "",
+    "qtd": "4",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "CMN-3406",
+    "descricao": "Cremona simples porta 180°",
+    "formula": "",
+    "qtd": "1",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "MPC-3407",
+    "descricao": "Kit movimento sem falsa manobra",
+    "formula": "",
+    "qtd": "1",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "MPC-3408",
+    "descricao": "Ponto de fecho com contrafecho",
+    "formula": "",
+    "qtd": "1",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "TRL-0002",
+    "descricao": "Haste de poliamida",
+    "formula": "",
+    "qtd": "1",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "TMT-0030",
+    "descricao": "Tampa do montante FZ-0178",
+    "formula": "",
+    "qtd": "4",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "TMT-0031",
+    "descricao": "Tampa do montante FZ-0180",
+    "formula": "",
+    "qtd": "4",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "RLD-0013",
+    "descricao": "Roldana dupla Slide – até 80 kg por folha",
+    "formula": "",
+    "qtd": "2*F",
+    "origem": "cat"
+   }
+  ],
+  "observacoes": "Marco lateral inteiro (H), trilhos entre os laterais (L − 30). Padrão da linha: lateral da folha a 45° e encontro a 90°. Montante lateral = altura da folha (45°/45°); montantes de mão de amigo inteiros (90°); travessa da folha da ponta = L VD + 56 (45° na lateral, 90° no encontro, com espigão de 15 mm); travessa entre duas mãos de amigo = L VD + 6 (espigão nas duas pontas). Vidro = L VD × H VD do catálogo (encaixe de 12 mm), mata-junta = altura da folha − 14. Altura da folha H − 62,9 (o trilho embutido de 3 planos ocupa 30,4 embaixo). Aplicar silicone estrutural nas alturas das folhas.",
+  "oficial": true,
+  "variaveis": [],
+  "arredondamento": "baixo"
+ },
+ {
+  "id": "hydro-open-sl-42",
+  "nome": "Porta de giro 1 folha com travessa (PG100)",
+  "sistema": "Open SL",
+  "folhas": 1,
+  "referencia": {
+   "arquivo": "Outros_Fabricantes/open_sl_catalogo_tecnico.pdf",
+   "pagina": 42
+  },
+  "itens": [
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0195",
+    "descricao": "Marco lateral",
+    "formula": "H",
+    "qtd": "2",
+    "origem": "cat",
+    "corte": "45"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0195",
+    "descricao": "Marco superior",
+    "formula": "L",
+    "qtd": "1",
+    "origem": "cat",
+    "corte": "45"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0192",
+    "descricao": "Folha – montante",
+    "formula": "H-40,3",
+    "qtd": "2",
+    "origem": "cat",
+    "corte": "45"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0192",
+    "descricao": "Folha – travessa sup./inf.",
+    "formula": "L-60,6",
+    "qtd": "2",
+    "origem": "cat",
+    "corte": "45"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0204",
+    "descricao": "Travessa intermediária da folha",
+    "formula": "L-228,2",
+    "qtd": "1",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0193",
+    "descricao": "Complemento inferior da folha",
+    "formula": "L-95,6",
+    "qtd": "1",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "vidro",
+    "codigo": "VIDRO",
+    "descricao": "Vidro (2 por folha)",
+    "formula": "L-204,2",
+    "formula2": "(H-209,9)/2",
+    "qtd": "2",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "FCD-0003",
+    "descricao": "Fechadura de giro",
+    "formula": "",
+    "qtd": "1",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "MNT-0004",
+    "descricao": "Maçaneta com espelho",
+    "formula": "",
+    "qtd": "1",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "CLD-0004",
+    "descricao": "Cilindro interno / externo",
+    "formula": "",
+    "qtd": "1",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "EPL-0003",
+    "descricao": "Roseta do cilindro",
+    "formula": "",
+    "qtd": "1",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "COT-0002",
+    "descricao": "Contraplaca",
+    "formula": "",
+    "qtd": "1",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "DBD-0007",
+    "descricao": "Dobradiça dupla (Euro) – 100 kg com 2, 120 kg com 3",
+    "formula": "",
+    "qtd": "3",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "MCX-0018",
+    "descricao": "Macho de conexão 42×25 (cantos da folha)",
+    "formula": "",
+    "qtd": "4",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "CON-0007",
+    "descricao": "Conexão união em T (travessa)",
+    "formula": "",
+    "qtd": "2",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "TMT-0040",
+    "descricao": "Tampa do perfil FZ-0193",
+    "formula": "",
+    "qtd": "2",
+    "origem": "cat"
+   }
+  ],
+  "observacoes": "Perfis de folha e marco em quadro a 45°; o vidro encaixa 12 mm nos perfis (folha 83,8 − 71,8; FZ-0194 58,5 − 46,5; FZ-0187 46 − 34). L e H = medidas do marco. Porta sem marco inferior: folha 10 mm acima do piso, complemento FZ-0193 entre os 47,8 de cada lado. Travessa = L VD − 24.",
+  "oficial": true,
+  "variaveis": []
+ },
+ {
+  "id": "hydro-open-sl-46",
+  "nome": "Porta de giro 2 folhas com travessa (PG200)",
+  "sistema": "Open SL",
+  "folhas": 2,
+  "referencia": {
+   "arquivo": "Outros_Fabricantes/open_sl_catalogo_tecnico.pdf",
+   "pagina": 46
+  },
+  "itens": [
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0195",
+    "descricao": "Marco lateral",
+    "formula": "H",
+    "qtd": "2",
+    "origem": "cat",
+    "corte": "45"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0195",
+    "descricao": "Marco superior",
+    "formula": "L",
+    "qtd": "1",
+    "origem": "cat",
+    "corte": "45"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0192",
+    "descricao": "Folha – montante",
+    "formula": "H-40,3",
+    "qtd": "2*F",
+    "origem": "inf",
+    "corte": "45"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0192",
+    "descricao": "Folha – travessa sup./inf.",
+    "formula": "(L-66)/2",
+    "qtd": "2*F",
+    "origem": "cat",
+    "corte": "45"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0191",
+    "descricao": "Complemento da folha de giro (encontro)",
+    "formula": "H-40,3",
+    "qtd": "1",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0204",
+    "descricao": "Travessa intermediária da folha",
+    "formula": "(L-401,2)/2",
+    "qtd": "F",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0193",
+    "descricao": "Complemento inferior da folha",
+    "formula": "(L-136)/2",
+    "qtd": "F",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "vidro",
+    "codigo": "VIDRO",
+    "descricao": "Vidro (2 por folha)",
+    "formula": "(L-353,2)/2",
+    "formula2": "(H-209,9)/2",
+    "qtd": "2*F",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "FCD-0003",
+    "descricao": "Fechadura de giro",
+    "formula": "",
+    "qtd": "1",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "MNT-0004",
+    "descricao": "Maçaneta com espelho",
+    "formula": "",
+    "qtd": "1",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "CLD-0004",
+    "descricao": "Cilindro interno / externo",
+    "formula": "",
+    "qtd": "1",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "EPL-0003",
+    "descricao": "Roseta do cilindro",
+    "formula": "",
+    "qtd": "1",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "COT-0002",
+    "descricao": "Contraplaca",
+    "formula": "",
+    "qtd": "1",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "FCH-0052",
+    "descricao": "Fecho unha 220 (folha passiva, em cima e embaixo)",
+    "formula": "",
+    "qtd": "2",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "FEC-0051",
+    "descricao": "Contra-fecho de piso",
+    "formula": "",
+    "qtd": "1",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "FEC-0052",
+    "descricao": "Contra-fecho superior",
+    "formula": "",
+    "qtd": "1",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "DBD-0007",
+    "descricao": "Dobradiça dupla (Euro)",
+    "formula": "",
+    "qtd": "3*F",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "MCX-0018",
+    "descricao": "Macho de conexão 42×25 (cantos da folha)",
+    "formula": "",
+    "qtd": "4*F",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "CON-0007",
+    "descricao": "Conexão união em T (travessa)",
+    "formula": "",
+    "qtd": "2*F",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "TMT-0040",
+    "descricao": "Tampa do perfil FZ-0193",
+    "formula": "",
+    "qtd": "2*F",
+    "origem": "cat"
+   }
+  ],
+  "observacoes": "Perfis de folha e marco em quadro a 45°; o vidro encaixa 12 mm nos perfis (folha 83,8 − 71,8; FZ-0194 58,5 − 46,5; FZ-0187 46 − 34). L e H = medidas do marco. A altura da folha (H − 40,3) segue a porta de 1 folha – na pág. 5.6 a cota de 10 mm do piso não aparece; conferir. Comprimento do complemento FZ-0191 = altura da folha – conferir.",
+  "oficial": true,
+  "variaveis": []
+ },
+ {
+  "id": "hydro-open-sl-48",
+  "nome": "Janela maxim-ar 1 folha – folha FZ-0194 (JM100)",
+  "sistema": "Open SL",
+  "folhas": 1,
+  "referencia": {
+   "arquivo": "Outros_Fabricantes/open_sl_catalogo_tecnico.pdf",
+   "pagina": 48
+  },
+  "itens": [
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0184",
+    "descricao": "Marco perimetral – horizontal",
+    "formula": "L",
+    "qtd": "2",
+    "origem": "cat",
+    "corte": "45"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0184",
+    "descricao": "Marco perimetral – vertical",
+    "formula": "H",
+    "qtd": "2",
+    "origem": "cat",
+    "corte": "45"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0194",
+    "descricao": "Folha – horizontal",
+    "formula": "L-36",
+    "qtd": "2",
+    "origem": "cat",
+    "corte": "45"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0194",
+    "descricao": "Folha – vertical",
+    "formula": "H-38",
+    "qtd": "2",
+    "origem": "cat",
+    "corte": "45"
+   },
+   {
+    "tipo": "vidro",
+    "codigo": "VIDRO",
+    "descricao": "Vidro",
+    "formula": "L-129",
+    "formula2": "H-131",
+    "qtd": "1",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "BMA-0049",
+    "descricao": "Braço maxim-ar CX13,5 (escolher pela folha: BMA-0044 a 0056 ou CX16,5 BMA-0040/41/42)",
+    "formula": "",
+    "qtd": "2",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "FCH-0043",
+    "descricao": "Fecho maxim-ar (esquerdo; FCH-0044 direito)",
+    "formula": "",
+    "qtd": "1",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "MCX-0017",
+    "descricao": "Macho de conexão 17×25 (cantos da folha)",
+    "formula": "",
+    "qtd": "4",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "DRN-22004",
+    "descricao": "Dreno esfera 8 mm",
+    "formula": "",
+    "qtd": "2",
+    "origem": "cat"
+   }
+  ],
+  "observacoes": "Perfis de folha e marco em quadro a 45°; o vidro encaixa 12 mm nos perfis (folha 83,8 − 71,8; FZ-0194 58,5 − 46,5; FZ-0187 46 − 34). L e H = medidas do marco. Limitador de abertura obrigatório em aberturas acima de 250–300 mm (LIM-0003 a 0007).",
+  "oficial": true,
+  "variaveis": []
+ },
+ {
+  "id": "hydro-open-sl-50",
+  "nome": "Janela maxim-ar 1 folha – folha FZ-0187 (JM100)",
+  "sistema": "Open SL",
+  "folhas": 1,
+  "referencia": {
+   "arquivo": "Outros_Fabricantes/open_sl_catalogo_tecnico.pdf",
+   "pagina": 50
+  },
+  "itens": [
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0184",
+    "descricao": "Marco perimetral – horizontal",
+    "formula": "L",
+    "qtd": "2",
+    "origem": "cat",
+    "corte": "45"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0184",
+    "descricao": "Marco perimetral – vertical",
+    "formula": "H",
+    "qtd": "2",
+    "origem": "cat",
+    "corte": "45"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0187",
+    "descricao": "Folha – horizontal",
+    "formula": "L-36",
+    "qtd": "2",
+    "origem": "cat",
+    "corte": "45"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FZ-0187",
+    "descricao": "Folha – vertical",
+    "formula": "H-36",
+    "qtd": "2",
+    "origem": "cat",
+    "corte": "45"
+   },
+   {
+    "tipo": "vidro",
+    "codigo": "VIDRO",
+    "descricao": "Vidro",
+    "formula": "L-104",
+    "formula2": "H-104",
+    "qtd": "1",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "BMA-0049",
+    "descricao": "Braço maxim-ar CX13,5 (escolher pela folha: BMA-0044 a 0056 ou CX16,5 BMA-0040/41/42)",
+    "formula": "",
+    "qtd": "2",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "FCH-0043",
+    "descricao": "Fecho maxim-ar (esquerdo; FCH-0044 direito)",
+    "formula": "",
+    "qtd": "1",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "DRN-22004",
+    "descricao": "Dreno esfera 8 mm",
+    "formula": "",
+    "qtd": "2",
+    "origem": "cat"
+   }
+  ],
+  "observacoes": "Perfis de folha e marco em quadro a 45°; o vidro encaixa 12 mm nos perfis (folha 83,8 − 71,8; FZ-0194 58,5 − 46,5; FZ-0187 46 − 34). L e H = medidas do marco. Limitador de abertura obrigatório em aberturas acima de 250–300 mm (LIM-0003 a 0007).",
+  "oficial": true,
+  "variaveis": []
+ },
+ {
+  "id": "hydro-atlanta-pele-de-vidro-183",
+  "nome": "Fachada entre vãos SG – F módulos, maxim-ar em cima e fixo embaixo (a validar)",
+  "sistema": "Atlanta (pele de vidro)",
+  "folhas": 3,
+  "referencia": {
+   "arquivo": "Outros_Fabricantes/atlanta_catalogo_tecnico.pdf",
+   "pagina": 183
+  },
+  "itens": [
+   {
+    "tipo": "perfil",
+    "codigo": "FA-294",
+    "descricao": "Marco perimetral – horizontal (sup./inf.)",
+    "formula": "L",
+    "qtd": "2",
+    "origem": "inf",
+    "corte": "45"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FA-294",
+    "descricao": "Marco perimetral – vertical",
+    "formula": "H",
+    "qtd": "2",
+    "origem": "inf",
+    "corte": "45"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FA-204",
+    "descricao": "Coluna central 38 mm (entre módulos)",
+    "formula": "H-108",
+    "qtd": "F-1",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FA-233",
+    "descricao": "Travessa intermediária – módulos das pontas",
+    "formula": "((L-23-10*F)/F)-47,5",
+    "qtd": "2",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FA-233",
+    "descricao": "Travessa intermediária – módulos do meio",
+    "formula": "((L-23-10*F)/F)-20",
+    "qtd": "F-2",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FA-245",
+    "descricao": "Quadro maxim-ar – montante",
+    "formula": "(H-HT-21,5)",
+    "qtd": "2*F",
+    "origem": "inf",
+    "corte": "45"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FA-230",
+    "descricao": "Quadro maxim-ar – travessa superior",
+    "formula": "((L-23-10*F)/F)",
+    "qtd": "F",
+    "origem": "inf",
+    "corte": "45"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FA-276",
+    "descricao": "Quadro maxim-ar – travessa inferior (guia da cremona)",
+    "formula": "((L-23-10*F)/F)",
+    "qtd": "F",
+    "origem": "inf",
+    "corte": "45"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FA-228",
+    "descricao": "Quadro fixo – montante",
+    "formula": "(HT-21,5)",
+    "qtd": "2*F",
+    "origem": "inf",
+    "corte": "45"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FA-232",
+    "descricao": "Quadro fixo – travessa sup./inf.",
+    "formula": "((L-23-10*F)/F)",
+    "qtd": "2*F",
+    "origem": "inf",
+    "corte": "45"
+   },
+   {
+    "tipo": "vidro",
+    "codigo": "VIDRO",
+    "descricao": "Vidro maxim-ar (structural glazing, faceia o quadro)",
+    "formula": "((L-23-10*F)/F)",
+    "formula2": "(H-HT-21,5)",
+    "qtd": "F",
+    "origem": "inf"
+   },
+   {
+    "tipo": "vidro",
+    "codigo": "VIDRO",
+    "descricao": "Vidro fixo (structural glazing, faceia o quadro)",
+    "formula": "((L-23-10*F)/F)",
+    "formula2": "(HT-21,5)",
+    "qtd": "F",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "BMT-FIX-0208-NAT",
+    "descricao": "Fixador da travessa FA-233",
+    "formula": "",
+    "qtd": "2*F",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "BMT-PRE-0205",
+    "descricao": "Presilha de fixação lateral dos quadros",
+    "formula": "",
+    "qtd": "6*F",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "BMT-PRE-0206",
+    "descricao": "Presilha de fixação superior dos quadros",
+    "formula": "",
+    "qtd": "2*F",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "BMT-PRE-0207",
+    "descricao": "Presilha de apoio dos quadros",
+    "formula": "",
+    "qtd": "2*F",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "BMT-BRF-6002-PRT",
+    "descricao": "Braço duplo freio (par) – escolher pela altura do maxim-ar",
+    "formula": "",
+    "qtd": "F",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "BMT-FEC-7010-PRT",
+    "descricao": "Fecho cremona maxim-ar",
+    "formula": "",
+    "qtd": "F",
+    "origem": "inf"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "BMT-GUA-2202-PRT",
+    "descricao": "Gaxeta da coluna e travessa",
+    "formula": "",
+    "qtd": "(4*((L-23-10*F)/F)+2*(H-HT-21,5)+2*(HT-21,5))*F/1000",
+    "origem": "inf",
+    "unidade": "m"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "BMT-GUA-2250-PRT",
+    "descricao": "Gaxeta externa flap (juntas)",
+    "formula": "",
+    "qtd": "(2*L+2*H+(F-1)*H+L)/1000",
+    "origem": "inf",
+    "unidade": "m"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "BMT-GUA-2218-PRT",
+    "descricao": "Gaxeta pingadeira do maxim-ar",
+    "formula": "",
+    "qtd": "((L-23-10*F)/F)*F/1000",
+    "origem": "inf",
+    "unidade": "m"
+   }
+  ],
+  "observacoes": "Modelo montado pelos desenhos de montagem do catálogo (o catálogo não tem lista de corte) – CONFERIR antes de produzir. L × H = vão do marco; F = nº de módulos (mín. 2); HT = eixo da travessa intermediária. Juntas de 16,5 mm (marco/quadro) e 10 mm (entre quadros) são do catálogo; coluna H − 108 e travessas (quadro − 47,5 nas pontas, quadro − 20 no meio) são deduzidas. Silicone estrutural BMT-SIL-6481 e espaçador BMT-ESP conforme projeto do fabricante do selante.",
+  "oficial": true,
+  "variaveis": [
+   {
+    "nome": "HT",
+    "descricao": "Altura do eixo da travessa intermediária (da base do vão)",
+    "padrao": 600
+   }
+  ]
+ },
+ {
+  "id": "hydro-atlanta-pele-de-vidro-29-grade",
+  "nome": "Pele de vidro em grade – coluna FA-200, F × R quadros fixos",
+  "sistema": "Atlanta (pele de vidro)",
+  "folhas": 2,
+  "referencia": {
+   "arquivo": "Outros_Fabricantes/atlanta_catalogo_tecnico.pdf",
+   "pagina": 29
+  },
+  "itens": [
+   {
+    "tipo": "perfil",
+    "codigo": "FA-200",
+    "descricao": "Coluna 92 mm (pontas + entre módulos)",
+    "formula": "VH-24",
+    "qtd": "F+1",
+    "origem": "inf",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FA-211",
+    "descricao": "Travessa intermediária (entre colunas)",
+    "formula": "(piso((VL-24)/F/10)*10)-30",
+    "qtd": "F*(R-1)",
+    "origem": "cat",
+    "corte": "90"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FAA-203",
+    "descricao": "Quadro – contorno horizontal",
+    "formula": "(piso((VL-24)/F/10)*10)-10",
+    "qtd": "2*F*R",
+    "origem": "cat",
+    "corte": "45"
+   },
+   {
+    "tipo": "perfil",
+    "codigo": "FAA-203",
+    "descricao": "Quadro – contorno vertical",
+    "formula": "(piso((VH-24)/R/10)*10)-10",
+    "qtd": "2*F*R",
+    "origem": "cat",
+    "corte": "45"
+   },
+   {
+    "tipo": "vidro",
+    "codigo": "VIDRO",
+    "descricao": "Vidro do quadro (laminado 8 mm no projeto de referência)",
+    "formula": "(piso((VL-24)/F/10)*10)-23",
+    "formula2": "(piso((VH-24)/R/10)*10)-23",
+    "qtd": "F*R",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "FA-247",
+    "descricao": "Presilha do módulo",
+    "formula": "",
+    "qtd": "6*F*R",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "M5X12-GALV",
+    "descricao": "Parafuso M5 × 12 galvanizado (presilha)",
+    "formula": "",
+    "qtd": "6*F*R",
+    "origem": "cat"
+   },
+   {
+    "tipo": "componente",
+    "codigo": "FA-231A",
+    "descricao": "Presilha calço da folha fixa",
+    "formula": "",
+    "qtd": "2*F*(R-1)",
+    "origem": "inf"
+   }
+  ],
+  "observacoes": "Vão VL × VH (sem folga do contorno: a folga de 24 mm já está na fórmula do eixo). F = módulos na largura, R = módulos na altura. Eixo = (vão − 24) ÷ módulos, arredondado para baixo de 10 em 10 mm; quadro = eixo − 10, vidro = eixo − 23, travessa FA-211 = eixo − 30. Colunas FA-200: F + 1 peças com vão − 24 (deduzido – conferir); acima de 6000 mm emendar com luva FA-223. FA-231A = 2 por travessa (deduzido). Quadro de maxim-ar usa as mesmas medidas; ferragens do maxim-ar não incluídas.",
+  "oficial": true,
+  "variaveis": [
+   {
+    "nome": "R",
+    "descricao": "Nº de módulos na altura (linhas de quadros)",
+    "padrao": 4
+   }
+  ]
+ }
+]
