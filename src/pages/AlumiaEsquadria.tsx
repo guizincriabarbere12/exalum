@@ -13,11 +13,13 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { Ruler, Plus, Trash2, RefreshCw, CircleCheck as CheckCircle, CircleAlert as AlertCircle } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { RelatorioEstoque } from "@/components/alumia/RelatorioEstoque";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import {
-  MODELOS, CORTE_PADRAO, FOLGA, calcularMateriais, cruzarComEstoque,
-  type EsquadriaMontar, type ProdutoEstoque,
+  MODELOS, CORTE_PADRAO, FOLGA, calcularMateriais, cruzarComEstoque, capacidade, temVersaoBaguete,
+  type EsquadriaMontar, type ProdutoEstoque, type Capacidade,
 } from "@/lib/esquadria";
 
 const SISTEMAS = [...new Set(MODELOS.map((m) => m.sistema))];
@@ -37,7 +39,7 @@ export default function AlumiaEsquadria() {
       setCarregando(true);
       const { data, error } = await supabase
         .from("produtos")
-        .select("id, codigo, cor, unidade, estoque, comprimento_barra, peso_kg_m")
+        .select("id, codigo, cor, unidade, estoque, estoque_minimo, comprimento_barra, peso_kg_m")
         .eq("ativo", true)
         .gt("comprimento_barra", 0)
         .range(0, 4999);
@@ -69,6 +71,30 @@ export default function AlumiaEsquadria() {
 
   const faltando = situacao.filter((s) => s.falta > 0);
   const semCadastro = situacao.filter((s) => s.produtos.length === 0);
+  const compras = situacao.filter((s) => s.comprar > 0);
+  const kgCompra = compras.reduce((t, s) => t + (s.pesoBarra ? s.comprar * s.pesoBarra : 0), 0);
+  const corEscolhida = cor === QUALQUER_COR ? "" : cor;
+
+  // quantas dá para montar com o estoque, em cada versão (cada esquadria sozinha)
+  const capacidades = useMemo(() => {
+    if (carregando) return [];
+    const cfg = { ...CORTE_PADRAO, barra };
+    return esquadrias.map((e) => {
+      const modelo = MODELOS.find((m) => m.id === e.modeloId);
+      const com = capacidade({ ...e, semBaguete: false }, produtos, corEscolhida, cfg, 500);
+      const sem = temVersaoBaguete(modelo) ? capacidade({ ...e, semBaguete: true }, produtos, corEscolhida, cfg, 500) : null;
+      return { modelo, e, com, sem };
+    });
+  }, [esquadrias, produtos, corEscolhida, barra, carregando]);
+
+  const textoCapacidade = (c: Capacidade) => (
+    <>
+      <span className={`text-lg font-bold ${c.maximo > 0 ? "text-green-700" : "text-red-700"}`}>{c.maximo >= 500 ? "500+" : c.maximo}</span>
+      <div className="text-xs text-muted-foreground">
+        {c.semCadastro.length ? `sem cadastro: ${c.semCadastro.join(", ")}` : c.limitante ? `${c.maximo === 0 ? "falta" : "acaba primeiro"}: ${c.limitante}` : ""}
+      </div>
+    </>
+  );
 
   return (
     <div className="space-y-6">
@@ -79,6 +105,16 @@ export default function AlumiaEsquadria() {
           Escolha o modelo e as medidas do vão: o sistema calcula os cortes de cada perfil, quantas barras são precisas e quanto falta no estoque.
         </p>
       </div>
+
+      <Tabs defaultValue="montar">
+        <TabsList>
+          <TabsTrigger value="montar">Montar esquadria</TabsTrigger>
+          <TabsTrigger value="relatorio">Relatório do estoque</TabsTrigger>
+        </TabsList>
+        <TabsContent value="relatorio" className="mt-4">
+          <RelatorioEstoque produtos={produtos} barra={barra} />
+        </TabsContent>
+        <TabsContent value="montar" className="mt-4 space-y-6">
 
       <Card>
         <CardHeader className="pb-3"><CardTitle className="text-base">Esquadrias</CardTitle></CardHeader>
@@ -108,6 +144,18 @@ export default function AlumiaEsquadria() {
                 <div className="space-y-1"><Label>Qtd</Label><Input type="number" min={1} value={e.quantidade} onChange={(ev) => alterar(idx, { quantidade: parseInt(ev.target.value) || 0 })} /></div>
                 <Button type="button" variant="ghost" size="sm" className="h-10 w-10 p-0 text-red-600" disabled={esquadrias.length === 1}
                   onClick={() => setEsquadrias((lista) => lista.filter((_, k) => k !== idx))} title="Remover esquadria"><Trash2 className="h-4 w-4" /></Button>
+                {temVersaoBaguete(modelo) && (
+                  <div className="space-y-1 md:col-span-2">
+                    <Label>Versão</Label>
+                    <Select value={e.semBaguete ? "sem" : "com"} onValueChange={(v) => alterar(idx, { semBaguete: v === "sem" })}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="com">Com baguete</SelectItem>
+                        <SelectItem value="sem">Sem baguete</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
                 {modelo?.variaveis?.map((v) => (
                   <div key={v.nome} className="space-y-1 md:col-span-2">
                     <Label>{v.descricao} ({v.nome}, mm)</Label>
@@ -139,6 +187,38 @@ export default function AlumiaEsquadria() {
         </CardContent>
       </Card>
 
+      {capacidades.length > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Com o estoque atual dá para montar</CardTitle>
+            <p className="text-xs text-muted-foreground">
+              Cada esquadria considerada sozinha, nas medidas informadas{corEscolhida ? `, na cor ${corEscolhida}` : " e somando todas as cores"}.
+            </p>
+          </CardHeader>
+          <CardContent className="p-0 overflow-x-auto">
+            <Table>
+              <TableHeader><TableRow>
+                <TableHead>Esquadria</TableHead>
+                <TableHead className="text-center">Com baguete</TableHead>
+                <TableHead className="text-center">Sem baguete</TableHead>
+              </TableRow></TableHeader>
+              <TableBody>
+                {capacidades.map(({ modelo, e, com, sem }, idx) => (
+                  <TableRow key={idx}>
+                    <TableCell className="text-sm">
+                      <div className="font-medium">{modelo?.nome || "—"}</div>
+                      <div className="text-xs text-muted-foreground">{modelo?.sistema} · {e.largura} × {e.altura} mm</div>
+                    </TableCell>
+                    <TableCell className="text-center">{textoCapacidade(com)}</TableCell>
+                    <TableCell className="text-center">{sem ? textoCapacidade(sem) : <span className="text-xs text-muted-foreground">modelo só tem uma versão</span>}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
+
       {situacao.length > 0 && (
         <div className={`flex items-center gap-2 rounded-lg border p-3 text-sm ${faltando.length ? "border-red-200 bg-red-50 text-red-800" : "border-green-200 bg-green-50 text-green-800"}`}>
           {faltando.length
@@ -158,11 +238,13 @@ export default function AlumiaEsquadria() {
               <TableHead className="text-right">Barras precisas</TableHead>
               <TableHead className="text-right">Em estoque</TableHead>
               <TableHead className="text-right">Falta</TableHead>
+              <TableHead className="text-right">Mínimo</TableHead>
+              <TableHead className="text-right">Comprar</TableHead>
               <TableHead>No estoque (todas as cores)</TableHead>
             </TableRow></TableHeader>
             <TableBody>
               {situacao.length === 0 ? (
-                <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-6">Informe o modelo e as medidas.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-6">Informe o modelo e as medidas.</TableCell></TableRow>
               ) : situacao.map((s) => {
                 const cortes = Object.entries(s.pecas.reduce<Record<number, number>>((acc, p) => ({ ...acc, [p.comprimento]: (acc[p.comprimento] || 0) + 1 }), {}))
                   .sort(([a], [b]) => Number(b) - Number(a));
@@ -176,6 +258,8 @@ export default function AlumiaEsquadria() {
                     <TableCell className="text-right">
                       {s.falta > 0 ? <Badge variant="destructive">{s.falta}</Badge> : <Badge className="bg-green-600 hover:bg-green-600">OK</Badge>}
                     </TableCell>
+                    <TableCell className="text-right text-muted-foreground">{s.produtos.length ? s.minimo : "—"}</TableCell>
+                    <TableCell className="text-right font-medium">{s.comprar > 0 ? s.comprar : "—"}</TableCell>
                     <TableCell className="text-xs">
                       {s.produtos.length === 0
                         ? <span className="text-amber-700">Não cadastrado no estoque</span>
@@ -197,6 +281,52 @@ export default function AlumiaEsquadria() {
         <p className="text-xs text-amber-700">
           {semCadastro.length} {semCadastro.length === 1 ? "perfil não foi encontrado" : "perfis não foram encontrados"} no cadastro de produtos pelo código ({semCadastro.map((s) => s.codigo).join(", ")}) – entram como falta.
         </p>
+      )}
+
+      {situacao.length > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Comprar para repor o estoque</CardTitle>
+            <p className="text-xs text-muted-foreground">
+              Barras para montar as esquadrias acima e o estoque voltar ao mínimo cadastrado (comprar = precisa + mínimo − tem).
+              {!corEscolhida && " Escolha a cor do perfil para a compra sair na cor certa."}
+            </p>
+          </CardHeader>
+          <CardContent className="p-0 overflow-x-auto">
+            {compras.length === 0 ? (
+              <p className="p-4 text-sm text-green-700">Nada a comprar: depois de montar, todos os perfis continuam no mínimo ou acima.</p>
+            ) : (
+              <Table>
+                <TableHeader><TableRow>
+                  <TableHead>Perfil</TableHead>
+                  <TableHead>Cor</TableHead>
+                  <TableHead className="text-right">Barras</TableHead>
+                  <TableHead className="text-right">Peso estimado</TableHead>
+                  <TableHead>Motivo</TableHead>
+                </TableRow></TableHeader>
+                <TableBody>
+                  {compras.map((s) => (
+                    <TableRow key={s.codigo}>
+                      <TableCell className="font-mono font-medium">{s.codigo}</TableCell>
+                      <TableCell className="text-sm">{corEscolhida || "—"}</TableCell>
+                      <TableCell className="text-right font-bold">{s.comprar}</TableCell>
+                      <TableCell className="text-right text-sm">{s.pesoBarra ? `${(s.comprar * s.pesoBarra).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} kg` : "—"}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
+                        {s.produtos.length === 0 ? "não cadastrado no estoque" : !s.produtos.some((p) => p.naCor) ? `não tem cadastro na cor ${corEscolhida}` : s.falta > 0 ? `falta ${s.falta} para montar${s.minimo ? ` + ${s.minimo} do mínimo` : ""}` : `repor ao mínimo (${s.minimo})`}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  <TableRow>
+                    <TableCell colSpan={2} className="font-medium">Total</TableCell>
+                    <TableCell className="text-right font-bold">{compras.reduce((t, s) => t + s.comprar, 0)}</TableCell>
+                    <TableCell className="text-right font-medium">{kgCompra > 0 ? `${kgCompra.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} kg` : "—"}</TableCell>
+                    <TableCell />
+                  </TableRow>
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
       )}
 
       {materiais.componentes.length > 0 && (
@@ -222,6 +352,8 @@ export default function AlumiaEsquadria() {
       {materiais.erros.length > 0 && (
         <div className="text-xs text-red-700 space-y-1">{materiais.erros.map((e, i) => <div key={i}>{e}</div>)}</div>
       )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
